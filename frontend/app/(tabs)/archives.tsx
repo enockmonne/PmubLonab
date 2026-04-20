@@ -47,15 +47,14 @@ export default function ArchivesScreen() {
     try {
       const r = await fetch(`${API_URL}/api/races?limit=50`);
       const j = await r.json();
-      const list = j.races || [];
-      setRaces(resultsOnly ? list.filter((x: RaceSummary) => x.has_results) : list);
+      setRaces(j.races || []);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [resultsOnly]);
+  }, []);
 
   useEffect(() => {
     load();

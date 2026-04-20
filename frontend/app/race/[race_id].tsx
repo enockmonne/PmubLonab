@@ -118,26 +118,28 @@ export default function RaceDetail() {
           </View>
         )}
 
-        {/* Horses list */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Partants ({(race.horses || []).length})</Text>
-          <View style={styles.list}>
-            {(race.horses || []).map((h: any) => (
-              <View key={h.number} style={styles.horseRow}>
-                <View style={styles.hnum}>
-                  <Text style={styles.hnumText}>{h.number}</Text>
+        {/* Horses list - only if race has partants */}
+        {(race.horses || []).length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Partants ({(race.horses || []).length})</Text>
+            <View style={styles.list}>
+              {(race.horses || []).map((h: any) => (
+                <View key={h.number} style={styles.horseRow}>
+                  <View style={styles.hnum}>
+                    <Text style={styles.hnumText}>{h.number}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.hname} numberOfLines={1}>{h.name}</Text>
+                    <Text style={styles.hmeta} numberOfLines={1}>
+                      {h.jockey} • {h.trainer}
+                    </Text>
+                  </View>
+                  <Text style={styles.hscore}>{h.consensus_score || 0} pts</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.hname} numberOfLines={1}>{h.name}</Text>
-                  <Text style={styles.hmeta} numberOfLines={1}>
-                    {h.jockey} • {h.trainer}
-                  </Text>
-                </View>
-                <Text style={styles.hscore}>{h.consensus_score || 0} pts</Text>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Previous results if any */}
         {prev && prev.finishing_order && prev.finishing_order.length > 0 && (
@@ -164,10 +166,39 @@ export default function RaceDetail() {
                       idx === prev.payouts.length - 1 && { borderBottomWidth: 0 },
                     ]}
                   >
-                    <Text style={styles.payType}>{p.type}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.payType}>{p.type}</Text>
+                      {p.label ? <Text style={styles.payLabel}>{p.label}</Text> : null}
+                    </View>
                     <Text style={styles.payAmt}>{formatFCFA(p.amount_fcfa)}</Text>
                   </View>
                 ))}
+              </View>
+            )}
+
+            {prev.stats && (
+              <View style={{ marginTop: 14 }}>
+                <Text style={[styles.sectionLabel, { marginBottom: 8 }]}>Montants des paris (MAP)</Text>
+                <View style={styles.list}>
+                  {prev.stats.map_quarte_fcfa ? (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payType}>MAP Quarté</Text>
+                      <Text style={styles.payAmt}>{formatFCFA(prev.stats.map_quarte_fcfa)}</Text>
+                    </View>
+                  ) : null}
+                  {prev.stats.map_couples_fcfa ? (
+                    <View style={styles.payRow}>
+                      <Text style={styles.payType}>MAP Couplés</Text>
+                      <Text style={styles.payAmt}>{formatFCFA(prev.stats.map_couples_fcfa)}</Text>
+                    </View>
+                  ) : null}
+                  {prev.stats.map_generale_fcfa ? (
+                    <View style={[styles.payRow, { borderBottomWidth: 0 }]}>
+                      <Text style={styles.payType}>MAP Générale</Text>
+                      <Text style={styles.payAmt}>{formatFCFA(prev.stats.map_generale_fcfa)}</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             )}
           </View>
@@ -275,5 +306,6 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
   },
   payType: { fontSize: 13, fontWeight: "700", color: theme.colors.textPrimary },
+  payLabel: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
   payAmt: { fontSize: 13, fontWeight: "800", color: theme.colors.brand },
 });
