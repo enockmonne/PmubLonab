@@ -20,9 +20,9 @@ export default function RootLayout() {
             paddingBottom: 8,
           },
           tabBarLabelStyle: {
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: "600",
-            letterSpacing: 0.4,
+            letterSpacing: 0.3,
             textTransform: "uppercase",
           },
         }}
@@ -46,29 +46,37 @@ export default function RootLayout() {
           }}
         />
         <Tabs.Screen
+          name="archives"
+          options={{
+            title: "Archives",
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="search-outline" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
           name="pronostics"
           options={{
-            title: "Pronostics",
+            title: "Pronos",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="analytics-outline" size={size} color={color} />
             ),
           }}
         />
         <Tabs.Screen
-          name="resultats"
+          name="stats"
           options={{
-            title: "Résultats",
+            title: "Stats",
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="trophy-outline" size={size} color={color} />
             ),
           }}
         />
-        <Tabs.Screen
-          name="horse/[number]"
-          options={{
-            href: null,
-          }}
-        />
+        <Tabs.Screen name="resultats" options={{ href: null }} />
+        <Tabs.Screen name="admin" options={{ href: null }} />
+        <Tabs.Screen name="horse/[number]" options={{ href: null }} />
+        <Tabs.Screen name="race/[race_id]" options={{ href: null }} />
+        <Tabs.Screen name="horse-history/[name]" options={{ href: null }} />
       </Tabs>
     </>
   );

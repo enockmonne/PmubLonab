@@ -1,0 +1,36 @@
+{
+  "summary": "Backend-only testing of multi-PDF feature set for Le Journal Hippique PMU'B. Wrote 26 new pytest cases in /app/backend/tests/test_multi_race_api.py covering /api/races list+filter, /api/races/current, /api/races/{id}, legacy endpoints, /api/search (horses/jockeys + 422), /api/stats/horses/{name} (happy + 404), /api/stats/tipsters leaderboard, /api/admin/verify (200/401), /api/admin/races/upload (401 no-passcode, 400 non-PDF), /api/admin/races/{id}/set-current (200 + /api/race reflects change, 404, 401), /api/admin/races/{id} DELETE (404, 401). All 26 tests PASSED (100%). Actual PDF upload path skipped per instructions (LLM budget exhausted).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_multi_race_api.py",
+    "/app/test_reports/pytest/pytest_results_multi.xml",
+    "/app/backend/tests/test_race_api.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Admin routes are protected only by a static passcode header — acceptable for MVP but consider rate-limiting /api/admin/verify to prevent brute force.",
+    "/api/search scans up to 1000 races entirely in memory; acceptable for current volume (dozens/hundreds) but will need indexed text search if scale grows.",
+    "/api/admin/races/upload returns 422 from LLM parse failures — the generic exception handler may mask root cause (e.g., LiteLLM 502); consider distinguishing upstream 5xx from validation errors.",
+    "server.py uses deprecated @app.on_event('startup'/'shutdown'); migrate to lifespan context manager.",
+    "Favorites POST still returns 200 on upsert (carry-over from iteration 1)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_multi_race_api.py (new)",
+    "/app/test_reports/pytest/pytest_results_multi.xml (new)"
+  ],
+  "success_rate": {"backend": "100% (26/26)", "frontend": "not tested (skipped per request)"},
+  "seed_data_creation": "None. Tests are read-only except for set-current which sets the already-current seeded race to current (idempotent).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Admin passcode header is 'X-Admin-Passcode: pmub-admin-2026'. Seeded race_id = 'prix-pavillon-royal-2026-04-12'. Do NOT call /api/admin/races/upload with a real PDF — EMERGENT_LLM_KEY budget exhausted, litellm returns 502 and endpoint responds 422. Search minlength is 2 → q='x' returns 422. Legacy endpoints read from the `is_current=true` race in the DB. Tipsters leaderboard keys: source, evaluated_races, top_pick_wins, top_pick_top3, base_in_top3, win_rate, top3_rate. Horse stats at /api/stats/horses/{NAME} — name uppercased server-side, URL-encode spaces.",
+  "rca_of_issue": "N/A — all 26 multi-race backend tests pass. Backend logs confirm the upload endpoint correctly returns 401 without passcode, 400 for non-PDF, and 422 when LLM call fails (LiteLLM BadGatewayError 502 from upstream). Set-current flow verified by follow-up GET /api/race returning the targeted race_id."
+}

@@ -155,6 +155,18 @@ export default function HorseDetail() {
           <Text style={styles.label}>L&apos;analyse</Text>
           <Text style={styles.commentary}>{horse.commentary}</Text>
         </View>
+
+        {/* History link */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            testID="view-horse-history"
+            style={styles.historyBtn}
+            onPress={() => router.push(`/horse-history/${encodeURIComponent(horse.name)}`)}
+          >
+            <Ionicons name="stats-chart-outline" size={18} color="#fff" />
+            <Text style={styles.historyBtnText}>Voir l&apos;historique complet</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -343,5 +355,20 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     color: theme.colors.textPrimary,
     fontStyle: "italic",
+  },
+  historyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: theme.colors.brand,
+    paddingVertical: 14,
+  },
+  historyBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
 });
