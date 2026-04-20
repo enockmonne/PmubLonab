@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL } from "../src/theme";
+import { theme, API_URL } from "../../src/theme";
 
 type Tipster = {
   source: string;
@@ -130,7 +130,7 @@ export default function StatsScreen() {
           <TouchableOpacity
             testID="go-archives"
             style={styles.linkCard}
-            onPress={() => router.push("/archives")}
+            onPress={() => router.push("/(tabs)/archives")}
           >
             <Ionicons name="search" size={20} color={theme.colors.brand} />
             <View style={{ flex: 1 }}>

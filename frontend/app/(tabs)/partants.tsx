@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL, formatFCFA } from "../src/theme";
+import { theme, API_URL, formatFCFA } from "../../src/theme";
 
 type Horse = {
   number: number;

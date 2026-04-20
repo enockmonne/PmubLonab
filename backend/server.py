@@ -256,7 +256,7 @@ async def get_results():
 async def list_races(
     q: Optional[str] = None,
     location: Optional[str] = None,
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=500),
     skip: int = Query(0, ge=0),
 ):
     query: Dict[str, Any] = {}

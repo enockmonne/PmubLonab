@@ -5,12 +5,21 @@ Application mobile éditoriale premium (React Native / Expo Router) digitalisant
 
 ## Features
 
-### Utilisateur final (5 onglets)
-1. **Course** — course du jour par défaut : hero, stats, top-3 consensus, infos paris.
-2. **Partants** — liste filtrable/triable des chevaux + détail cheval (commentaire, mentions expert, classifications, **bouton "Historique complet"** cross-courses).
-3. **Archives** — liste des courses archivées + **recherche globale** (chevaux, jockeys, entraîneurs, hippodromes).
-4. **Pronostics** — 3 vues : consensus, médias, classifications.
-5. **Stats** — **leaderboard pronostiqueurs** (% top-3 par média), accès direct à la recherche et à l'espace admin.
+## Structure de navigation
+
+**Landing page `/`** (nouvel accueil) — 2 grandes cartes :
+- 🏇 **Programmes** → courses à venir (course du jour, partants, pronostics)
+- 🏆 **Résultats** → courses passées avec résultats confirmés
++ 2 boutons secondaires : Recherche globale, Espace admin
+
+**Tabs (après la landing, groupe `(tabs)/`)** :
+1. Programme (course du jour)
+2. Partants
+3. Pronos (consensus, médias, classifications)
+4. Résultats (liste filtrée — uniquement courses avec résultats confirmés + recherche)
+5. Stats (leaderboard pronostiqueurs)
+
+**Écrans hors tabs** : `/admin`, `/horse/[n]`, `/race/[id]`, `/horse-history/[name]`.
 
 ### Admin (/admin)
 - Authentification par passcode (header `X-Admin-Passcode`, env `ADMIN_PASSCODE`, défaut : `pmub-admin-2026`).

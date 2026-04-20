@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { theme, API_URL } from "../src/theme";
+import { theme, API_URL } from "../../src/theme";
 
 type ExpertPred = { source: string; picks: number[] };
 type Consensus = { number: number; score: number; appearances: number };

@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { theme, API_URL, formatFCFA } from "../src/theme";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { theme, API_URL, formatFCFA } from "../../src/theme";
 
 type RaceSummary = {
   race_id: string;
@@ -42,19 +42,22 @@ export default function ArchivesScreen() {
   const [searchRes, setSearchRes] = useState<SearchResult | null>(null);
   const [searching, setSearching] = useState(false);
   const router = useRouter();
+  const params = useLocalSearchParams<{ filter?: string }>();
+  const resultsOnly = params.filter === "results";
 
   const load = useCallback(async () => {
     try {
       const r = await fetch(`${API_URL}/api/races?limit=50`);
       const j = await r.json();
-      setRaces(j.races || []);
+      const list = j.races || [];
+      setRaces(resultsOnly ? list.filter((x: RaceSummary) => x.has_results) : list);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [resultsOnly]);
 
   useEffect(() => {
     load();
@@ -83,8 +86,8 @@ export default function ArchivesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.overline}>Archives & Recherche</Text>
-        <Text style={styles.title}>Toutes les courses</Text>
+        <Text style={styles.overline}>{resultsOnly ? "Après la course" : "Archives & Recherche"}</Text>
+        <Text style={styles.title}>{resultsOnly ? "Résultats officiels" : "Toutes les courses"}</Text>
       </View>
 
       <View style={styles.searchWrap}>
