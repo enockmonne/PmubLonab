@@ -1,0 +1,35 @@
+{
+  "summary": "Full backend + frontend testing for Le Journal Hippique PMU'B MVP. All 8 backend pytest cases pass. All frontend flows (Course/Partants/Pronostics/Résultats + /horse/[number]) work correctly with proper data, testIDs, search, sorting, and navigation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "global", "issue": "Console warnings: 'props.pointerEvents is deprecated. Use style.pointerEvents' (non-blocking, from RN web internals/deps)"}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_race_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py uses deprecated FastAPI @app.on_event('shutdown'); consider lifespan context manager (non-blocking).",
+    "CORS middleware added after include_router; fine for starlette but convention is before. No functional impact.",
+    "Favorites POST returns 200 (upsert). Consider 201 on create vs 200 on update for stricter REST semantics."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_race_api.py (new)",
+    "/app/test_reports/pytest/pytest_results.xml (new)"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100% of tested flows"},
+  "seed_data_creation": "None. Favorites test data prefixed with TEST_ and cleaned up after test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend .env uses EXPO_PUBLIC_BACKEND_URL (not EXPO_BACKEND_URL). Use https://data-mobile-hub-2.preview.emergentagent.com as BASE_URL. App is French, mobile-first (390x844). All interactive elements have testIDs: search-horses, sort-number/consensus/gains, horse-row-{n}, horse-back-btn, tab-consensus/experts/classifications. Favorites upsert returns 200 not 201.",
+  "rca_of_issue": "N/A — no bugs found. Verified: GET /api/race (top_picks[0].number=8), /api/horses (16 runners, consensus_appearances<=7), /api/horses/8 (MARINALEDA, expert_mentions>0), /api/horses/999 (404), /api/predictions (7 experts, 16 consensus, 4 classifications), /api/results (Prix de la Gloriette, [4,14,3,9,16]), /api/favorites POST/GET/DELETE happy path + 400 on invalid horse 99, no _id leak. Frontend: home masthead + hero + stats grid (Plat/2400 m/16/50 900 €) + podium with horse 8 first; Partants has 16 rows, search filters to 1 row for 'MARINALEDA', sort-consensus puts 8 first, sort-number puts 1 first; /horse/8 shows MARINALEDA, perf '2.2.3.7.5', 36 472 F CFA, L'analyse commentary, back-btn returns to Partants; Pronostics 3 sub-tabs switch (consensus bars, 7 expert cards, 4 categories Forme/Classe/Progrès/Régularité); Résultats shows Prix de la Gloriette, podium [4,14,3,9,16], NPO 11, fallers 3, payouts with formatted '15 860 000 F CFA'."
+}

@@ -1,30 +1,395 @@
-import { Text, View, StyleSheet, Image } from "react-native";
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  ActivityIndicator,
+  RefreshControl,
+  TouchableOpacity,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { theme, API_URL, formatFCFA, formatEuro } from "../src/theme";
 
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+type RaceData = {
+  race: {
+    name: string;
+    event_type: string;
+    date: string;
+    location: string;
+    discipline: string;
+    distance_m: number;
+    runners: number;
+    prize_euros: number;
+    prize_fcfa: number;
+    hero_image: string;
+  };
+  betting: {
+    arret_jeux_weekend: string;
+    daylight_saving_note: string;
+  };
+  top_picks: { number: number; score: number; appearances: number }[];
+};
 
-export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
+export default function RaceScreen() {
+  const [data, setData] = useState<RaceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const router = useRouter();
+
+  const load = useCallback(async () => {
+    try {
+      const r = await fetch(`${API_URL}/api/race`);
+      const j = await r.json();
+      setData(j);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading || !data) {
+    return (
+      <View style={styles.loader} testID="race-loading">
+        <ActivityIndicator color={theme.colors.brand} />
+      </View>
+    );
+  }
+
+  const { race, betting, top_picks } = data;
 
   return (
-    <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <ScrollView
+        testID="race-screen"
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              load();
+            }}
+            tintColor={theme.colors.brand}
+          />
+        }
+      >
+        {/* Masthead */}
+        <View style={styles.masthead}>
+          <Text style={styles.mastheadOverline}>Le Journal Hippique</Text>
+          <Text style={styles.mastheadTitle}>PMU&apos;B</Text>
+          <View style={styles.mastheadRule} />
+          <Text style={styles.mastheadDate}>{race.date}</Text>
+        </View>
+
+        {/* Hero */}
+        <View style={styles.hero}>
+          <Image source={{ uri: race.hero_image }} style={styles.heroImg} />
+          <View style={styles.heroOverlay} />
+          <View style={styles.heroContent}>
+            <Text style={styles.heroEvent}>{race.event_type}</Text>
+            <Text style={styles.heroTitle} numberOfLines={2}>
+              {race.name}
+            </Text>
+            <View style={styles.heroMetaRow}>
+              <Ionicons name="location-outline" size={14} color="#fff" />
+              <Text style={styles.heroMeta}>{race.location}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Stats grid */}
+        <View style={styles.statsGrid}>
+          <Stat label="Discipline" value={race.discipline} />
+          <Stat label="Distance" value={`${race.distance_m} m`} />
+          <Stat label="Partants" value={`${race.runners}`} />
+          <Stat
+            label="Allocation"
+            value={formatEuro(race.prize_euros)}
+            subValue={formatFCFA(race.prize_fcfa)}
+          />
+        </View>
+
+        {/* Top picks */}
+        <View style={styles.section}>
+          <Text style={styles.sectionOverline}>Consensus Expert</Text>
+          <Text style={styles.sectionTitle}>Le Trio de Tête</Text>
+          <Text style={styles.sectionLead}>
+            Synthèse de 7 pronostiqueurs — ParisTurf, Voix du Nord, Turf-fr.com,
+            Turfomania, Le Parisien, L&apos;Alsace, Zone-Turf.fr.
+          </Text>
+          <View style={styles.podium}>
+            {top_picks.map((p, idx) => {
+              const isFirst = idx === 0;
+              return (
+                <TouchableOpacity
+                  key={p.number}
+                  testID={`top-pick-${p.number}`}
+                  style={[styles.podiumCard, isFirst && styles.podiumCardFirst]}
+                  onPress={() => router.push(`/horse/${p.number}`)}
+                >
+                  <Text style={[styles.podiumRank, isFirst && { color: theme.colors.gold }]}>
+                    {idx === 0 ? "1er" : idx === 1 ? "2e" : "3e"}
+                  </Text>
+                  <View
+                    style={[
+                      styles.podiumNum,
+                      isFirst && { backgroundColor: theme.colors.gold },
+                    ]}
+                  >
+                    <Text style={styles.podiumNumText}>{p.number}</Text>
+                  </View>
+                  <Text style={[styles.podiumScore, isFirst && { color: "#fff" }]}>
+                    {p.score} pts
+                  </Text>
+                  <Text style={[styles.podiumMentions, isFirst && { color: "rgba(255,255,255,0.7)" }]}>
+                    {p.appearances}/7 médias
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Betting info */}
+        <View style={styles.section}>
+          <Text style={styles.sectionOverline}>Arrêt des jeux</Text>
+          <View style={styles.infoCard}>
+            <Ionicons
+              name="time-outline"
+              size={20}
+              color={theme.colors.brand}
+            />
+            <Text style={styles.infoCardText}>
+              Dimanche — {betting.arret_jeux_weekend}
+            </Text>
+          </View>
+          <Text style={styles.daylightNote}>{betting.daylight_saving_note}</Text>
+        </View>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  subValue,
+}: {
+  label: string;
+  value: string;
+  subValue?: string;
+}) {
+  return (
+    <View style={styles.statCell}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+      {subValue ? <Text style={styles.statSub}>{subValue}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: { flex: 1, backgroundColor: theme.colors.bg },
+  loader: {
     flex: 1,
-    backgroundColor: "#0c0c0c",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: theme.colors.bg,
   },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
+  scroll: { paddingBottom: 24 },
+  masthead: {
+    alignItems: "center",
+    paddingTop: 16,
+    paddingBottom: 20,
+    paddingHorizontal: 24,
+    backgroundColor: theme.colors.bg,
+  },
+  mastheadOverline: {
+    fontSize: 11,
+    letterSpacing: 3,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  mastheadTitle: {
+    fontSize: 42,
+    fontWeight: "900",
+    color: theme.colors.brand,
+    letterSpacing: -1,
+    marginTop: 2,
+  },
+  mastheadRule: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    width: "60%",
+    marginVertical: 10,
+  },
+  mastheadDate: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  hero: {
+    marginHorizontal: 16,
+    height: 220,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    overflow: "hidden",
+  },
+  heroImg: { width: "100%", height: "100%" },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(10,46,26,0.55)",
+  },
+  heroContent: {
+    position: "absolute",
+    bottom: 18,
+    left: 18,
+    right: 18,
+  },
+  heroEvent: {
+    color: theme.colors.gold,
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 2,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  heroTitle: {
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  heroMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 8,
+  },
+  heroMeta: { color: "#fff", fontSize: 13, marginLeft: 4 },
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 16,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  statCell: {
+    width: "50%",
+    padding: 14,
+    borderColor: theme.colors.border,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+  },
+  statLabel: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  statValue: {
+    fontSize: 18,
+    color: theme.colors.textPrimary,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  statSub: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
+  section: { marginTop: 28, paddingHorizontal: 16 },
+  sectionOverline: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  sectionTitle: {
+    fontSize: 24,
+    color: theme.colors.textPrimary,
+    fontWeight: "800",
+    marginTop: 4,
+    letterSpacing: -0.5,
+  },
+  sectionLead: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    marginTop: 6,
+    lineHeight: 19,
+  },
+  podium: {
+    flexDirection: "row",
+    marginTop: 16,
+    gap: 10,
+  },
+  podiumCard: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 18,
+    paddingHorizontal: 8,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  podiumCardFirst: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  podiumRank: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: theme.colors.textSecondary,
+    fontWeight: "700",
+  },
+  podiumNum: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 8,
+  },
+  podiumNumText: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  podiumScore: { fontSize: 14, fontWeight: "700", color: theme.colors.textPrimary },
+  podiumMentions: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
+  infoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    marginTop: 12,
+    gap: 10,
+  },
+  infoCardText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: theme.colors.textPrimary,
+    marginLeft: 10,
+  },
+  daylightNote: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 10,
+    lineHeight: 17,
+    fontStyle: "italic",
   },
 });
