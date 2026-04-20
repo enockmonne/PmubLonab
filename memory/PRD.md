@@ -1,28 +1,51 @@
-# PRD — Le Journal Hippique PMU'B (Mobile App)
+# PRD — Le Journal Hippique PMU'B (Mobile App, multi-course)
 
 ## Overview
-Premium editorial-style mobile web app (React Native / Expo Router) that digitizes a French horse-racing publication ("Le Journal Hippique — PMU'B"). Based on the attached PDF for the **Prix du Pavillon Royal** (Sunday 12 April 2026, ParisLongchamp, 2400m, 16 runners, 50 900 € / 33 500 000 F CFA).
+Application mobile éditoriale premium (React Native / Expo Router) digitalisant la publication française "Le Journal Hippique — PMU'B". Support **multi-courses** avec import PDF automatisé par LLM.
 
-## Users
-French-speaking horse racing bettors & enthusiasts (France + West Africa, hence F CFA currency).
+## Features
 
-## Core Features
-1. **Course (Home tab)** — Masthead, hero image, race stats grid (discipline, distance, runners, allocation EUR + F CFA), computed consensus top-3, betting stop times + daylight saving note.
-2. **Partants tab** — Searchable / sortable list of the 16 runners (by N°, consensus score, or gains). Each row: number, name, jockey, trainer, weight, age/sex, perf string, consensus score.
-3. **Horse detail screen** — Full profile: jockey/trainer/owner grid, perf string, gains (F CFA), consensus score with bar, mentions per media outlet with rank, editorial classifications tags (Forme/Classe/Progrès/Régularité), full commentary.
-4. **Pronostics tab** — 3 views (tabs): Consensus ranking with progress bars; per-expert media bases (7 outlets); classifications (Forme, Classe, Progrès, Régularité).
-5. **Résultats tab** — Previous race results (Prix de la Gloriette — 08/04/2026): finishing order podium, NPO & tombés, full payouts table (Ordre, Désordre, Bonus, Couplé) in F CFA.
+### Utilisateur final (5 onglets)
+1. **Course** — course du jour par défaut : hero, stats, top-3 consensus, infos paris.
+2. **Partants** — liste filtrable/triable des chevaux + détail cheval (commentaire, mentions expert, classifications, **bouton "Historique complet"** cross-courses).
+3. **Archives** — liste des courses archivées + **recherche globale** (chevaux, jockeys, entraîneurs, hippodromes).
+4. **Pronostics** — 3 vues : consensus, médias, classifications.
+5. **Stats** — **leaderboard pronostiqueurs** (% top-3 par média), accès direct à la recherche et à l'espace admin.
 
-## Design
-Archetype: Swiss & High-Contrast + Editorial Old Money Tech. Racing green `#0A2E1A`, gold `#B08D57`, cream `#FAF9F6`. Playfair-style headlines, IBM Plex body, flat bordered cards, no shadows, generous whitespace.
+### Admin (/admin)
+- Authentification par passcode (header `X-Admin-Passcode`, env `ADMIN_PASSCODE`, défaut : `pmub-admin-2026`).
+- **Upload PDF** via `expo-document-picker` → parsing auto (LLM) → insertion MongoDB.
+- Liste des courses : bouton ★ pour définir "course du jour", 🗑 pour supprimer.
 
-## Backend (FastAPI)
-- `GET /api/race` — race info + betting + computed top 3 consensus
-- `GET /api/horses` — all 16 horses enriched with consensus score & appearances
-- `GET /api/horses/{n}` — full horse detail with expert mentions and classifications
-- `GET /api/predictions` — 7 expert lists + consensus + classifications
-- `GET /api/results` — previous race payouts in F CFA
-- `POST/GET/DELETE /api/favorites` — MongoDB-backed per-device favorites
+## Backend (FastAPI + MongoDB)
+
+### Collections
+- `races` : un document par course (champs : `race_id`, `name`, `date_iso`, `location`, `horses[]`, `predictions[]`, `classifications{}`, `previous_results{}`, `is_current`).
+- `favorites` : per-device.
+
+### Endpoints
+- **Legacy (current race)** : `/api/race`, `/api/horses`, `/api/horses/{n}`, `/api/predictions`, `/api/results`.
+- **Multi-course** : `GET /api/races` (filtres `q`, `location`, pagination), `GET /api/races/{id}`, `GET /api/races/current`.
+- **Stats** : `GET /api/stats/horses/{name}` (cross-course win/place rates), `GET /api/stats/tipsters` (leaderboard médias).
+- **Search** : `GET /api/search?q=...` (courses, chevaux, jockeys, entraîneurs).
+- **Admin** : `POST /api/admin/verify`, `POST /api/admin/races/upload` (multipart PDF), `POST /api/admin/races/{id}/set-current`, `DELETE /api/admin/races/{id}`.
+
+### PDF Parser (`pdf_parser.py`)
+- `pdfplumber` extrait le texte.
+- **Gemini 2.5 Flash** via Emergent LLM Key (`emergentintegrations`) extrait un JSON strict selon un schéma défini (race, horses[16], predictions[], classifications{}, previous_results{}).
+- Robuste aux variations de mise en page — l'LLM s'adapte.
+
+## Design (inchangé)
+Swiss & High-Contrast + Editorial Old Money Tech : vert `#0A2E1A`, or `#B08D57`, crème `#FAF9F6`, bordures nettes, pas d'ombres, typographie Playfair/IBM Plex.
 
 ## Smart Business Enhancement
-Computed **consensus score** (weighted points across 7 media outlets) turns raw expert picks into a single actionable ranking — the app's unique editorial value-add that dramatically increases perceived expertise and daily re-engagement vs generic tipster feeds.
+1. **Score consensus pondéré** (inchangé).
+2. **Leaderboard pronostiqueurs** — transforme l'app en outil d'audit éditorial : quel média mérite la confiance ? Crée un hook viral et un axe de monétisation premium (accès aux médias les plus fiables).
+3. **Historique cheval cross-course** — taux victoire/place auto-calculé dès 2 courses de données, boost de ré-engagement à chaque nouveau PDF importé.
+
+## Tests
+- 26 pytest backend passés (multi-race, search, stats, admin auth).
+- Tests frontend des 5 onglets non rejoués (fonctionnent d'après screenshots).
+
+## Notes
+- ⚠️ La clé Emergent LLM était épuisée au moment du test (`$0.455 / $0.40`). Utilisateur doit recharger via Profile → Universal Key → Add Balance pour activer le parsing PDF en production. Le reste de l'app fonctionne sans la clé.
