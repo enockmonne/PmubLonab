@@ -9,6 +9,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="admin" />
+        <Stack.Screen name="resultats" />
         <Stack.Screen name="horse/[number]" />
         <Stack.Screen name="race/[race_id]" />
         <Stack.Screen name="horse-history/[name]" />

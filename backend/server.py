@@ -89,8 +89,15 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     base_slug = slugify(f"{name}-{location}-{date_iso}")
     race_id = f"{base_slug}-{uuid.uuid4().hex[:6]}"
 
+    horses = parsed.get("horses", []) or []
+    prev = parsed.get("previous_results", {}) or {}
+    has_finishing = bool(prev.get("finishing_order"))
+    # doc_type: 'programme' if full programme (horses present), else 'result' (result-only PDF)
+    doc_type = "programme" if len(horses) > 0 else ("result" if has_finishing else "programme")
+
     doc = {
         "race_id": race_id,
+        "doc_type": doc_type,
         "name": name,
         "event_type": race.get("event_type", ""),
         "date_text": race.get("date_text", ""),
@@ -102,10 +109,10 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "prize_euros": int(race.get("prize_euros") or 0),
         "prize_fcfa": int(race.get("prize_fcfa") or 0),
         "hero_image": RACE_INFO["hero_image"],
-        "horses": parsed.get("horses", []) or [],
+        "horses": horses,
         "predictions": parsed.get("predictions", []) or [],
         "classifications": parsed.get("classifications", {}) or {},
-        "previous_results": parsed.get("previous_results", {}) or {},
+        "previous_results": prev,
         "is_current": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -122,6 +129,7 @@ async def seed_initial_race():
 
     seed_doc = {
         "race_id": RACE_INFO["id"],
+        "doc_type": "programme",
         "name": RACE_INFO["name"],
         "event_type": RACE_INFO["event_type"],
         "date_text": RACE_INFO["date"],
@@ -256,6 +264,7 @@ async def get_results():
 async def list_races(
     q: Optional[str] = None,
     location: Optional[str] = None,
+    doc_type: Optional[str] = None,
     limit: int = Query(20, ge=1, le=500),
     skip: int = Query(0, ge=0),
 ):
@@ -265,12 +274,15 @@ async def list_races(
         query["$or"] = [{"name": rx}, {"location": rx}, {"race_id": rx}]
     if location:
         query["location"] = {"$regex": re.escape(location), "$options": "i"}
+    if doc_type in ("programme", "result"):
+        query["doc_type"] = doc_type
     total = await db.races.count_documents(query)
     cursor = db.races.find(query, {"_id": 0}).sort("date_iso", -1).skip(skip).limit(limit)
     races = await cursor.to_list(length=limit)
     summary = [
         {
             "race_id": r["race_id"],
+            "doc_type": r.get("doc_type", "programme"),
             "name": r.get("name"),
             "event_type": r.get("event_type"),
             "date_text": r.get("date_text"),
@@ -280,6 +292,11 @@ async def list_races(
             "prize_fcfa": r.get("prize_fcfa"),
             "is_current": r.get("is_current", False),
             "has_results": bool((r.get("previous_results") or {}).get("finishing_order")),
+            "finishing_order": (r.get("previous_results") or {}).get("finishing_order", [])[:5],
+            "top_payout": next(
+                (p for p in (r.get("previous_results") or {}).get("payouts", []) if p.get("type", "").lower() == "ordre"),
+                None,
+            ),
         }
         for r in races
     ]

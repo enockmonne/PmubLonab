@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter } from "expo-router";
 import { theme, API_URL, formatFCFA } from "../../src/theme";
 
 type RaceSummary = {
@@ -42,8 +42,6 @@ export default function ArchivesScreen() {
   const [searchRes, setSearchRes] = useState<SearchResult | null>(null);
   const [searching, setSearching] = useState(false);
   const router = useRouter();
-  const params = useLocalSearchParams<{ filter?: string }>();
-  const resultsOnly = params.filter === "results";
 
   const load = useCallback(async () => {
     try {
@@ -86,8 +84,8 @@ export default function ArchivesScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.overline}>{resultsOnly ? "Après la course" : "Archives & Recherche"}</Text>
-        <Text style={styles.title}>{resultsOnly ? "Résultats officiels" : "Toutes les courses"}</Text>
+        <Text style={styles.overline}>Archives & Recherche</Text>
+        <Text style={styles.title}>Toutes les courses</Text>
       </View>
 
       <View style={styles.searchWrap}>

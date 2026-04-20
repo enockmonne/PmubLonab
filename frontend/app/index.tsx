@@ -28,13 +28,14 @@ export default function Landing() {
   useEffect(() => {
     (async () => {
       try {
-        const all = await fetch(`${API_URL}/api/races?limit=100`).then((r) => r.json());
-        const list = all.races || [];
-        const resultats = list.filter((r: any) => r.has_results).length;
+        const [allRes, resOnly] = await Promise.all([
+          fetch(`${API_URL}/api/races?limit=100`).then((r) => r.json()),
+          fetch(`${API_URL}/api/races?doc_type=result&limit=100`).then((r) => r.json()),
+        ]);
         setCounts({
-          programmes: list.length,
-          resultats,
-          total: list.length,
+          programmes: (allRes.races || []).length,
+          resultats: (resOnly.races || []).length,
+          total: (allRes.races || []).length,
         });
       } catch (e) {
         console.error(e);
@@ -99,7 +100,7 @@ export default function Landing() {
             testID="landing-resultats"
             activeOpacity={0.9}
             style={styles.card}
-            onPress={() => router.push({ pathname: "/(tabs)/archives", params: { filter: "results" } })}
+            onPress={() => router.push("/resultats")}
           >
             <Image source={{ uri: HERO_RESULTATS }} style={styles.cardImg} />
             <View style={[styles.cardOverlay, styles.cardOverlayGold]} />
