@@ -1,0 +1,115 @@
+{
+  "theme": "light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) with Editorial Old Money Tech Variant",
+  "design_philosophy": "A premium, editorial mobile web experience for horse racing enthusiasts. Blends the authoritative, data-dense layout of a traditional racing journal (Le Journal Hippique) with modern, mobile-first Swiss design principles. High legibility, deep contrast, and tactile surfaces.",
+  "colors": {
+    "background": {
+      "main": "#FAF9F6",
+      "surface": "#FFFFFF",
+      "surface_alt": "#F3F2ED"
+    },
+    "text": {
+      "primary": "#1A1A1A",
+      "secondary": "#5C5C5C",
+      "accent": "#0A2E1A",
+      "inverse": "#FFFFFF"
+    },
+    "brand": {
+      "primary": "#0A2E1A",
+      "secondary": "#B08D57",
+      "accent": "#E63946",
+      "border": "#E5E3D8"
+    }
+  },
+  "typography": {
+    "font_families": {
+      "heading": "Playfair Display",
+      "body": "IBM Plex Sans",
+      "mono": "IBM Plex Mono"
+    },
+    "rules": {
+      "h1": "text-4xl sm:text-5xl font-bold tracking-tight leading-none text-[#1A1A1A]",
+      "h2": "text-2xl sm:text-3xl font-semibold tracking-tight text-[#1A1A1A]",
+      "h3": "text-xl font-medium tracking-tight text-[#1A1A1A]",
+      "body": "text-base leading-relaxed text-[#5C5C5C]",
+      "small": "text-sm text-[#5C5C5C]",
+      "overline": "text-xs font-bold uppercase tracking-[0.2em] text-[#B08D57]"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');"
+    ]
+  },
+  "spacing_and_layout": {
+    "generous_spacing": true,
+    "padding_scale": ["p-4", "p-6", "p-8", "p-12"],
+    "grid_system": "Mobile-first standard flow. Use grid-cols-1. For stats, use grid-cols-2 or grid-cols-4 with gap-4.",
+    "bento_grid": "Not required globally, but use 'Control Room' tight grids for the classifications and stats tables."
+  },
+  "components": {
+    "cards": {
+      "style": "The 'Technical' Look mixed with Editorial. Flat background (bg-white), 1px crisp border (border-[#E5E3D8]), no shadows. Use border-collapse for list views.",
+      "hover": "Slight bg-color shift to #F3F2ED, no lifting animations to maintain print journal feel."
+    },
+    "buttons": {
+      "primary": "bg-[#0A2E1A] text-white rounded-none px-6 py-3 font-medium hover:bg-[#072112] transition-colors focus:ring-2 focus:ring-[#B08D57] focus:ring-offset-2",
+      "secondary": "bg-transparent border border-[#0A2E1A] text-[#0A2E1A] rounded-none px-6 py-3 font-medium hover:bg-[#F3F2ED] transition-colors",
+      "accent": "bg-[#B08D57] text-white rounded-none hover:bg-[#967749]"
+    },
+    "navigation": {
+      "bottom_tab": "Fixed bottom inset-x-0 bg-white border-t border-[#E5E3D8] pb-safe pt-2 px-4 flex justify-around items-center z-50",
+      "header": "Sticky top-0 z-50 bg-[#FAF9F6]/90 backdrop-blur-md border-b border-[#E5E3D8] py-4 px-4 flex justify-between items-center"
+    },
+    "pills_and_tags": {
+      "form_string": "bg-[#F3F2ED] text-[#1A1A1A] text-xs font-mono px-2 py-1 rounded-sm border border-[#E5E3D8]",
+      "horse_number": "bg-[#0A2E1A] text-white text-sm font-bold w-8 h-8 flex items-center justify-center rounded-full"
+    },
+    "tables": {
+      "style": "Grid Borders (The 'Technical' Look). Visible borders for data density, mimicking a printed racing form. border-collapse, border-b border-[#E5E3D8] for rows."
+    }
+  },
+  "motion": {
+    "hover_states": "Subtle background color shifts. Minimal movement. Maintain authoritative, stable feel.",
+    "page_transitions": "Fade-in with slight vertical slide (framer-motion).",
+    "accessibility": "Respect prefers-reduced-motion."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "usage": "Use stroke-width 1.5 for a refined, elegant look. Do not mix icon families."
+  },
+  "media": {
+    "image_urls": {
+      "hero_race": {
+        "url": "https://images.pexels.com/photos/6818590/pexels-photo-6818590.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Jockeys and horses bursting from the starting gate. Use in the top hero section with a bg-black/40 overlay to ensure text readability.",
+        "category": "hero"
+      },
+      "secondary_race": {
+        "url": "https://images.pexels.com/photos/34665172/pexels-photo-34665172.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Dynamic view of a thrilling horse race. Can be used for article banners or previous results headers.",
+        "category": "background"
+      }
+    },
+    "guidelines": "Hero images must have maximum height constraints (max-h-[40vh] on mobile) to not overwhelm the UI. Use a gradient overlay if placing text on top."
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure all text against colored backgrounds meets WCAG AA standard (4.5:1).",
+    "test_ids": "All interactive elements (buttons, links, form inputs, tabs) MUST include a 'data-testid' attribute in kebab-case."
+  },
+  "specific_screens": {
+    "race_overview": "Hero image with large Playfair Display heading 'Prix du Pavillon Royal'. Display track, distance (2400m), runners (16), and prize money in F CFA prominently below the title.",
+    "horse_list": "List format with right/left borders removed, bottom borders separating items. Horse number prominent. Include Jockey, Trainer, and Weight.",
+    "horse_detail_view": "Can be a separate view or a Shadcn Drawer sliding up. Must contain deep stats, earnings in F CFA, and recent performance string.",
+    "expert_predictions": "A grid or dense list showing media outlets and their consensus rankings. Use small text for outlet names, large bold text for their top picked horse numbers.",
+    "classifications_tab": "Tabs for Forme, Classe, Progrès, Régularité. Use Shadcn Tabs component but override styles to use a crisp underline instead of generic pill backgrounds.",
+    "previous_results": "Data table showing Ordre, Désordre, Bonus, Couplé payouts formatted in F CFA."
+  },
+  "instructions_to_main_agent": [
+    "Install and configure Tailwind with the specified colors and fonts.",
+    "Use lucide-react for icons.",
+    "Do not use generic Shadcn Cards; implement custom flat, bordered containers as defined in cards style.",
+    "Implement bottom tab navigation for mobile UX (Home, Horses, Predictions, Results).",
+    "Format all currency as 'F CFA' and use French locale formatting for large numbers (e.g., 33 500 000 F CFA).",
+    "Ensure 'data-testid' is present on all actionable items.",
+    "Maintain the 'Old Money Tech' editorial aesthetic—it should look like a digital, interactive version of a premium printed horse racing newspaper."
+  ]
+}
