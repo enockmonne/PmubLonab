@@ -9,9 +9,10 @@ function HeaderHome() {
       testID="tab-home-btn"
       onPress={() => router.push("/")}
       style={styles.homeBtn}
+      activeOpacity={0.75}
       hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
-      <Ionicons name="home-outline" size={18} color="#0A2E1A" />
+      <Ionicons name="home" size={16} color="#FFFFFF" />
       <Text style={styles.homeText}>Accueil</Text>
     </TouchableOpacity>
   );
@@ -37,60 +38,120 @@ export default function TabsLayout() {
         headerTitleAlign: "center",
         headerShadowVisible: false,
         headerLeft: () => <HeaderHome />,
-        tabBarActiveTintColor: "#0A2E1A",
+        headerLeftContainerStyle: { paddingLeft: 12 },
+        tabBarActiveTintColor: "#FFFFFF",
         tabBarInactiveTintColor: "#8A8A8A",
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
           borderTopColor: "#E5E3D8",
           borderTopWidth: 1,
-          paddingTop: 6,
-          height: 64,
-          paddingBottom: 8,
+          paddingTop: 8,
+          height: 72,
+          paddingBottom: 10,
+        },
+        tabBarItemStyle: {
+          paddingHorizontal: 2,
         },
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: "600",
-          letterSpacing: 0.3,
+          fontWeight: "800",
+          letterSpacing: 0.6,
           textTransform: "uppercase",
+          marginTop: 3,
         },
+        tabBarIcon: ({ focused, color, size }) => null,
       }}
     >
       <Tabs.Screen
         name="programmes"
         options={{
           title: "Programme",
-          tabBarIcon: ({ color, size }) => <Ionicons name="newspaper-outline" size={size} color={color} />,
+          tabBarIcon: ({ focused, color }) => (
+            <ActiveIconWrap focused={focused}>
+              <Ionicons
+                name={focused ? "newspaper" : "newspaper-outline"}
+                size={20}
+                color={color}
+              />
+            </ActiveIconWrap>
+          ),
         }}
       />
       <Tabs.Screen
         name="partants"
         options={{
           title: "Partants",
-          tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" size={size} color={color} />,
+          tabBarIcon: ({ focused, color }) => (
+            <ActiveIconWrap focused={focused}>
+              <Ionicons
+                name={focused ? "list" : "list-outline"}
+                size={20}
+                color={color}
+              />
+            </ActiveIconWrap>
+          ),
         }}
       />
       <Tabs.Screen
         name="pronostics"
         options={{
           title: "Pronos",
-          tabBarIcon: ({ color, size }) => <Ionicons name="analytics-outline" size={size} color={color} />,
+          tabBarIcon: ({ focused, color }) => (
+            <ActiveIconWrap focused={focused}>
+              <Ionicons
+                name={focused ? "analytics" : "analytics-outline"}
+                size={20}
+                color={color}
+              />
+            </ActiveIconWrap>
+          ),
         }}
       />
       <Tabs.Screen
         name="archives"
         options={{
           title: "Archives",
-          tabBarIcon: ({ color, size }) => <Ionicons name="albums-outline" size={size} color={color} />,
+          tabBarIcon: ({ focused, color }) => (
+            <ActiveIconWrap focused={focused}>
+              <Ionicons
+                name={focused ? "albums" : "albums-outline"}
+                size={20}
+                color={color}
+              />
+            </ActiveIconWrap>
+          ),
         }}
       />
       <Tabs.Screen
         name="stats"
         options={{
           title: "Stats",
-          tabBarIcon: ({ color, size }) => <Ionicons name="stats-chart-outline" size={size} color={color} />,
+          tabBarIcon: ({ focused, color }) => (
+            <ActiveIconWrap focused={focused}>
+              <Ionicons
+                name={focused ? "stats-chart" : "stats-chart-outline"}
+                size={20}
+                color={color}
+              />
+            </ActiveIconWrap>
+          ),
         }}
       />
     </Tabs>
+  );
+}
+
+function ActiveIconWrap({
+  focused,
+  children,
+}: {
+  focused: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+      {children}
+    </View>
   );
 }
 
@@ -98,15 +159,28 @@ const styles = StyleSheet.create({
   homeBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
+    backgroundColor: "#0A2E1A",
+    borderRadius: 999,
   },
   homeText: {
     fontSize: 12,
-    fontWeight: "700",
-    color: "#0A2E1A",
-    letterSpacing: 0.5,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 1,
+    textTransform: "uppercase",
     marginLeft: 2,
+  },
+  iconWrap: {
+    width: 44,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconWrapActive: {
+    backgroundColor: "#0A2E1A",
   },
 });
