@@ -57,13 +57,6 @@ export default function V2Landing() {
             <Text style={styles.topTiny}>LIVE</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-            <TouchableOpacity
-              testID="v2-back-v1"
-              onPress={() => router.replace("/")}
-              style={styles.versionPill}
-            >
-              <Text style={styles.versionPillText}>V1 ←</Text>
-            </TouchableOpacity>
             <Text style={styles.topTiny}>DIM. 12 AVR. 2026</Text>
           </View>
         </View>
