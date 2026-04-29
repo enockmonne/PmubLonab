@@ -8,6 +8,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#FAF9F6" } }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="v2" />
         <Stack.Screen name="admin" />
         <Stack.Screen name="resultats" />
         <Stack.Screen name="horse/[number]" />

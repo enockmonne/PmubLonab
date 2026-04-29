@@ -157,10 +157,45 @@ export default function Landing() {
         <Text style={styles.footer}>
           Le Journal Hippique · PMU&apos;B · Burkina Faso
         </Text>
+
+        <TouchableOpacity
+          testID="landing-try-v2"
+          onPress={() => router.push("/v2")}
+          style={landingStyles.v2Toggle}
+        >
+          <Text style={landingStyles.v2ToggleText}>
+            Essayer la version V2 — minimaliste
+          </Text>
+          <Ionicons name="arrow-forward" size={13} color={theme.colors.brand} />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const landingStyles = StyleSheet.create({
+  v2Toggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 14,
+    marginHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderStyle: "dashed",
+    backgroundColor: "transparent",
+  },
+  v2ToggleText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: theme.colors.brand,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+});
+// keep the main styles object below
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
