@@ -16,6 +16,7 @@ import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 
 type RaceData = {
   race: {
+    id: string;
     name: string;
     event_type: string;
     date: string;
@@ -34,28 +35,98 @@ type RaceData = {
   top_picks: { number: number; score: number; appearances: number }[];
 };
 
+type ProgrammeSummary = {
+  race_id: string;
+  name: string;
+  date_text: string;
+  date_iso: string;
+  location: string;
+  is_current: boolean;
+};
+
 export default function RaceScreen() {
   const [data, setData] = useState<RaceData | null>(null);
+  const [programmes, setProgrammes] = useState<ProgrammeSummary[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
-  const load = useCallback(async () => {
+  // Load the list of all available programmes
+  const loadProgrammes = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/race`);
+      const r = await fetch(`${API_URL}/api/races?doc_type=programme&limit=100`);
       const j = await r.json();
-      setData(j);
+      const list: ProgrammeSummary[] = j.races || [];
+      setProgrammes(list);
+      if (!selectedId) {
+        const current = list.find((p) => p.is_current) || list[0];
+        if (current) setSelectedId(current.race_id);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [selectedId]);
+
+  // Load one programme's full data (by id)
+  const loadRace = useCallback(async (raceId: string) => {
+    try {
+      const r = await fetch(`${API_URL}/api/races/${raceId}`);
+      const full = await r.json();
+      // also fetch /api/race for consistent shape (top_picks + betting) when it's the current
+      const isCurrent = programmes.find((p) => p.race_id === raceId)?.is_current;
+      let adapted: RaceData;
+      if (isCurrent) {
+        const cur = await fetch(`${API_URL}/api/race`).then((x) => x.json());
+        adapted = cur;
+      } else {
+        const top = (full.consensus || []).slice(0, 3);
+        adapted = {
+          race: {
+            id: full.race_id,
+            name: full.name,
+            event_type: full.event_type,
+            date: full.date_text,
+            location: full.location,
+            discipline: full.discipline,
+            distance_m: full.distance_m,
+            runners: full.runners,
+            prize_euros: full.prize_euros,
+            prize_fcfa: full.prize_fcfa,
+            hero_image: full.hero_image,
+          },
+          betting: {
+            arret_jeux_weekend: "13h 05mn",
+            daylight_saving_note: "",
+          },
+          top_picks: top,
+        };
+      }
+      setData(adapted);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [programmes]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadProgrammes();
+  }, [loadProgrammes]);
+
+  useEffect(() => {
+    if (selectedId) {
+      setLoading(true);
+      loadRace(selectedId);
+    }
+  }, [selectedId, loadRace]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadProgrammes();
+    if (selectedId) loadRace(selectedId);
+  };
 
   if (loading || !data) {
     return (
@@ -75,10 +146,7 @@ export default function RaceScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              load();
-            }}
+            onRefresh={onRefresh}
             tintColor={theme.colors.brand}
           />
         }
@@ -90,6 +158,52 @@ export default function RaceScreen() {
           <View style={styles.mastheadRule} />
           <Text style={styles.mastheadDate}>{race.date}</Text>
         </View>
+
+        {/* Date picker — scroll horizontal */}
+        {programmes.length > 0 && (
+          <View style={datePicker.wrap}>
+            <Text style={datePicker.label}>Choisir une date</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={datePicker.scroll}
+              testID="date-picker-scroll"
+            >
+              {programmes.map((p) => {
+                const active = p.race_id === selectedId;
+                const dateParts = (p.date_iso || "").split("-");
+                const day = dateParts[2] || "--";
+                const month = dateParts[1]
+                  ? new Date(p.date_iso).toLocaleString("fr-FR", { month: "short" }).toUpperCase()
+                  : "";
+                const year = dateParts[0] || "";
+                return (
+                  <TouchableOpacity
+                    key={p.race_id}
+                    testID={`date-chip-${p.race_id}`}
+                    activeOpacity={0.75}
+                    style={[datePicker.chip, active && datePicker.chipActive]}
+                    onPress={() => setSelectedId(p.race_id)}
+                  >
+                    <Text style={[datePicker.chipDay, active && datePicker.chipDayActive]}>
+                      {day}
+                    </Text>
+                    <Text style={[datePicker.chipMonth, active && datePicker.chipMonthActive]}>
+                      {month} {year.slice(-2)}
+                    </Text>
+                    <Text
+                      style={[datePicker.chipLoc, active && datePicker.chipLocActive]}
+                      numberOfLines={1}
+                    >
+                      {p.location || "—"}
+                    </Text>
+                    {p.is_current && <View style={datePicker.dot} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Hero */}
         <View style={styles.hero}>
@@ -391,5 +505,74 @@ const styles = StyleSheet.create({
     marginTop: 10,
     lineHeight: 17,
     fontStyle: "italic",
+  },
+});
+
+const datePicker = StyleSheet.create({
+  wrap: {
+    marginTop: 4,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+  },
+  label: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 10,
+  },
+  scroll: {
+    paddingRight: 16,
+    gap: 8,
+  },
+  chip: {
+    width: 76,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: "center",
+    marginRight: 8,
+    position: "relative",
+  },
+  chipActive: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  chipDay: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
+    lineHeight: 24,
+  },
+  chipDayActive: { color: "#fff" },
+  chipMonth: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  chipMonthActive: { color: theme.colors.gold },
+  chipLoc: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    fontWeight: "600",
+    marginTop: 4,
+    maxWidth: 64,
+    textAlign: "center",
+  },
+  chipLocActive: { color: "rgba(255,255,255,0.8)" },
+  dot: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.gold,
   },
 });
