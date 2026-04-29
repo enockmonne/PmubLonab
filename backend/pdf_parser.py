@@ -30,6 +30,7 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
     "prize_euros": int (0 si inconnu),
     "prize_fcfa": int (0 si inconnu)
   },
+  "editorial_synthesis": "string — paragraphe narratif éditorial de synthèse de la course, écrit par la rédaction, qui discute les chevaux favoris et leurs chances. Extrait tel quel depuis le PDF (plusieurs phrases, mention des numéros de cheval entre parenthèses). Laisse \"\" si absent.",
   "horses": [
     {
       "number": int,

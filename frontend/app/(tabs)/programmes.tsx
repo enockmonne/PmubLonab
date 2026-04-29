@@ -27,6 +27,7 @@ type RaceData = {
     prize_euros: number;
     prize_fcfa: number;
     hero_image: string;
+    editorial_synthesis?: string;
   };
   betting: {
     arret_jeux_weekend: string;
@@ -94,6 +95,7 @@ export default function RaceScreen() {
             prize_euros: full.prize_euros,
             prize_fcfa: full.prize_fcfa,
             hero_image: full.hero_image,
+            editorial_synthesis: full.editorial_synthesis || "",
           },
           betting: {
             arret_jeux_weekend: "13h 05mn",
@@ -232,6 +234,26 @@ export default function RaceScreen() {
             subValue={formatFCFA(race.prize_fcfa)}
           />
         </View>
+
+        {/* Editorial synthesis */}
+        {race.editorial_synthesis && race.editorial_synthesis.length > 20 && (
+          <View style={styles.section} testID="editorial-synthesis">
+            <Text style={styles.sectionOverline}>Synthèse de la rédaction</Text>
+            <Text style={styles.sectionTitle}>L&apos;analyse</Text>
+            <View style={synthStyles.card}>
+              <View style={synthStyles.quoteMark}>
+                <Text style={synthStyles.quoteMarkText}>“</Text>
+              </View>
+              <Text style={synthStyles.body}>
+                {race.editorial_synthesis}
+              </Text>
+              <View style={synthStyles.signature}>
+                <View style={synthStyles.rule} />
+                <Text style={synthStyles.signatureText}>La rédaction · PMU&apos;B</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Top picks */}
         <View style={styles.section}>
@@ -574,5 +596,58 @@ const datePicker = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: theme.colors.gold,
+  },
+});
+
+const synthStyles = StyleSheet.create({
+  card: {
+    marginTop: 14,
+    paddingTop: 20,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    position: "relative",
+  },
+  quoteMark: {
+    position: "absolute",
+    top: -8,
+    left: 16,
+    backgroundColor: theme.colors.bg,
+    paddingHorizontal: 6,
+  },
+  quoteMarkText: {
+    fontSize: 42,
+    lineHeight: 42,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    fontFamily: "Georgia",
+  },
+  body: {
+    fontSize: 14,
+    lineHeight: 24,
+    color: theme.colors.textPrimary,
+    fontStyle: "italic",
+    fontFamily: "Georgia",
+    letterSpacing: 0.1,
+  },
+  signature: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  rule: {
+    width: 28,
+    height: 1,
+    backgroundColor: theme.colors.gold,
+  },
+  signatureText: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    letterSpacing: 2,
+    textTransform: "uppercase",
   },
 });
