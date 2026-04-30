@@ -139,6 +139,9 @@ export default function RaceScreen() {
   }
 
   const { race, betting, top_picks } = data;
+  const isCurrentRace = !!programmes.find(
+    (p) => p.race_id === selectedId && p.is_current
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -296,7 +299,8 @@ export default function RaceScreen() {
           </View>
         </View>
 
-        {/* Betting info */}
+        {/* Betting info — uniquement pour la course courante */}
+        {isCurrentRace && (
         <View style={styles.section}>
           <Text style={styles.sectionOverline}>Arrêt des jeux</Text>
           <View style={styles.infoCard}>
@@ -352,6 +356,7 @@ export default function RaceScreen() {
             </View>
           </View>
         </View>
+        )}
 
         <View style={{ height: 32 }} />
       </ScrollView>
