@@ -309,7 +309,48 @@ export default function RaceScreen() {
               Dimanche — {betting.arret_jeux_weekend}
             </Text>
           </View>
-          <Text style={styles.daylightNote}>{betting.daylight_saving_note}</Text>
+          {!!betting.daylight_saving_note && (
+            <Text style={styles.daylightNote}>{betting.daylight_saving_note}</Text>
+          )}
+
+          {/* Official information banner */}
+          <View style={styles.infoBanner}>
+            <View style={styles.infoBannerHeader}>
+              <Ionicons
+                name="information-circle"
+                size={18}
+                color={theme.colors.gold}
+              />
+              <Text style={styles.infoBannerTitle}>Information</Text>
+            </View>
+            <Text style={styles.infoBannerBody}>
+              Le passage de l’heure d’hiver à l’heure d’été («&nbsp;GMT+1&nbsp;» à
+              «&nbsp;GMT+2&nbsp;») en France interviendra dans la nuit du samedi
+              28 au dimanche 29 mars 2026. En conséquence, les heures d’arrêt
+              de jeu PMU’B sont revues ainsi qu’il suit dans toutes les
+              représentations de la LONAB, à compter du dimanche 29 mars 2026
+              et ce, jusqu’à nouvel ordre :
+            </Text>
+
+            <View style={styles.scheduleCard}>
+              <View style={styles.scheduleRow}>
+                <Text style={styles.scheduleDay}>
+                  Lundi, Mardi, Mercredi, Jeudi et Vendredi
+                </Text>
+                <Text style={styles.scheduleTime}>11h 45mn</Text>
+              </View>
+              <View style={styles.scheduleDivider} />
+              <View style={styles.scheduleRow}>
+                <Text style={styles.scheduleDay}>Samedi et Dimanche</Text>
+                <Text style={styles.scheduleTime}>13h 05mn</Text>
+              </View>
+              <View style={styles.scheduleDivider} />
+              <View style={styles.scheduleRow}>
+                <Text style={styles.scheduleDay}>Course nocturne</Text>
+                <Text style={styles.scheduleTime}>18h 05mn</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         <View style={{ height: 32 }} />
@@ -527,6 +568,64 @@ const styles = StyleSheet.create({
     marginTop: 10,
     lineHeight: 17,
     fontStyle: "italic",
+  },
+  infoBanner: {
+    marginTop: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.gold,
+  },
+  infoBannerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  infoBannerTitle: {
+    fontSize: 11,
+    letterSpacing: 2,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  infoBannerBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: theme.colors.textPrimary,
+    marginBottom: 12,
+  },
+  scheduleCard: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  scheduleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  scheduleDay: {
+    flex: 1,
+    fontSize: 12.5,
+    color: theme.colors.textPrimary,
+    fontWeight: "600",
+  },
+  scheduleTime: {
+    fontSize: 13,
+    color: theme.colors.brand,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  scheduleDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
   },
 });
 
