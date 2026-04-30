@@ -18,9 +18,10 @@ type Data = {
   experts: ExpertPred[];
   consensus: Consensus[];
   classifications: Record<string, number[]>;
+  classement: Record<string, number[]>;
 };
 
-type Tab = "consensus" | "experts" | "classifications";
+type Tab = "consensus" | "experts" | "aptitudes" | "classement";
 
 export default function PronosticsScreen() {
   const [data, setData] = useState<Data | null>(null);
@@ -68,7 +69,8 @@ export default function PronosticsScreen() {
           [
             { k: "consensus", label: "Consensus" },
             { k: "experts", label: "Médias" },
-            { k: "classifications", label: "Catégories" },
+            { k: "aptitudes", label: "Aptitudes" },
+            { k: "classement", label: "Classement" },
           ] as { k: Tab; label: string }[]
         ).map((t) => (
           <TouchableOpacity
@@ -176,12 +178,16 @@ export default function PronosticsScreen() {
           </View>
         )}
 
-        {tab === "classifications" && (
-          <View testID="classifications-view">
+        {tab === "aptitudes" && (
+          <View testID="aptitudes-view">
             <Text style={styles.lead}>
-              Les 5 meilleurs dans chaque catégorie selon la rédaction.
+              Les chevaux remarqués par la rédaction selon plusieurs aptitudes —
+              forme du moment, classe absolue, progression, régularité, et
+              écuries en réussite.
             </Text>
-            {Object.entries(data.classifications).map(([cat, nums]) => (
+            {Object.entries(data.classifications)
+              .filter(([, nums]) => Array.isArray(nums) && nums.length > 0)
+              .map(([cat, nums]) => (
               <View key={cat} style={styles.catCard}>
                 <Text style={styles.catTitle}>{cat}</Text>
                 <View style={styles.picksRow}>
@@ -197,6 +203,47 @@ export default function PronosticsScreen() {
                 </View>
               </View>
             ))}
+            {Object.values(data.classifications).every((v) => !v || v.length === 0) && (
+              <View style={styles.emptyCat}>
+                <Text style={styles.emptyText}>
+                  Aucune aptitude renseignée pour cette course.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {tab === "classement" && (
+          <View testID="classement-view">
+            <Text style={styles.lead}>
+              Notre lecture stratégique : les chevaux qui peuvent renverser la
+              course aux côtés des favoris.
+            </Text>
+            {Object.entries(data.classement || {})
+              .filter(([, nums]) => Array.isArray(nums) && nums.length > 0)
+              .map(([cat, nums]) => (
+                <View key={cat} style={styles.catCard}>
+                  <Text style={styles.catTitle}>{cat}</Text>
+                  <View style={styles.picksRow}>
+                    {nums.map((n) => (
+                      <TouchableOpacity
+                        key={`${cat}-${n}`}
+                        onPress={() => router.push(`/horse/${n}`)}
+                        style={styles.pickChip}
+                      >
+                        <Text style={styles.pickChipText}>{n}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            {(!data.classement || Object.values(data.classement).every((v) => !v || v.length === 0)) && (
+              <View style={styles.emptyCat}>
+                <Text style={styles.emptyText}>
+                  Aucun classement renseigné pour cette course.
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -337,5 +384,18 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: "uppercase",
     marginBottom: 10,
+  },
+  emptyCat: {
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    marginTop: 8,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
   },
 });

@@ -53,7 +53,15 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
     "Forme": [int, ...],
     "Classe": [int, ...],
     "Progrès": [int, ...],
-    "Régularité": [int, ...]
+    "Régularité": [int, ...],
+    "Entraîneurs en forme": [int, ...],
+    "Jockeys en forme": [int, ...],
+    "Favoris": [int, ...]
+  },
+  "classement": {
+    "Secondes chances": [int, ...],
+    "Outsiders": [int, ...],
+    "Gros outsiders": [int, ...]
   },
   "previous_results": {
     "date": "string",

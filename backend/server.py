@@ -113,6 +113,7 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "horses": horses,
         "predictions": parsed.get("predictions", []) or [],
         "classifications": parsed.get("classifications", {}) or {},
+        "classement": parsed.get("classement", {}) or {},
         "previous_results": prev,
         "is_current": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -243,12 +244,13 @@ async def get_horse(horse_number: int):
 async def get_predictions():
     doc = await _get_current_race_doc()
     if not doc:
-        return {"experts": [], "consensus": [], "classifications": {}}
+        return {"experts": [], "consensus": [], "classifications": {}, "classement": {}}
     enriched = enrich_race(doc)
     return {
         "experts": doc.get("predictions", []),
         "consensus": enriched["consensus"],
         "classifications": doc.get("classifications", {}),
+        "classement": doc.get("classement", {}),
     }
 
 
