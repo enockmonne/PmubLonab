@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,23 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  Modal,
+  Pressable,
 } from "react-native";
+import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { theme, API_URL } from "../../src/theme";
 
 type ExpertPred = { source: string; picks: number[] };
 type Consensus = { number: number; score: number; appearances: number };
+type Horse = {
+  number: number;
+  name: string;
+  jockey: string;
+  trainer: string;
+};
 type Data = {
   experts: ExpertPred[];
   consensus: Consensus[];
@@ -23,18 +33,31 @@ type Data = {
 
 type Tab = "consensus" | "experts" | "aptitudes" | "classement";
 
+type PersonSheet = {
+  role: "trainer" | "jockey";
+  name: string;
+  horses: Horse[];
+};
+
 export default function PronosticsScreen() {
   const [data, setData] = useState<Data | null>(null);
+  const [horses, setHorses] = useState<Horse[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>("consensus");
+  const [sheet, setSheet] = useState<PersonSheet | null>(null);
   const router = useRouter();
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/predictions`);
-      const j = await r.json();
-      setData(j);
+      const [predRes, horsesRes] = await Promise.all([
+        fetch(`${API_URL}/api/predictions`),
+        fetch(`${API_URL}/api/horses`),
+      ]);
+      const pred = await predRes.json();
+      const horsesJson = await horsesRes.json();
+      setData(pred);
+      setHorses(horsesJson.horses || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -46,6 +69,24 @@ export default function PronosticsScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const topConsensusNumber = useMemo(() => {
+    if (!data) return null;
+    const top = data.consensus.filter((c) => c.score > 0)[0];
+    return top ? top.number : null;
+  }, [data]);
+
+  const openPerson = useCallback(
+    (role: "trainer" | "jockey", name: string) => {
+      const filtered = horses.filter((h) =>
+        role === "trainer"
+          ? h.trainer === name
+          : h.jockey === name
+      );
+      setSheet({ role, name, horses: filtered });
+    },
+    [horses]
+  );
 
   if (loading || !data) {
     return (
@@ -79,12 +120,7 @@ export default function PronosticsScreen() {
             style={styles.tabBtn}
             onPress={() => setTab(t.k)}
           >
-            <Text
-              style={[
-                styles.tabText,
-                tab === t.k && styles.tabTextActive,
-              ]}
-            >
+            <Text style={[styles.tabText, tab === t.k && styles.tabTextActive]}>
               {t.label}
             </Text>
             <View
@@ -108,7 +144,7 @@ export default function PronosticsScreen() {
         }
       >
         {tab === "consensus" && (
-          <View testID="consensus-view">
+          <View testID="consensus-view" key="consensus-wrapper">
             <Text style={styles.lead}>
               Classement calculé à partir de 7 médias. Plus un cheval figure haut
               dans les pronostics, plus son score est élevé.
@@ -116,41 +152,75 @@ export default function PronosticsScreen() {
             {data.consensus
               .filter((c) => c.score > 0)
               .map((c, idx) => (
-                <TouchableOpacity
+                <Animated.View
                   key={c.number}
-                  testID={`consensus-row-${c.number}`}
-                  style={styles.consensusRow}
-                  onPress={() => router.push(`/horse/${c.number}`)}
+                  entering={FadeInDown.duration(350).delay(idx * 45)}
                 >
-                  <Text style={styles.consensusRank}>#{idx + 1}</Text>
-                  <View style={styles.horseNumSmall}>
-                    <Text style={styles.horseNumSmallText}>{c.number}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.barBg}>
-                      <View
-                        style={[
-                          styles.barFill,
-                          { width: `${(c.score / maxScore) * 100}%` },
-                        ]}
-                      />
+                  <TouchableOpacity
+                    testID={`consensus-row-${c.number}`}
+                    style={[
+                      styles.consensusRow,
+                      c.number === topConsensusNumber && styles.consensusRowFavori,
+                    ]}
+                    onPress={() => router.push(`/horse/${c.number}`)}
+                  >
+                    <View style={styles.consensusRankWrap}>
+                      {c.number === topConsensusNumber && (
+                        <Ionicons
+                          name="star"
+                          size={13}
+                          color={theme.colors.gold}
+                          style={{ marginRight: 2 }}
+                        />
+                      )}
+                      <Text style={styles.consensusRank}>#{idx + 1}</Text>
                     </View>
-                    <Text style={styles.barMeta}>
-                      {c.score} points • cité par {c.appearances}/7 médias
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                    <View
+                      style={[
+                        styles.horseNumSmall,
+                        c.number === topConsensusNumber && {
+                          backgroundColor: theme.colors.gold,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.horseNumSmallText}>{c.number}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.barBg}>
+                        <View
+                          style={[
+                            styles.barFill,
+                            { width: `${(c.score / maxScore) * 100}%` },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.barMeta}>
+                        {c.score} points • cité par {c.appearances}/7 médias
+                      </Text>
+                    </View>
+                    {c.number === topConsensusNumber && (
+                      <View style={styles.favBadge}>
+                        <Ionicons name="trophy" size={10} color="#fff" />
+                        <Text style={styles.favBadgeText}>FAVORI</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
               ))}
           </View>
         )}
 
         {tab === "experts" && (
-          <View testID="experts-view">
+          <View testID="experts-view" key="experts-wrapper">
             <Text style={styles.lead}>
               Les bases de chaque média, classées par ordre de priorité.
             </Text>
-            {data.experts.map((e) => (
-              <View key={e.source} style={styles.expertCard}>
+            {data.experts.map((e, i) => (
+              <Animated.View
+                key={e.source}
+                entering={FadeInDown.duration(300).delay(i * 40)}
+                style={styles.expertCard}
+              >
                 <Text style={styles.expertSource}>{e.source}</Text>
                 <View style={styles.picksRow}>
                   {e.picks.map((p, idx) => (
@@ -173,13 +243,13 @@ export default function PronosticsScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
-              </View>
+              </Animated.View>
             ))}
           </View>
         )}
 
         {tab === "aptitudes" && (
-          <View testID="aptitudes-view">
+          <View testID="aptitudes-view" key="aptitudes-wrapper">
             <Text style={styles.lead}>
               Les chevaux remarqués par la rédaction selon plusieurs aptitudes —
               forme du moment, classe absolue, progression, régularité, et
@@ -187,35 +257,78 @@ export default function PronosticsScreen() {
             </Text>
             {Object.entries(data.classifications)
               .filter(([, items]) => Array.isArray(items) && items.length > 0)
-              .map(([cat, items]) => (
-              <View key={cat} style={styles.catCard}>
-                <Text style={styles.catTitle}>{cat}</Text>
-                <View style={styles.picksRow}>
-                  {items.map((item) => {
-                    const isNumber = typeof item === "number";
-                    return (
-                      <TouchableOpacity
-                        key={`${cat}-${item}`}
-                        onPress={() =>
-                          isNumber ? router.push(`/horse/${item}`) : null
+              .map(([cat, items], i) => {
+                const isPersonCat =
+                  cat === "Entraîneurs en forme" || cat === "Jockeys en forme";
+                const role: "trainer" | "jockey" =
+                  cat === "Entraîneurs en forme" ? "trainer" : "jockey";
+                return (
+                  <Animated.View
+                    key={cat}
+                    entering={FadeInDown.duration(350).delay(i * 60)}
+                    style={styles.catCard}
+                  >
+                    <Text style={styles.catTitle}>{cat}</Text>
+                    <View style={styles.picksRow}>
+                      {items.map((item) => {
+                        const isNumber = typeof item === "number";
+                        if (isNumber) {
+                          return (
+                            <TouchableOpacity
+                              key={`${cat}-${item}`}
+                              onPress={() => router.push(`/horse/${item}`)}
+                              style={[
+                                styles.pickChip,
+                                item === topConsensusNumber &&
+                                  styles.pickChipFavori,
+                              ]}
+                            >
+                              {item === topConsensusNumber && (
+                                <Ionicons
+                                  name="star"
+                                  size={9}
+                                  color={theme.colors.gold}
+                                  style={{
+                                    position: "absolute",
+                                    top: 2,
+                                    right: 2,
+                                  }}
+                                />
+                              )}
+                              <Text style={styles.pickChipText}>{item}</Text>
+                            </TouchableOpacity>
+                          );
                         }
-                        activeOpacity={isNumber ? 0.2 : 1}
-                        style={isNumber ? styles.pickChip : styles.namePill}
-                      >
-                        <Text
-                          style={
-                            isNumber ? styles.pickChipText : styles.namePillText
-                          }
-                        >
-                          {item}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-            {Object.values(data.classifications).every((v) => !v || v.length === 0) && (
+                        return (
+                          <TouchableOpacity
+                            key={`${cat}-${item}`}
+                            onPress={() =>
+                              isPersonCat
+                                ? openPerson(role, String(item))
+                                : null
+                            }
+                            activeOpacity={isPersonCat ? 0.7 : 1}
+                            style={styles.namePill}
+                          >
+                            <Text style={styles.namePillText}>{item}</Text>
+                            {isPersonCat && (
+                              <Ionicons
+                                name="chevron-forward"
+                                size={12}
+                                color={theme.colors.textSecondary}
+                                style={{ marginLeft: 4 }}
+                              />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </Animated.View>
+                );
+              })}
+            {Object.values(data.classifications).every(
+              (v) => !v || v.length === 0
+            ) && (
               <View style={styles.emptyCat}>
                 <Text style={styles.emptyText}>
                   Aucune aptitude renseignée pour cette course.
@@ -226,15 +339,19 @@ export default function PronosticsScreen() {
         )}
 
         {tab === "classement" && (
-          <View testID="classement-view">
+          <View testID="classement-view" key="classement-wrapper">
             <Text style={styles.lead}>
               Notre lecture stratégique : les chevaux qui peuvent renverser la
               course aux côtés des favoris.
             </Text>
             {Object.entries(data.classement || {})
               .filter(([, nums]) => Array.isArray(nums) && nums.length > 0)
-              .map(([cat, nums]) => (
-                <View key={cat} style={styles.catCard}>
+              .map(([cat, nums], i) => (
+                <Animated.View
+                  key={cat}
+                  entering={FadeInDown.duration(350).delay(i * 60)}
+                  style={styles.catCard}
+                >
                   <Text style={styles.catTitle}>{cat}</Text>
                   <View style={styles.picksRow}>
                     {nums.map((n) => (
@@ -247,9 +364,10 @@ export default function PronosticsScreen() {
                       </TouchableOpacity>
                     ))}
                   </View>
-                </View>
+                </Animated.View>
               ))}
-            {(!data.classement || Object.values(data.classement).every((v) => !v || v.length === 0)) && (
+            {(!data.classement ||
+              Object.values(data.classement).every((v) => !v || v.length === 0)) && (
               <View style={styles.emptyCat}>
                 <Text style={styles.emptyText}>
                   Aucun classement renseigné pour cette course.
@@ -259,6 +377,82 @@ export default function PronosticsScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* ---- Modal : Chevaux de l'entraîneur / jockey ---- */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={!!sheet}
+        onRequestClose={() => setSheet(null)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setSheet(null)}>
+          <Animated.View
+            entering={FadeIn.duration(200)}
+            style={styles.sheetCard}
+          >
+            <Pressable onPress={() => {}}>
+              <View style={styles.sheetHeader}>
+                <View>
+                  <Text style={styles.sheetOverline}>
+                    {sheet?.role === "trainer" ? "Entraîneur" : "Jockey"}
+                  </Text>
+                  <Text style={styles.sheetTitle}>{sheet?.name}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setSheet(null)}
+                  style={styles.sheetClose}
+                >
+                  <Ionicons
+                    name="close"
+                    size={22}
+                    color={theme.colors.textPrimary}
+                  />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.sheetMeta}>
+                {sheet?.horses.length ?? 0} cheval(aux) dans cette course
+              </Text>
+              <ScrollView
+                style={{ maxHeight: 340 }}
+                contentContainerStyle={{ paddingBottom: 8 }}
+              >
+                {(sheet?.horses ?? []).map((h) => (
+                  <TouchableOpacity
+                    key={h.number}
+                    style={styles.sheetRow}
+                    onPress={() => {
+                      setSheet(null);
+                      router.push(`/horse/${h.number}`);
+                    }}
+                  >
+                    <View style={styles.sheetNum}>
+                      <Text style={styles.sheetNumText}>{h.number}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.sheetHorseName}>{h.name}</Text>
+                      <Text style={styles.sheetHorseMeta}>
+                        {sheet?.role === "trainer"
+                          ? `Jockey : ${h.jockey}`
+                          : `Entraîneur : ${h.trainer}`}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={theme.colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                ))}
+                {(sheet?.horses ?? []).length === 0 && (
+                  <Text style={styles.sheetEmpty}>
+                    Aucun cheval de {sheet?.name} dans cette course.
+                  </Text>
+                )}
+              </ScrollView>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -321,11 +515,21 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.colors.border,
     gap: 10,
   },
+  consensusRowFavori: {
+    backgroundColor: "rgba(198, 162, 98, 0.06)",
+    paddingHorizontal: 8,
+    marginHorizontal: -8,
+    borderRadius: 4,
+  },
+  consensusRankWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: 48,
+  },
   consensusRank: {
     fontSize: 13,
     color: theme.colors.gold,
     fontWeight: "800",
-    width: 32,
     letterSpacing: 0.5,
   },
   horseNumSmall: {
@@ -348,6 +552,21 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.gold,
   },
   barMeta: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 4 },
+  favBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: theme.colors.gold,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 2,
+  },
+  favBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.8,
+  },
   expertCard: {
     padding: 14,
     borderWidth: 1,
@@ -376,6 +595,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.brand,
     borderColor: theme.colors.brand,
   },
+  pickChipFavori: {
+    borderColor: theme.colors.gold,
+    borderWidth: 2,
+  },
   pickChipText: {
     fontSize: 13,
     fontWeight: "700",
@@ -383,6 +606,8 @@ const styles = StyleSheet.create({
   },
   pickChipBaseText: { color: "#fff" },
   namePill: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderWidth: 1,
@@ -421,6 +646,84 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 13,
     color: theme.colors.textSecondary,
+    textAlign: "center",
+  },
+
+  // ---- Person sheet modal ----
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(20, 30, 26, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  sheetCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: theme.colors.bg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 20,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  sheetOverline: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  sheetTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.3,
+  },
+  sheetClose: {
+    padding: 4,
+  },
+  sheetMeta: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  sheetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    gap: 12,
+  },
+  sheetNum: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: theme.colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetNumText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  sheetHorseName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: theme.colors.textPrimary,
+  },
+  sheetHorseMeta: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  sheetEmpty: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    padding: 24,
     textAlign: "center",
   },
 });
