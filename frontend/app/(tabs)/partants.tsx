@@ -36,6 +36,8 @@ export default function PartantsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("number");
+  const [compareMode, setCompareMode] = useState(false);
+  const [selected, setSelected] = useState<number[]>([]);
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -112,6 +114,29 @@ export default function PartantsScreen() {
             </Text>
           </TouchableOpacity>
         ))}
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity
+          testID="toggle-compare"
+          onPress={() => {
+            setCompareMode((v) => !v);
+            setSelected([]);
+          }}
+          style={[styles.compareBtn, compareMode && styles.compareBtnActive]}
+        >
+          <Ionicons
+            name={compareMode ? "close" : "git-compare-outline"}
+            size={14}
+            color={compareMode ? "#fff" : theme.colors.brand}
+          />
+          <Text
+            style={[
+              styles.compareBtnText,
+              compareMode && styles.compareBtnTextActive,
+            ]}
+          >
+            {compareMode ? "Quitter" : "Comparer"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -137,48 +162,105 @@ export default function PartantsScreen() {
           }
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           contentContainerStyle={{ paddingBottom: 24 }}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              testID={`horse-row-${item.number}`}
-              style={styles.row}
-              onPress={() => router.push(`/horse/${item.number}`)}
-            >
-              <View style={styles.numBox}>
-                <Text style={styles.numText}>{item.number}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.horseName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.subMeta} numberOfLines={1}>
-                  {item.jockey} • {item.trainer}
-                </Text>
-                <View style={styles.metaRow}>
-                  <View style={styles.metaChip}>
-                    <Text style={styles.metaChipText}>{item.weight}</Text>
-                  </View>
-                  <View style={styles.metaChip}>
-                    <Text style={styles.metaChipText}>
-                      {item.age}a {item.sex}
-                    </Text>
-                  </View>
-                  <View style={styles.perfChip}>
-                    <Text style={styles.perfChipText}>{item.perf}</Text>
+          renderItem={({ item }) => {
+            const isSelected = selected.includes(item.number);
+            return (
+              <TouchableOpacity
+                testID={`horse-row-${item.number}`}
+                style={[styles.row, isSelected && styles.rowSelected]}
+                onPress={() => {
+                  if (compareMode) {
+                    setSelected((cur) =>
+                      cur.includes(item.number)
+                        ? cur.filter((n) => n !== item.number)
+                        : cur.length < 4
+                        ? [...cur, item.number]
+                        : cur
+                    );
+                  } else {
+                    router.push(`/horse/${item.number}`);
+                  }
+                }}
+              >
+                <View style={styles.numBox}>
+                  <Text style={styles.numText}>{item.number}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.horseName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.subMeta} numberOfLines={1}>
+                    {item.jockey} • {item.trainer}
+                  </Text>
+                  <View style={styles.metaRow}>
+                    <View style={styles.metaChip}>
+                      <Text style={styles.metaChipText}>{item.weight}</Text>
+                    </View>
+                    <View style={styles.metaChip}>
+                      <Text style={styles.metaChipText}>
+                        {item.age}a {item.sex}
+                      </Text>
+                    </View>
+                    <View style={styles.perfChip}>
+                      <Text style={styles.perfChipText}>{item.perf}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-              <View style={styles.scoreCol}>
-                <Text style={styles.scoreVal}>{item.consensus_score}</Text>
-                <Text style={styles.scoreLabel}>pts</Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={18}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
+                <View style={styles.scoreCol}>
+                  <Text style={styles.scoreVal}>{item.consensus_score}</Text>
+                  <Text style={styles.scoreLabel}>pts</Text>
+                </View>
+                {compareMode ? (
+                  <View
+                    style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxSelected,
+                    ]}
+                  >
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                    )}
+                  </View>
+                ) : (
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={theme.colors.textSecondary}
+                  />
+                )}
+              </TouchableOpacity>
+            );
+          }}
         />
+      )}
+
+      {/* Floating action bar in compare mode */}
+      {compareMode && selected.length > 0 && (
+        <View style={styles.compareBar}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.compareBarText}>
+              {selected.length} sélectionné{selected.length > 1 ? "s" : ""} •{" "}
+              #{selected.join(" · #")}
+            </Text>
+            <Text style={styles.compareBarHint}>
+              Sélectionnez 2 à 4 chevaux pour comparer
+            </Text>
+          </View>
+          <TouchableOpacity
+            testID="compare-go"
+            disabled={selected.length < 2}
+            style={[
+              styles.compareGo,
+              selected.length < 2 && { opacity: 0.4 },
+            ]}
+            onPress={() => {
+              router.push(`/compare?ids=${selected.join(",")}`);
+            }}
+          >
+            <Text style={styles.compareGoText}>Comparer</Text>
+            <Ionicons name="arrow-forward" size={14} color="#fff" />
+          </TouchableOpacity>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -309,6 +391,87 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: theme.colors.textSecondary,
     letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  // ---- Compare mode ----
+  compareBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.surface,
+  },
+  compareBtnActive: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  compareBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: theme.colors.brand,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  compareBtnTextActive: {
+    color: "#fff",
+  },
+  rowSelected: {
+    backgroundColor: "rgba(10, 46, 26, 0.06)",
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: theme.colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surface,
+  },
+  checkboxSelected: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  compareBar: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    bottom: 16,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: theme.colors.brand,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+  },
+  compareBarText: {
+    fontSize: 13,
+    color: "#fff",
+    fontWeight: "700",
+  },
+  compareBarHint: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.65)",
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  compareGo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: theme.colors.gold,
+  },
+  compareGoText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 0.5,
     textTransform: "uppercase",
   },
 });

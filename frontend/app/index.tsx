@@ -139,7 +139,7 @@ export default function Landing() {
           <TouchableOpacity
             testID="landing-search"
             style={styles.secBtn}
-            onPress={() => router.push("/(tabs)/archives")}
+            onPress={() => router.push("/search")}
           >
             <Ionicons name="search" size={18} color={theme.colors.brand} />
             <Text style={styles.secBtnText}>Rechercher un cheval, jockey...</Text>

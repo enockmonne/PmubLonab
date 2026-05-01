@@ -59,6 +59,31 @@ export default function RaceDetail() {
   }
 
   const prev = race.previous_results || {};
+  const isResultDoc = race.doc_type === "result";
+  const hasResults = prev && prev.finishing_order && prev.finishing_order.length > 0;
+  const payoutGroups = (() => {
+    if (!hasResults) return {} as Record<string, any[]>;
+    const groups: Record<string, any[]> = { Principaux: [], "Couplés Placés": [], Autres: [] };
+    (prev.payouts || []).forEach((p: any) => {
+      const type = (p.type || "").toLowerCase();
+      if (type.startsWith("couplé placé") || type.startsWith("couple placé") || type.includes("placé")) {
+        groups["Couplés Placés"].push(p);
+      } else if (
+        type.includes("ordre") ||
+        type.includes("désordre") ||
+        type.includes("tiercé") ||
+        type.includes("quarté") ||
+        type.includes("quinté") ||
+        type.includes("bonus") ||
+        type.includes("couplé gagnant")
+      ) {
+        groups["Principaux"].push(p);
+      } else {
+        groups["Autres"].push(p);
+      }
+    });
+    return groups;
+  })();
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -142,12 +167,16 @@ export default function RaceDetail() {
         )}
 
         {/* Previous results if any */}
-        {prev && prev.finishing_order && prev.finishing_order.length > 0 && (
+        {hasResults && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Résultats précédents</Text>
-            <Text style={styles.prevSub}>
-              {prev.race_name} — {prev.date}
+            <Text style={styles.sectionLabel}>
+              {isResultDoc ? "Arrivée officielle" : "Résultats précédents"}
             </Text>
+            {!isResultDoc && (
+              <Text style={styles.prevSub}>
+                {prev.race_name} — {prev.date}
+              </Text>
+            )}
             <View style={styles.podium}>
               {prev.finishing_order.slice(0, 5).map((n: number, idx: number) => (
                 <View key={idx} style={[styles.podiumItem, idx === 0 && styles.podiumGold]}>
@@ -156,25 +185,34 @@ export default function RaceDetail() {
                 </View>
               ))}
             </View>
-            {(prev.payouts || []).length > 0 && (
-              <View style={[styles.list, { marginTop: 14 }]}>
-                {prev.payouts.map((p: any, idx: number) => (
-                  <View
-                    key={idx}
-                    style={[
-                      styles.payRow,
-                      idx === prev.payouts.length - 1 && { borderBottomWidth: 0 },
-                    ]}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.payType}>{p.type}</Text>
-                      {p.label ? <Text style={styles.payLabel}>{p.label}</Text> : null}
-                    </View>
-                    <Text style={styles.payAmt}>{formatFCFA(p.amount_fcfa)}</Text>
+
+            {/* Grouped payouts */}
+            {["Principaux", "Couplés Placés", "Autres"].map((grp) => {
+              const list = payoutGroups[grp] || [];
+              if (list.length === 0) return null;
+              return (
+                <View key={grp} style={{ marginTop: 14 }}>
+                  <Text style={styles.payGroupLabel}>{grp}</Text>
+                  <View style={styles.list}>
+                    {list.map((p: any, idx: number) => (
+                      <View
+                        key={idx}
+                        style={[
+                          styles.payRow,
+                          idx === list.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.payType}>{p.type}</Text>
+                          {p.label ? <Text style={styles.payLabel}>{p.label}</Text> : null}
+                        </View>
+                        <Text style={styles.payAmt}>{formatFCFA(p.amount_fcfa)}</Text>
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
-            )}
+                </View>
+              );
+            })}
 
             {prev.stats && (
               <View style={{ marginTop: 14 }}>
@@ -269,6 +307,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     marginBottom: 10,
+  },
+  payGroupLabel: {
+    fontSize: 10,
+    letterSpacing: 1.5,
+    color: theme.colors.textSecondary,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 6,
   },
   podium: { flexDirection: "row", gap: 8 },
   podiumItem: {
