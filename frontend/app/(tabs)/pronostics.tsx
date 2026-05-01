@@ -17,7 +17,7 @@ type Consensus = { number: number; score: number; appearances: number };
 type Data = {
   experts: ExpertPred[];
   consensus: Consensus[];
-  classifications: Record<string, number[]>;
+  classifications: Record<string, (number | string)[]>;
   classement: Record<string, number[]>;
 };
 
@@ -186,20 +186,32 @@ export default function PronosticsScreen() {
               écuries en réussite.
             </Text>
             {Object.entries(data.classifications)
-              .filter(([, nums]) => Array.isArray(nums) && nums.length > 0)
-              .map(([cat, nums]) => (
+              .filter(([, items]) => Array.isArray(items) && items.length > 0)
+              .map(([cat, items]) => (
               <View key={cat} style={styles.catCard}>
                 <Text style={styles.catTitle}>{cat}</Text>
                 <View style={styles.picksRow}>
-                  {nums.map((n) => (
-                    <TouchableOpacity
-                      key={`${cat}-${n}`}
-                      onPress={() => router.push(`/horse/${n}`)}
-                      style={styles.pickChip}
-                    >
-                      <Text style={styles.pickChipText}>{n}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {items.map((item) => {
+                    const isNumber = typeof item === "number";
+                    return (
+                      <TouchableOpacity
+                        key={`${cat}-${item}`}
+                        onPress={() =>
+                          isNumber ? router.push(`/horse/${item}`) : null
+                        }
+                        activeOpacity={isNumber ? 0.2 : 1}
+                        style={isNumber ? styles.pickChip : styles.namePill}
+                      >
+                        <Text
+                          style={
+                            isNumber ? styles.pickChipText : styles.namePillText
+                          }
+                        >
+                          {item}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
             ))}
@@ -370,6 +382,19 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
   },
   pickChipBaseText: { color: "#fff" },
+  namePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  namePillText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: theme.colors.textPrimary,
+    letterSpacing: 0.2,
+  },
   catCard: {
     padding: 14,
     borderWidth: 1,

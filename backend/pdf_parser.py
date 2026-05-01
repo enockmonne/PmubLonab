@@ -54,8 +54,8 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
     "Classe": [int, ...],
     "Progrès": [int, ...],
     "Régularité": [int, ...],
-    "Entraîneurs en forme": [int, ...],
-    "Jockeys en forme": [int, ...],
+    "Entraîneurs en forme": ["string", ...],
+    "Jockeys en forme": ["string", ...],
     "Favoris": [int, ...]
   },
   "classement": {
@@ -80,7 +80,8 @@ Règles strictes :
 - Pour un PDF DE TYPE RÉSULTATS : laisse "horses": [], "predictions": [], "classifications": {}, et remplis "previous_results" avec l'ordre d'arrivée officiel et tous les rapports (chaque couplé placé est un payout séparé). Le champ "race.name" prend le nom du pari (ex: 'QUARTE DU LUNDI').
 - Pour un PDF DE TYPE PROGRAMME : remplis tout. "previous_results" contient les résultats de la course précédente mentionnée.
 - Si une donnée manque, utilise 0 pour les int, "" pour les string, [] pour les listes.
-- Les "picks" et "classifications" ne contiennent QUE des numéros de cheval présents dans horses.
+- Les "picks" et les classifications "Forme", "Classe", "Progrès", "Régularité", "Favoris" ne contiennent QUE des numéros de cheval présents dans horses (entiers).
+- ATTENTION : "Entraîneurs en forme" et "Jockeys en forme" contiennent des NOMS DE PERSONNES (strings), PAS de numéros de chevaux. Extrait les noms tels qu'affichés dans la rubrique du PDF (ex. "A. Fabre", "C. Demuro", "M. Guyon"). Nettoie la casse (ex. "A.FABRE" → "A. Fabre", "C.DEMURO" → "C. Demuro").
 - Nettoie les poids ('60.KG' → '60 kg') et les noms ('A.POUCHIN' → 'A. Pouchin').
 - date_iso au format YYYY-MM-DD. Si le PDF a '20/04/2026' → '2026-04-20'.
 - Pour les rapports F CFA : extrais les montants en entier (pas d'espaces). Exemple : '591 000' → 591000.
