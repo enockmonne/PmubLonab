@@ -22,6 +22,13 @@ from race_data import (
     BETTING_INFO,
 )
 from pdf_parser import parse_pdf_to_race
+from auth import (
+    require_admin,
+    create_access_token,
+    verify_password,
+    hash_password,
+    ensure_seed_admin,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -158,9 +165,64 @@ async def seed_initial_race():
 async def on_startup():
     logger.info("EMERGENT_LLM_KEY configured: %s (len=%d)", bool(os.environ.get("EMERGENT_LLM_KEY")), len(os.environ.get("EMERGENT_LLM_KEY", "")))
     await seed_initial_race()
+    await ensure_seed_admin(db)
 
 
 # ---------- Auth ----------
+
+class LoginPayload(BaseModel):
+    email: str
+    password: str
+
+
+class ChangePasswordPayload(BaseModel):
+    old_password: str
+    new_password: str
+
+
+@api_router.post("/auth/login")
+async def auth_login(payload: LoginPayload):
+    email = (payload.email or "").lower().strip()
+    user = await db.admin_users.find_one({"email": email})
+    if not user or not verify_password(payload.password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect.")
+    await db.admin_users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"last_login_at": datetime.now(timezone.utc)}},
+    )
+    token = create_access_token({"email": email, "role": user.get("role", "admin")})
+    return {
+        "token": token,
+        "user": {
+            "email": email,
+            "role": user.get("role", "admin"),
+        },
+    }
+
+
+@api_router.get("/auth/me")
+async def auth_me(authorization: Optional[str] = Header(None)):
+    user = await require_admin(db, authorization=authorization)
+    return user
+
+
+@api_router.post("/auth/change-password")
+async def auth_change_password(
+    payload: ChangePasswordPayload,
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization)
+    user = await db.admin_users.find_one({"email": me["email"]})
+    if not user or not verify_password(payload.old_password, user.get("password_hash", "")):
+        raise HTTPException(status_code=400, detail="Ancien mot de passe incorrect.")
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Le mot de passe doit faire au moins 8 caractères.")
+    await db.admin_users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"password_hash": hash_password(payload.new_password)}},
+    )
+    return {"ok": True}
+
 
 def check_admin(passcode: Optional[str]):
     if not passcode or passcode != ADMIN_PASSCODE:
@@ -474,8 +536,9 @@ class SetCurrentPayload(BaseModel):
 async def admin_upload_race(
     file: UploadFile = File(...),
     x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
 ):
-    check_admin(x_admin_passcode)
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Veuillez fournir un fichier .pdf")
     pdf_bytes = await file.read()
@@ -498,8 +561,9 @@ async def admin_upload_race(
 async def admin_set_current(
     race_id: str,
     x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
 ):
-    check_admin(x_admin_passcode)
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
     doc = await db.races.find_one({"race_id": race_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Course introuvable")
@@ -512,8 +576,9 @@ async def admin_set_current(
 async def admin_delete_race(
     race_id: str,
     x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
 ):
-    check_admin(x_admin_passcode)
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
     res = await db.races.delete_one({"race_id": race_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Course introuvable")
@@ -524,6 +589,58 @@ async def admin_delete_race(
 async def admin_verify(x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode")):
     check_admin(x_admin_passcode)
     return {"ok": True}
+
+
+@api_router.get("/admin/status")
+async def admin_status(
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    """Dashboard metrics for admin home."""
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+
+    total_races = await db.races.count_documents({})
+    total_programmes = await db.races.count_documents({"doc_type": "programme"})
+    total_results = await db.races.count_documents({"doc_type": "result"})
+    current = await db.races.find_one({"is_current": True}, {"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "location": 1})
+    last = await db.races.find_one({}, sort=[("created_at", -1)], projection={"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "created_at": 1, "doc_type": 1})
+
+    # LLM key health: try a tiny ping
+    llm_status = "unknown"
+    llm_error: Optional[str] = None
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+        chat = LlmChat(
+            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
+            session_id=f"healthcheck-{uuid.uuid4().hex[:6]}",
+            system_message="Health check.",
+        ).with_model("gemini", "gemini-2.5-flash")
+        await chat.send_message(UserMessage(text="ok"))
+        llm_status = "ok"
+    except Exception as e:
+        llm_status = "error"
+        llm_error = str(e)[:200]
+
+    # Admin user info
+    admin_user = await db.admin_users.find_one(
+        {"email": me.get("email")},
+        {"_id": 0, "email": 1, "last_login_at": 1, "created_at": 1, "role": 1},
+    )
+
+    return {
+        "stats": {
+            "total_races": total_races,
+            "programmes": total_programmes,
+            "results": total_results,
+        },
+        "current_race": current,
+        "last_upload": last,
+        "llm": {
+            "status": llm_status,
+            "error": llm_error,
+        },
+        "admin": admin_user or {"email": me.get("email"), "role": me.get("role")},
+    }
 
 
 # ---------- Favorites (kept) ----------

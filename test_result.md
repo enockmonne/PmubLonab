@@ -101,3 +101,123 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+
+user_problem_statement: |
+  Phase 3: Implement JWT auth (C1) for /admin and Admin dashboard (C2) with status metrics.
+  - JWT login flow with email/password (single admin in DB)
+  - Protected admin routes accept either Bearer token OR legacy X-Admin-Passcode
+  - Dashboard shows: total races, programmes/results count, current race, last upload, LLM key health, admin email
+
+backend:
+  - task: "JWT Auth: /api/auth/login + /api/auth/me + /api/auth/change-password"
+    implemented: true
+    working: true
+    file: "/app/backend/auth.py + /app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Implemented with passlib(bcrypt) + PyJWT (HS256, 7d TTL). Seed admin from .env (ADMIN_EMAIL/ADMIN_PASSWORD) idempotent on startup. Login tested via curl returns valid token."
+        - working: true
+          agent: "testing"
+          comment: "All 11 auth scenarios passed via /app/backend_test.py against public URL. POST /api/auth/login returns 200 with token+user{email,role} for valid creds; 401 with exact French message 'Email ou mot de passe incorrect.' for invalid email and invalid password; 422 for missing password field. GET /api/auth/me returns 200 {email, role} with valid Bearer; 401 without header; 401 with garbage token. POST /api/auth/change-password returns 400 for wrong old password, 400 for new<8 chars, 200 {ok:true} for valid roundtrip — verified login works with new pwd, then reverted back to original (idempotent). JWT secret length warning in logs is informational only (29 bytes vs 32 recommended)."
+
+  - task: "Protected admin endpoints accept Bearer token OR legacy passcode"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "POST /api/admin/races/upload, POST /api/admin/races/{id}/set-current, DELETE /api/admin/races/{id} all updated via require_admin() helper."
+        - working: true
+          agent: "testing"
+          comment: "Backwards-compat verified for all three admin endpoints. POST /admin/races/{id}/set-current works with Bearer JWT (200, is_current applied — verified via /api/races), with X-Admin-Passcode legacy (200), and returns 401 without auth. DELETE /admin/races/{id} returns 401 without auth and 404 for non-existent race id with JWT (no real races deleted — only used a fake id 'nonexistent-race-id-zzz-9999'). POST /admin/races/upload returns 401 without auth (auth gating verified; actual file upload skipped to avoid LLM cost). NOTE: as part of set-current testing, current race was changed to 'quarte-du-lundi-lonab-2026-04-20' (the latest by date_iso 2026-04-20). Production still has all 4 races intact."
+
+  - task: "Admin Dashboard /api/admin/status with LLM health check"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Returns stats (total/programmes/results), current_race, last_upload, llm.status (live ping to gemini-2.5-flash), admin info. Requires JWT or legacy passcode."
+        - working: true
+          agent: "testing"
+          comment: "All 3 admin/status scenarios passed. With Bearer JWT: 200, payload has stats={total_races:4, programmes:3, results:1}, current_race, last_upload, llm={status:'ok', error:null}, admin={email:enockmoonne.admin@pmub.app, role:admin, created_at, last_login_at}. With X-Admin-Passcode: 200 same shape (admin shows legacy@pmub.app fallback identity). Without auth: 401. LLM live ping to gemini-2.5-flash returned 'ok' — emergent key is healthy."
+
+frontend:
+  - task: "Admin email/password login screen + JWT storage in AsyncStorage"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/admin.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Boots by checking saved token. Login form with email + password fields, error display, JWT footer note, KeyboardAvoidingView."
+
+  - task: "Admin dashboard UI with stats grid + LLM status + races list"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/app/admin.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Shows 4 stats cards (Courses, Course du jour, Dernier upload, Clé LLM), upload card, races list with View/Set-current/Delete actions. FadeInDown animations."
+
+metadata:
+  created_by: "main_agent"
+  version: "1.4"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "JWT Auth: /api/auth/login + /api/auth/me + /api/auth/change-password"
+    - "Protected admin endpoints accept Bearer token OR legacy passcode"
+    - "Admin Dashboard /api/admin/status with LLM health check"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: |
+        Phase 3 backend complete. Implemented JWT auth (POST /api/auth/login, /api/auth/me, /api/auth/change-password)
+        and admin dashboard endpoint (GET /api/admin/status).
+        - Test credentials: enockmoonne.admin@pmub.app / @Unlimited86
+        - Bearer token in Authorization header for protected routes
+        - Legacy X-Admin-Passcode (pmub-admin-2026) still works as fallback for backwards compat
+        Please verify:
+        1) /api/auth/login returns token for valid creds (200) and 401 for invalid
+        2) /api/auth/me returns admin info with valid Bearer token, 401 without
+        3) /api/admin/status returns stats/current_race/last_upload/llm/admin (200 with JWT, 200 with legacy passcode, 401 without auth)
+        4) /api/admin/races/upload + set-current + delete still work with JWT Bearer (and with legacy passcode)
+        5) Wrong/expired token returns 401
+    - agent: "testing"
+      message: |
+        Phase 3 backend testing complete: 23/23 scenarios PASSED via /app/backend_test.py against the public preview URL.
+        Coverage:
+        - /api/auth/login: valid (200 with token+user), invalid email/password (401 with exact French message), missing field (422)
+        - /api/auth/me: valid Bearer (200 {email,role}), no header (401), garbage token (401)
+        - /api/auth/change-password: short new pwd (400), wrong old (400), valid roundtrip (200 → login with new works → reverted back to original; verified login with original still works)
+        - /api/admin/status: Bearer JWT (200 with full shape stats/current_race/last_upload/llm/admin), legacy passcode (200 same shape), no auth (401). LLM live ping returned status='ok'. stats={total_races:4, programmes:3, results:1}
+        - Backwards compat for protected endpoints: set-current works with both Bearer+legacy (verified is_current applied via /api/races), 401 without auth; DELETE returns 401 without auth and 404 for non-existent race id with JWT (no real races deleted); upload returns 401 without auth (auth gating only — no file upload to avoid LLM cost)
+        Side effect to flag: as part of set-current testing, the current race was changed to 'quarte-du-lundi-lonab-2026-04-20' (the latest race by date_iso). All 4 production races are intact. Main agent / user can re-set current race if desired.
+        Backend logs show a benign passlib bcrypt-version warning (AttributeError: module 'bcrypt' has no attribute '__about__') — does not affect hashing or verification (all bcrypt operations succeeded). JWT secret length warning (29 vs 32 bytes recommended) is informational.
+        No critical issues found. All endpoints behaving exactly as specified.
