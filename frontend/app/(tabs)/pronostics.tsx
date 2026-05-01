@@ -24,10 +24,12 @@ type Horse = {
   jockey: string;
   trainer: string;
 };
+type PersonItem = { name: string; stat?: string };
+type ClassificationItem = number | string | PersonItem;
 type Data = {
   experts: ExpertPred[];
   consensus: Consensus[];
-  classifications: Record<string, (number | string)[]>;
+  classifications: Record<string, ClassificationItem[]>;
   classement: Record<string, number[]>;
 };
 
@@ -270,7 +272,7 @@ export default function PronosticsScreen() {
                   >
                     <Text style={styles.catTitle}>{cat}</Text>
                     <View style={styles.picksRow}>
-                      {items.map((item) => {
+                      {items.map((item, k) => {
                         const isNumber = typeof item === "number";
                         if (isNumber) {
                           return (
@@ -299,18 +301,32 @@ export default function PronosticsScreen() {
                             </TouchableOpacity>
                           );
                         }
+                        // Person: string OR object {name, stat}
+                        const personName =
+                          typeof item === "string" ? item : item.name;
+                        const personStat =
+                          typeof item === "string" ? "" : item.stat || "";
                         return (
                           <TouchableOpacity
-                            key={`${cat}-${item}`}
+                            key={`${cat}-${personName}-${k}`}
                             onPress={() =>
                               isPersonCat
-                                ? openPerson(role, String(item))
+                                ? openPerson(role, personName)
                                 : null
                             }
                             activeOpacity={isPersonCat ? 0.7 : 1}
                             style={styles.namePill}
                           >
-                            <Text style={styles.namePillText}>{item}</Text>
+                            <View>
+                              <Text style={styles.namePillText}>
+                                {personName}
+                              </Text>
+                              {!!personStat && (
+                                <Text style={styles.namePillStat}>
+                                  {personStat}
+                                </Text>
+                              )}
+                            </View>
                             {isPersonCat && (
                               <Ionicons
                                 name="chevron-forward"
@@ -618,6 +634,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: theme.colors.textPrimary,
+    letterSpacing: 0.2,
+  },
+  namePillStat: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    marginTop: 1,
     letterSpacing: 0.2,
   },
   catCard: {

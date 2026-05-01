@@ -54,8 +54,8 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
     "Classe": [int, ...],
     "Progrès": [int, ...],
     "Régularité": [int, ...],
-    "Entraîneurs en forme": ["string", ...],
-    "Jockeys en forme": ["string", ...],
+    "Entraîneurs en forme": [ { "name": "string", "stat": "string (ex: '12 vict. / 60 part. (20%)' ou laissé vide si absent)" }, ... ],
+    "Jockeys en forme": [ { "name": "string", "stat": "string (ex: '8 vict. / 40 mtes (20%)' ou laissé vide si absent)" }, ... ],
     "Favoris": [int, ...]
   },
   "classement": {
@@ -81,7 +81,7 @@ Règles strictes :
 - Pour un PDF DE TYPE PROGRAMME : remplis tout. "previous_results" contient les résultats de la course précédente mentionnée.
 - Si une donnée manque, utilise 0 pour les int, "" pour les string, [] pour les listes.
 - Les "picks" et les classifications "Forme", "Classe", "Progrès", "Régularité", "Favoris" ne contiennent QUE des numéros de cheval présents dans horses (entiers).
-- ATTENTION : "Entraîneurs en forme" et "Jockeys en forme" contiennent des NOMS DE PERSONNES (strings), PAS de numéros de chevaux. Extrait les noms tels qu'affichés dans la rubrique du PDF (ex. "A. Fabre", "C. Demuro", "M. Guyon"). Nettoie la casse (ex. "A.FABRE" → "A. Fabre", "C.DEMURO" → "C. Demuro").
+- ATTENTION : "Entraîneurs en forme" et "Jockeys en forme" contiennent des OBJETS {"name": string, "stat": string}, PAS de numéros de chevaux. Extrait le nom tel qu'affiché dans la rubrique (ex. "A. Fabre") et les statistiques associées si présentes (ex. "12 vict. / 60 part. (20%)", ou "8 vict. / 40 mtes (20%)" pour les jockeys). Si aucune stat n'est disponible, mets "stat": "". Nettoie la casse des noms (ex. "A.FABRE" → "A. Fabre").
 - Nettoie les poids ('60.KG' → '60 kg') et les noms ('A.POUCHIN' → 'A. Pouchin').
 - date_iso au format YYYY-MM-DD. Si le PDF a '20/04/2026' → '2026-04-20'.
 - Pour les rapports F CFA : extrais les montants en entier (pas d'espaces). Exemple : '591 000' → 591000.
