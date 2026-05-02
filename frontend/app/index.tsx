@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL } from "../src/theme";
+import ArrestCountdown from "../src/ArrestCountdown";
 
 const ONBOARDING_KEY = "pmub_onboarded_v1";
 
@@ -79,6 +80,11 @@ export default function Landing() {
           <Text style={styles.tagline}>
             Analyses, pronostics et résultats officiels
           </Text>
+        </View>
+
+        {/* Live countdown */}
+        <View style={{ paddingHorizontal: 20, marginTop: 4, marginBottom: 16 }}>
+          <ArrestCountdown variant="full" />
         </View>
 
         {/* Two CTAs */}

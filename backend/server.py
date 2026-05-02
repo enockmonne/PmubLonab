@@ -526,6 +526,78 @@ async def tipsters_leaderboard():
     return {"leaderboard": leaderboard}
 
 
+@api_router.get("/stats/people")
+async def people_leaderboard():
+    """Top jockeys & entraîneurs based on top-3 finishes across all races.
+    Cross-references result docs (finishing_order) with programme docs (horses)."""
+    races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    # Build a lookup: date_iso -> list of programmes with horses
+    prog_by_date: Dict[str, List[dict]] = {}
+    for r in races:
+        if r.get("doc_type") == "programme" and r.get("horses"):
+            prog_by_date.setdefault(r.get("date_iso", ""), []).append(r)
+
+    jockey_stats: Dict[str, Dict[str, int]] = {}
+    trainer_stats: Dict[str, Dict[str, int]] = {}
+
+    def add_finish(stats: Dict[str, Dict[str, int]], name: str, rank: int):
+        if not name:
+            return
+        e = stats.setdefault(name, {"races": 0, "wins": 0, "top3": 0})
+        e["races"] += 1
+        if rank == 1:
+            e["wins"] += 1
+        if rank <= 3:
+            e["top3"] += 1
+
+    for r in races:
+        order = (r.get("previous_results") or {}).get("finishing_order", []) or []
+        if not order:
+            continue
+        # Find matching programme on same date OR fallback to current race's horses
+        date_iso = r.get("date_iso", "")
+        progs = prog_by_date.get(date_iso, [])
+        # Also include the current race's horses if doc_type is programme
+        if r.get("doc_type") == "programme" and r.get("horses"):
+            progs = progs + [r]
+        # Combine all horses from all programmes of that day for lookup
+        horses_lookup: Dict[int, dict] = {}
+        for p in progs:
+            for h in p.get("horses", []):
+                num = h.get("number")
+                if num is not None:
+                    horses_lookup[num] = h
+        if not horses_lookup:
+            continue
+        for idx, num in enumerate(order[:5]):
+            horse = horses_lookup.get(num)
+            if not horse:
+                continue
+            rank = idx + 1
+            add_finish(jockey_stats, horse.get("jockey", ""), rank)
+            add_finish(trainer_stats, horse.get("trainer", ""), rank)
+
+    def build(stats: Dict[str, Dict[str, int]]):
+        out = []
+        for name, v in stats.items():
+            races_n = v["races"] or 1
+            out.append({
+                "name": name,
+                "races": v["races"],
+                "wins": v["wins"],
+                "top3": v["top3"],
+                "win_rate": round((v["wins"] / races_n) * 100, 1),
+                "top3_rate": round((v["top3"] / races_n) * 100, 1),
+            })
+        out.sort(key=lambda x: (-x["wins"], -x["top3"], -x["races"]))
+        return out
+
+    return {
+        "jockeys": build(jockey_stats),
+        "trainers": build(trainer_stats),
+    }
+
+
 # ---------- Admin ----------
 
 class SetCurrentPayload(BaseModel):

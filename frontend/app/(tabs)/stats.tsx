@@ -23,17 +23,33 @@ type Tipster = {
   top3_rate: number;
 };
 
+type Person = {
+  name: string;
+  races: number;
+  wins: number;
+  top3: number;
+  win_rate: number;
+  top3_rate: number;
+};
+
 export default function StatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
+  const [jockeys, setJockeys] = useState<Person[]>([]);
+  const [trainers, setTrainers] = useState<Person[]>([]);
+  const [peopleTab, setPeopleTab] = useState<"jockeys" | "trainers">("jockeys");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/stats/tipsters`);
-      const j = await r.json();
-      setLeaderboard(j.leaderboard || []);
+      const [tip, ppl] = await Promise.all([
+        fetch(`${API_URL}/api/stats/tipsters`).then((r) => r.json()),
+        fetch(`${API_URL}/api/stats/people`).then((r) => r.json()),
+      ]);
+      setLeaderboard(tip.leaderboard || []);
+      setJockeys(ppl.jockeys || []);
+      setTrainers(ppl.trainers || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -119,6 +135,104 @@ export default function StatsScreen() {
                   </View>
                 </View>
               ))}
+            </View>
+          )}
+        </View>
+
+        {/* People Leaderboard (jockeys / trainers) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionOverline}>Top performers</Text>
+          <Text style={styles.sectionTitle}>Jockeys & Entraîneurs</Text>
+          <Text style={styles.sectionLead}>
+            Classement basé sur les arrivées des courses archivées (top 3 et
+            victoires).
+          </Text>
+
+          <View style={styles.peopleTabs}>
+            <TouchableOpacity
+              testID="people-tab-jockeys"
+              style={styles.peopleTabBtn}
+              onPress={() => setPeopleTab("jockeys")}
+            >
+              <Text
+                style={[
+                  styles.peopleTabText,
+                  peopleTab === "jockeys" && styles.peopleTabTextActive,
+                ]}
+              >
+                Jockeys
+              </Text>
+              <View
+                style={[
+                  styles.peopleTabUnderline,
+                  peopleTab === "jockeys" && styles.peopleTabUnderlineActive,
+                ]}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="people-tab-trainers"
+              style={styles.peopleTabBtn}
+              onPress={() => setPeopleTab("trainers")}
+            >
+              <Text
+                style={[
+                  styles.peopleTabText,
+                  peopleTab === "trainers" && styles.peopleTabTextActive,
+                ]}
+              >
+                Entraîneurs
+              </Text>
+              <View
+                style={[
+                  styles.peopleTabUnderline,
+                  peopleTab === "trainers" && styles.peopleTabUnderlineActive,
+                ]}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {(peopleTab === "jockeys" ? jockeys : trainers).length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons
+                name="hourglass-outline"
+                size={28}
+                color={theme.colors.textSecondary}
+              />
+              <Text style={styles.emptyText}>
+                Aucune statistique disponible pour le moment.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.lbList}>
+              {(peopleTab === "jockeys" ? jockeys : trainers)
+                .slice(0, 8)
+                .map((p, idx) => (
+                  <View
+                    key={p.name}
+                    style={styles.lbRow}
+                    testID={`person-${peopleTab}-${idx}`}
+                  >
+                    <Text style={styles.lbRank}>#{idx + 1}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.lbSource}>{p.name}</Text>
+                      <Text style={styles.lbMeta}>
+                        {p.wins} V • {p.top3} top 3 • {p.races} courses
+                      </Text>
+                      <View style={styles.barBg}>
+                        <View
+                          style={[
+                            styles.barFill,
+                            { width: `${Math.min(p.top3_rate, 100)}%` },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.lbScoreCol}>
+                      <Text style={styles.lbScore}>{p.win_rate}%</Text>
+                      <Text style={styles.lbScoreLabel}>vict.</Text>
+                    </View>
+                  </View>
+                ))}
             </View>
           )}
         </View>
@@ -258,6 +372,24 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
   },
   barFill: { height: "100%", backgroundColor: theme.colors.gold },
+  peopleTabs: {
+    flexDirection: "row",
+    gap: 24,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  peopleTabBtn: {},
+  peopleTabText: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    color: theme.colors.textSecondary,
+    paddingBottom: 8,
+  },
+  peopleTabTextActive: { color: theme.colors.brand },
+  peopleTabUnderline: { height: 2, backgroundColor: "transparent" },
+  peopleTabUnderlineActive: { backgroundColor: theme.colors.brand },
   linkCard: {
     flexDirection: "row",
     alignItems: "center",

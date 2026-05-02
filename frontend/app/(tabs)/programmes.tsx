@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,33 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
+import { haptics } from "../../src/haptics";
+
+// French locale
+LocaleConfig.locales["fr"] = {
+  monthNames: [
+    "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre",
+  ],
+  monthNamesShort: [
+    "Janv.", "Févr.", "Mars", "Avril", "Mai", "Juin",
+    "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc.",
+  ],
+  dayNames: [
+    "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi",
+  ],
+  dayNamesShort: ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."],
+  today: "Aujourd'hui",
+};
+LocaleConfig.defaultLocale = "fr";
 
 type RaceData = {
   race: {
@@ -51,6 +73,22 @@ export default function RaceScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const markedDates = useMemo(() => {
+    const m: Record<string, any> = {};
+    programmes.forEach((p) => {
+      if (p.date_iso) {
+        m[p.date_iso] = {
+          marked: true,
+          dotColor: theme.colors.gold,
+          selected: p.race_id === selectedId,
+          selectedColor: theme.colors.brand,
+        };
+      }
+    });
+    return m;
+  }, [programmes, selectedId]);
   const router = useRouter();
 
   // Load the list of all available programmes
@@ -164,10 +202,23 @@ export default function RaceScreen() {
           <Text style={styles.mastheadDate}>{race.date}</Text>
         </View>
 
-        {/* Date picker — scroll horizontal */}
+        {/* Date picker — scroll horizontal + calendar modal */}
         {programmes.length > 0 && (
           <View style={datePicker.wrap}>
-            <Text style={datePicker.label}>Choisir une date</Text>
+            <View style={datePicker.headerRow}>
+              <Text style={datePicker.label}>Choisir une date</Text>
+              <TouchableOpacity
+                testID="open-calendar"
+                onPress={() => {
+                  haptics.selection();
+                  setCalendarOpen(true);
+                }}
+                style={datePicker.calBtn}
+              >
+                <Ionicons name="calendar-outline" size={14} color={theme.colors.brand} />
+                <Text style={datePicker.calBtnText}>Calendrier</Text>
+              </TouchableOpacity>
+            </View>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -188,7 +239,10 @@ export default function RaceScreen() {
                     testID={`date-chip-${p.race_id}`}
                     activeOpacity={0.75}
                     style={[datePicker.chip, active && datePicker.chipActive]}
-                    onPress={() => setSelectedId(p.race_id)}
+                    onPress={() => {
+                      haptics.selection();
+                      setSelectedId(p.race_id);
+                    }}
                   >
                     <Text style={[datePicker.chipDay, active && datePicker.chipDayActive]}>
                       {day}
@@ -360,6 +414,76 @@ export default function RaceScreen() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Calendar Modal */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={calendarOpen}
+        onRequestClose={() => setCalendarOpen(false)}
+      >
+        <Pressable
+          style={calendarStyles.backdrop}
+          onPress={() => setCalendarOpen(false)}
+        >
+          <Pressable
+            style={calendarStyles.card}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={calendarStyles.header}>
+              <View>
+                <Text style={calendarStyles.overline}>Calendrier</Text>
+                <Text style={calendarStyles.title}>Choisir une date</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setCalendarOpen(false)}
+                hitSlop={10}
+              >
+                <Ionicons name="close" size={22} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <Calendar
+              current={
+                programmes.find((p) => p.race_id === selectedId)?.date_iso ||
+                undefined
+              }
+              markedDates={markedDates}
+              onDayPress={(day: { dateString: string }) => {
+                const programme = programmes.find((p) => p.date_iso === day.dateString);
+                if (programme) {
+                  haptics.success();
+                  setSelectedId(programme.race_id);
+                  setCalendarOpen(false);
+                } else {
+                  haptics.warning();
+                }
+              }}
+              theme={{
+                backgroundColor: theme.colors.surface,
+                calendarBackground: theme.colors.surface,
+                textSectionTitleColor: theme.colors.gold,
+                selectedDayBackgroundColor: theme.colors.brand,
+                selectedDayTextColor: "#fff",
+                todayTextColor: theme.colors.accent,
+                dayTextColor: theme.colors.textPrimary,
+                textDisabledColor: "#CCC",
+                arrowColor: theme.colors.brand,
+                monthTextColor: theme.colors.textPrimary,
+                textMonthFontWeight: "800",
+                textDayFontWeight: "600",
+                textDayHeaderFontWeight: "700",
+                dotColor: theme.colors.gold,
+                selectedDotColor: "#fff",
+              }}
+              firstDay={1}
+            />
+            <Text style={calendarStyles.legend}>
+              <View style={calendarStyles.legendDot} />
+              {"  "}Les dates avec un point doré ont un programme disponible
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -641,13 +765,36 @@ const datePicker = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 16,
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  calBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.surface,
+  },
+  calBtnText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: theme.colors.brand,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
   label: {
     fontSize: 10,
     letterSpacing: 2,
     color: theme.colors.gold,
     fontWeight: "700",
     textTransform: "uppercase",
-    marginBottom: 10,
+    marginBottom: 0,
   },
   scroll: {
     paddingRight: 16,
@@ -754,5 +901,57 @@ const synthStyles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 2,
     textTransform: "uppercase",
+  },
+});
+
+
+const calendarStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(20, 30, 26, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 16,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  overline: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 2,
+  },
+  title: {
+    fontFamily: theme.fonts.serifBlack,
+    fontSize: 22,
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.5,
+  },
+  legend: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 12,
+    fontStyle: "italic",
+    textAlign: "center",
+  },
+  legendDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.gold,
   },
 });

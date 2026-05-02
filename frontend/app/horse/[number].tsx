@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { theme, API_URL, formatFCFA } from "../../src/theme";
+import FormHeatmap from "../../src/FormHeatmap";
 
 type HorseDetail = {
   horse: {
@@ -102,12 +103,10 @@ export default function HorseDetail() {
         {/* Stats row */}
         <View style={styles.section}>
           <Text style={styles.label}>Performances</Text>
-          <View style={styles.perfBox}>
-            <Text style={styles.perfText}>{horse.perf}</Text>
-            <Text style={styles.perfHint}>
-              Dernières courses (le plus récent à gauche)
-            </Text>
-          </View>
+          <FormHeatmap perf={horse.perf} size={36} />
+          <Text style={styles.perfHint}>
+            5 dernières courses (le plus récent à gauche) • Or = victoire, Vert = top 3, Ocre = 4-5
+          </Text>
         </View>
 
         <View style={styles.section}>
