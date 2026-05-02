@@ -406,6 +406,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   mastheadTitle: {
+    fontFamily: theme.fonts.serifBlack,
     fontSize: 42,
     fontWeight: "900",
     color: theme.colors.brand,
@@ -452,10 +453,10 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: "#fff",
-    fontSize: 28,
-    fontWeight: "800",
-    letterSpacing: -0.5,
-    lineHeight: 32,
+    fontFamily: theme.fonts.serifBlack,
+    fontSize: 30,
+    letterSpacing: -0.7,
+    lineHeight: 34,
   },
   heroMetaRow: {
     flexDirection: "row",
@@ -503,11 +504,11 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   sectionTitle: {
-    fontSize: 24,
+    fontFamily: theme.fonts.serifBlack,
+    fontSize: 26,
     color: theme.colors.textPrimary,
-    fontWeight: "800",
     marginTop: 4,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
   sectionLead: {
     fontSize: 13,

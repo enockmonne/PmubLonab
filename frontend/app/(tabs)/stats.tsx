@@ -173,6 +173,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   title: {
+    fontFamily: theme.fonts.serifBlack,
     fontSize: 28,
     fontWeight: "800",
     color: theme.colors.textPrimary,

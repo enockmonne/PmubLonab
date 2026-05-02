@@ -599,6 +599,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   authTitle: {
+    fontFamily: theme.fonts.serifBlack,
     fontSize: 26,
     fontWeight: "800",
     color: theme.colors.textPrimary,
@@ -677,6 +678,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   title: {
+    fontFamily: theme.fonts.serifBlack,
     fontSize: 28,
     fontWeight: "800",
     color: theme.colors.textPrimary,
@@ -729,6 +731,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   statValue: {
+    fontFamily: theme.fonts.serifBlack,
     fontSize: 28,
     fontWeight: "800",
     color: theme.colors.textPrimary,

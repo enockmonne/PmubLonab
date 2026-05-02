@@ -11,6 +11,14 @@ export const theme = {
     border: "#E5E3D8",
   },
   space: { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 },
+  fonts: {
+    serif: "PlayfairDisplay_700Bold",
+    serifBlack: "PlayfairDisplay_900Black",
+    serifItalic: "PlayfairDisplay_400Regular_Italic",
+    sans: "Inter_400Regular",
+    sansBold: "Inter_700Bold",
+    sansBlack: "Inter_900Black",
+  },
 };
 
 export const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;

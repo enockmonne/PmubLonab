@@ -490,10 +490,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   title: {
-    fontSize: 28,
+    fontFamily: theme.fonts.serifBlack,
+    fontSize: 32,
     color: theme.colors.textPrimary,
-    fontWeight: "800",
-    letterSpacing: -0.5,
+    letterSpacing: -0.8,
     marginTop: 2,
   },
   tabs: {

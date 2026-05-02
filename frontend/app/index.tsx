@@ -8,10 +8,13 @@ import {
   Image,
   ActivityIndicator,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL } from "../src/theme";
+
+const ONBOARDING_KEY = "pmub_onboarded_v1";
 
 type Counts = { programmes: number; resultats: number; total: number };
 
@@ -24,6 +27,21 @@ export default function Landing() {
   const router = useRouter();
   const [counts, setCounts] = useState<Counts | null>(null);
   const [loading, setLoading] = useState(true);
+  const [redirecting, setRedirecting] = useState(true);
+
+  // Check if user has seen onboarding
+  useEffect(() => {
+    (async () => {
+      try {
+        const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
+        if (!seen) {
+          router.replace("/onboarding");
+          return;
+        }
+      } catch {}
+      setRedirecting(false);
+    })();
+  }, [router]);
 
   useEffect(() => {
     (async () => {
@@ -47,6 +65,11 @@ export default function Landing() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+      {redirecting ? (
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator color={theme.colors.brand} />
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Masthead */}
         <View style={styles.masthead}>
@@ -158,6 +181,7 @@ export default function Landing() {
           Le Journal Hippique · PMU&apos;B · Burkina Faso
         </Text>
       </ScrollView>
+      )}
     </SafeAreaView>
   );
 }
@@ -181,10 +205,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   mastheadTitle: {
-    fontSize: 46,
-    fontWeight: "900",
+    fontFamily: theme.fonts.serifBlack,
+    fontSize: 52,
     color: theme.colors.brand,
-    letterSpacing: -1.5,
+    letterSpacing: -1.8,
     marginTop: 2,
   },
   mastheadRule: {
@@ -257,10 +281,10 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     color: "#fff",
-    fontSize: 34,
-    fontWeight: "900",
-    letterSpacing: -1,
-    lineHeight: 38,
+    fontFamily: theme.fonts.serifBlack,
+    fontSize: 38,
+    letterSpacing: -1.2,
+    lineHeight: 42,
   },
   cardSub: {
     color: "rgba(255,255,255,0.78)",

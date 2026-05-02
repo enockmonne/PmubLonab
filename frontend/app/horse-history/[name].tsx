@@ -165,6 +165,7 @@ const styles = StyleSheet.create({
   backText: { fontSize: 14, fontWeight: "600", color: theme.colors.brand, marginLeft: 2 },
   hero: { alignItems: "center", padding: 22, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   heroName: {
+    fontFamily: theme.fonts.serifBlack,
     fontSize: 26,
     fontWeight: "800",
     color: theme.colors.textPrimary,

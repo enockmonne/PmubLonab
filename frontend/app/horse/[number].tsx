@@ -228,6 +228,7 @@ const styles = StyleSheet.create({
   },
   heroNumText: { color: "#fff", fontSize: 30, fontWeight: "900" },
   heroName: {
+    fontFamily: theme.fonts.serifBlack,
     fontSize: 26,
     fontWeight: "800",
     color: theme.colors.textPrimary,
@@ -312,6 +313,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   consensusScore: {
+    fontFamily: theme.fonts.serifBlack,
     fontSize: 32,
     fontWeight: "900",
     color: theme.colors.gold,

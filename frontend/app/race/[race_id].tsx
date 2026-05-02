@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: "uppercase",
   },
-  heroTitle: { color: "#fff", fontSize: 22, fontWeight: "800", marginTop: 4, letterSpacing: -0.4 },
+  heroTitle: { color: "#fff", fontFamily: theme.fonts.serifBlack, fontSize: 26, marginTop: 4, letterSpacing: -0.6 },
   heroMeta: { color: "#fff", fontSize: 12, marginTop: 4 },
   statsGrid: {
     flexDirection: "row",
