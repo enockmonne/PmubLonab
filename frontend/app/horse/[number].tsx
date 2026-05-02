@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { theme, API_URL, formatFCFA } from "../../src/theme";
 import FormHeatmap from "../../src/FormHeatmap";
+import PerformanceChart from "../../src/PerformanceChart";
 
 type HorseDetail = {
   horse: {
@@ -107,6 +108,12 @@ export default function HorseDetail() {
           <Text style={styles.perfHint}>
             5 dernières courses (le plus récent à gauche) • Or = victoire, Vert = top 3, Ocre = 4-5
           </Text>
+        </View>
+
+        {/* Trend chart */}
+        <View style={styles.section}>
+          <Text style={styles.label}>Évolution</Text>
+          <PerformanceChart perf={horse.perf} />
         </View>
 
         <View style={styles.section}>

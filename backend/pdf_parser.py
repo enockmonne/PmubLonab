@@ -43,7 +43,10 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
       "sex": "M | F | H",
       "perf": "string",
       "gains_fcfa": int,
-      "commentary": "string"
+      "commentary": "string",
+      "history": [
+        { "date": "string (DD/MM/YY ou YYYY-MM-DD)", "location": "string (hippodrome)", "position": int (place d'arrivée 1-99, 0 si non placé), "distance": "string (ex: '2400m')", "jockey": "string", "discipline": "string (Plat/Trot/Obstacle)" }
+      ]
     }
   ],
   "predictions": [
@@ -82,6 +85,7 @@ Règles strictes :
 - Si une donnée manque, utilise 0 pour les int, "" pour les string, [] pour les listes.
 - Les "picks" et les classifications "Forme", "Classe", "Progrès", "Régularité", "Favoris" ne contiennent QUE des numéros de cheval présents dans horses (entiers).
 - ATTENTION : "Entraîneurs en forme" et "Jockeys en forme" contiennent des OBJETS {"name": string, "stat": string}, PAS de numéros de chevaux. Extrait le nom tel qu'affiché dans la rubrique (ex. "A. Fabre") et les statistiques associées si présentes (ex. "12 vict. / 60 part. (20%)", ou "8 vict. / 40 mtes (20%)" pour les jockeys). Si aucune stat n'est disponible, mets "stat": "". Nettoie la casse des noms (ex. "A.FABRE" → "A. Fabre").
+- IMPORTANT : pour chaque cheval, remplis "history" avec TOUTES les courses précédentes listées dans la rubrique du cheval (souvent un tableau ou liste de dates+positions+lieux). Inclus le maximum d'éléments (jusqu'à 10). Position = chiffre de l'arrivée (1 si gagnant, 2 si 2e, etc.). Met 0 si le cheval n'était pas placé. Si aucune course passée n'est listée, mets "history": [].
 - Nettoie les poids ('60.KG' → '60 kg') et les noms ('A.POUCHIN' → 'A. Pouchin').
 - date_iso au format YYYY-MM-DD. Si le PDF a '20/04/2026' → '2026-04-20'.
 - Pour les rapports F CFA : extrais les montants en entier (pas d'espaces). Exemple : '591 000' → 591000.
