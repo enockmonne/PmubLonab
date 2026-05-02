@@ -98,6 +98,8 @@ export const Admin = {
     fd.append('file', file);
     return api.post<{ ok: boolean; race_id: string }>('/admin/races/upload', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      // PDF parsing via LLM can take 2-3 minutes per file. Override default timeout.
+      timeout: 300000, // 5 min
       onUploadProgress: (evt) => {
         if (onProgress && evt.total) onProgress(Math.round((evt.loaded / evt.total) * 100));
       },
