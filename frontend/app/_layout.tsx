@@ -54,7 +54,6 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="admin" />
         <Stack.Screen name="resultats" />
         <Stack.Screen name="search" />
         <Stack.Screen name="compare" />

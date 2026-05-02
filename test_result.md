@@ -179,6 +179,18 @@ frontend:
         - working: "NA"
           agent: "main"
           comment: "Shows 4 stats cards (Courses, Course du jour, Dernier upload, Clé LLM), upload card, races list with View/Set-current/Delete actions. FadeInDown animations."
+  - task: "Admin Web (séparée): Vite + React + Tailwind, JWT, montée sur /api/admin-ui/"
+    implemented: true
+    working: true
+    file: "/app/admin-web/* + /app/backend/server.py (StaticFiles mount + SPA fallback)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+        - working: true
+          agent: "main"
+          comment: "Nouvelle webapp standalone (Vite/React/TS/Tailwind) pour l'admin avec layout Sidebar + TopBar style Linear/Notion. Pages: Login, Dashboard, Upload (drag&drop multi-PDF), Courses (table + filtres + activer/supprimer), Annonces (CRUD), Activité (logs), Paramètres (changer mdp). Token JWT stocké en localStorage. API client axios. Build mounté sur /api/admin-ui/ via FastAPI StaticFiles + route catch-all pour SPA fallback. Onglet admin retiré de l'app mobile (admin.tsx déplacé en _archived/)."
+
 
 metadata:
   created_by: "main_agent"

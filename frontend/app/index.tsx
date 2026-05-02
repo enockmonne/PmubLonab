@@ -177,14 +177,6 @@ export default function Landing() {
             <Ionicons name="search" size={18} color={theme.colors.brand} />
             <Text style={styles.secBtnText}>Rechercher un cheval, jockey...</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            testID="landing-admin"
-            style={styles.secBtn}
-            onPress={() => router.push("/admin")}
-          >
-            <Ionicons name="lock-closed-outline" size={18} color={theme.colors.gold} />
-            <Text style={styles.secBtnText}>Espace admin</Text>
-          </TouchableOpacity>
         </View>
 
         <Text style={styles.footer}>

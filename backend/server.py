@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Header, Query
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Header, Query, Request
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -857,6 +859,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ---------- Admin Web (static SPA preview) ----------
+# Serve the built Vite admin app at /api/admin-ui/.
+# This is for in-environment preview only; production deployments should host
+# the dist/ folder on Vercel/Netlify/etc. with VITE_BASE=/ at build time.
+ADMIN_WEB_DIST = ROOT_DIR.parent / "admin-web" / "dist"
+if ADMIN_WEB_DIST.exists():
+    app.mount(
+        "/api/admin-ui/assets",
+        StaticFiles(directory=str(ADMIN_WEB_DIST / "assets")),
+        name="admin-web-assets",
+    )
+
+    @app.get("/api/admin-ui/{full_path:path}", include_in_schema=False)
+    async def serve_admin_spa(full_path: str):
+        # Try to serve a real file first (e.g. favicon, manifest)
+        candidate = ADMIN_WEB_DIST / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        # Fallback to index.html for client-side routing
+        return FileResponse(ADMIN_WEB_DIST / "index.html")
+
+    logger.info(f"Admin Web mounted at /api/admin-ui from {ADMIN_WEB_DIST}")
+else:
+    logger.warning(f"Admin Web dist not found at {ADMIN_WEB_DIST} (run `cd admin-web && yarn build`)")
 
 
 @app.on_event("shutdown")
