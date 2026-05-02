@@ -59,6 +59,21 @@ export default function AdminScreen() {
 
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    total: number;
+    done: number;
+    current: string;
+  } | null>(null);
+
+  // Announcements (AD3)
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [annText, setAnnText] = useState("");
+  const [annLevel, setAnnLevel] = useState<"info" | "warning" | "success" | "error">("info");
+  const [annLoading, setAnnLoading] = useState(false);
+
+  // Logs (AD4)
+  const [logs, setLogs] = useState<any[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   const router = useRouter();
 
@@ -128,12 +143,43 @@ export default function AdminScreen() {
     }
   }, []);
 
+  const loadAnnouncements = useCallback(async () => {
+    if (!token) return;
+    try {
+      const r = await fetch(`${API_URL}/api/admin/announcements`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j = await r.json();
+      setAnnouncements(j.announcements || []);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [token]);
+
+  const loadLogs = useCallback(async () => {
+    if (!token) return;
+    setLogsLoading(true);
+    try {
+      const r = await fetch(`${API_URL}/api/admin/logs?limit=20`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j = await r.json();
+      setLogs(j.logs || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLogsLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     if (token) {
       loadStatus();
       loadRaces();
+      loadAnnouncements();
+      loadLogs();
     }
-  }, [token, loadStatus, loadRaces]);
+  }, [token, loadStatus, loadRaces, loadAnnouncements, loadLogs]);
 
   const tryLogin = async () => {
     haptics.light();
@@ -174,44 +220,97 @@ export default function AdminScreen() {
     try {
       const picked = await DocumentPicker.getDocumentAsync({
         type: "application/pdf",
-        multiple: false,
+        multiple: true,
         copyToCacheDirectory: true,
       });
-      if (picked.canceled || !picked.assets?.[0]) return;
-      const asset = picked.assets[0];
+      if (picked.canceled || !picked.assets?.length) return;
+      const assets = picked.assets;
 
       setUploading(true);
       setUploadMsg(null);
+      setUploadProgress({ total: assets.length, done: 0, current: assets[0].name || "" });
 
-      const form = new FormData();
-      if (asset.file) {
-        form.append("file", asset.file as any);
-      } else {
-        form.append("file", {
-          uri: asset.uri,
-          name: asset.name || "race.pdf",
-          type: "application/pdf",
-        } as any);
+      const successes: string[] = [];
+      const failures: { name: string; reason: string }[] = [];
+
+      for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
+        setUploadProgress({ total: assets.length, done: i, current: asset.name || `Fichier ${i + 1}` });
+        try {
+          const form = new FormData();
+          if (asset.file) {
+            form.append("file", asset.file as any);
+          } else {
+            form.append("file", {
+              uri: asset.uri,
+              name: asset.name || "race.pdf",
+              type: "application/pdf",
+            } as any);
+          }
+          const r = await fetch(`${API_URL}/api/admin/races/upload`, {
+            method: "POST",
+            headers: { ...authHeaders() },
+            body: form,
+          });
+          const j = await r.json();
+          if (r.ok) {
+            successes.push(j.summary?.name || asset.name || "");
+          } else {
+            failures.push({ name: asset.name || `#${i + 1}`, reason: j.detail || "Erreur" });
+          }
+        } catch (e: any) {
+          failures.push({ name: asset.name || `#${i + 1}`, reason: e?.message || "Erreur" });
+        }
       }
 
-      const r = await fetch(`${API_URL}/api/admin/races/upload`, {
-        method: "POST",
-        headers: { ...authHeaders() },
-        body: form,
-      });
-      const j = await r.json();
-      if (!r.ok) {
-        setUploadMsg(`❌ ${j.detail || "Erreur"}`);
-      } else {
-        setUploadMsg(`✅ Importé : ${j.summary.name} (${j.summary.horses_parsed} chevaux)`);
-        loadStatus();
-        loadRaces();
+      setUploadProgress({ total: assets.length, done: assets.length, current: "" });
+
+      let msg = "";
+      if (successes.length) msg += `✅ ${successes.length} importé(s)`;
+      if (failures.length) {
+        if (msg) msg += " — ";
+        msg += `❌ ${failures.length} échec(s) : ${failures.map((f) => f.name).join(", ")}`;
       }
+      setUploadMsg(msg || "Aucun fichier traité");
+      loadStatus();
+      loadRaces();
+      loadLogs();
     } catch (e: any) {
       setUploadMsg(`❌ ${e?.message || "Erreur"}`);
     } finally {
       setUploading(false);
+      setTimeout(() => setUploadProgress(null), 1500);
     }
+  };
+
+  // Announcements
+  const createAnnouncement = async () => {
+    if (!annText.trim()) return;
+    setAnnLoading(true);
+    try {
+      const r = await fetch(`${API_URL}/api/admin/announcements`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ message: annText.trim(), level: annLevel, active: true }),
+      });
+      if (r.ok) {
+        setAnnText("");
+        loadAnnouncements();
+        loadLogs();
+      }
+    } catch {}
+    setAnnLoading(false);
+  };
+
+  const deleteAnnouncement = async (id: string) => {
+    try {
+      await fetch(`${API_URL}/api/admin/announcements/${id}`, {
+        method: "DELETE",
+        headers: { ...authHeaders() },
+      });
+      loadAnnouncements();
+      loadLogs();
+    } catch {}
   };
 
   const setCurrent = async (race_id: string) => {
@@ -469,8 +568,8 @@ export default function AdminScreen() {
         >
           <Text style={styles.cardTitle}>Importer un PDF</Text>
           <Text style={styles.cardSub}>
-            Le fichier sera parsé automatiquement par l&apos;IA. Programmes et
-            résultats sont reconnus automatiquement.
+            Sélectionnez un ou plusieurs PDFs (programmes ou résultats). Le
+            parsing IA est séquentiel, comptez ~30s par fichier.
           </Text>
           <TouchableOpacity
             testID="admin-upload"
@@ -480,9 +579,30 @@ export default function AdminScreen() {
           >
             <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
             <Text style={styles.primaryBtnText}>
-              {uploading ? "Parsing en cours..." : "Choisir un fichier PDF"}
+              {uploading ? "Parsing en cours..." : "Choisir des PDFs"}
             </Text>
           </TouchableOpacity>
+
+          {uploadProgress && (
+            <View style={styles.progressWrap}>
+              <View style={styles.progressBg}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: `${
+                        (uploadProgress.done / Math.max(uploadProgress.total, 1)) * 100
+                      }%`,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.progressText}>
+                {uploadProgress.done}/{uploadProgress.total} • {uploadProgress.current}
+              </Text>
+            </View>
+          )}
+
           {uploadMsg && (
             <Text
               style={[
@@ -493,6 +613,144 @@ export default function AdminScreen() {
             >
               {uploadMsg}
             </Text>
+          )}
+        </Animated.View>
+
+        {/* AD3 — Announcements */}
+        <Animated.View
+          entering={FadeInDown.duration(350).delay(280)}
+          style={styles.card}
+        >
+          <Text style={styles.cardTitle}>Annonces</Text>
+          <Text style={styles.cardSub}>
+            Affichez un message en haut de la landing pour tous les utilisateurs.
+            Une seule annonce active à la fois.
+          </Text>
+          <TextInput
+            testID="ann-text"
+            style={styles.fieldInput}
+            value={annText}
+            onChangeText={setAnnText}
+            placeholder="Votre message…"
+            placeholderTextColor={theme.colors.textSecondary}
+            multiline
+          />
+          <View style={styles.levelRow}>
+            {(["info", "success", "warning", "error"] as const).map((lvl) => (
+              <TouchableOpacity
+                key={lvl}
+                onPress={() => setAnnLevel(lvl)}
+                style={[styles.levelChip, annLevel === lvl && styles.levelChipActive]}
+              >
+                <Text
+                  style={[
+                    styles.levelChipText,
+                    annLevel === lvl && styles.levelChipTextActive,
+                  ]}
+                >
+                  {lvl}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <TouchableOpacity
+            testID="ann-publish"
+            disabled={annLoading || !annText.trim()}
+            style={[
+              styles.primaryBtn,
+              { marginTop: 8 },
+              (annLoading || !annText.trim()) && { opacity: 0.5 },
+            ]}
+            onPress={createAnnouncement}
+          >
+            <Ionicons name="megaphone-outline" size={16} color="#fff" />
+            <Text style={styles.primaryBtnText}>Publier l&apos;annonce</Text>
+          </TouchableOpacity>
+          {announcements.length > 0 && (
+            <View style={{ marginTop: 12 }}>
+              {announcements.slice(0, 4).map((a) => (
+                <View
+                  key={a.id}
+                  style={[
+                    styles.annRow,
+                    a.active && styles.annRowActive,
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.annMessage} numberOfLines={2}>
+                      {a.message}
+                    </Text>
+                    <Text style={styles.annMeta}>
+                      {a.active ? "● ACTIVE" : "○ inactive"} • {a.level}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => deleteAnnouncement(a.id)}
+                    style={styles.actionBtn}
+                  >
+                    <Ionicons name="trash-outline" size={14} color={theme.colors.accent} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </Animated.View>
+
+        {/* AD4 — Activity logs */}
+        <Animated.View
+          entering={FadeInDown.duration(350).delay(320)}
+          style={styles.card}
+        >
+          <Text style={styles.cardTitle}>Activité récente</Text>
+          <Text style={styles.cardSub}>
+            Historique des dernières 20 actions admin (login, uploads, modifications).
+          </Text>
+          {logsLoading ? (
+            <ActivityIndicator color={theme.colors.brand} style={{ marginTop: 8 }} />
+          ) : (
+            <View style={{ marginTop: 8 }}>
+              {logs.slice(0, 12).map((l, i) => (
+                <View key={l.id || i} style={styles.logRow}>
+                  <View style={styles.logIcon}>
+                    <Ionicons
+                      name={
+                        l.action === "auth.login"
+                          ? "log-in-outline"
+                          : l.action.startsWith("race.upload")
+                          ? "cloud-upload-outline"
+                          : l.action.startsWith("race.delete")
+                          ? "trash-outline"
+                          : l.action.startsWith("race.set_current")
+                          ? "star-outline"
+                          : l.action.startsWith("announcement.")
+                          ? "megaphone-outline"
+                          : "ellipse"
+                      }
+                      size={14}
+                      color={theme.colors.brand}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.logAction}>{l.action}</Text>
+                    <Text style={styles.logMeta} numberOfLines={1}>
+                      {l.email} • {formatDate(l.created_at)}
+                    </Text>
+                    {l.meta && Object.keys(l.meta).length > 0 && (
+                      <Text style={styles.logExtra} numberOfLines={1}>
+                        {Object.entries(l.meta)
+                          .map(([k, v]) => `${k}: ${typeof v === "string" ? v.slice(0, 40) : v}`)
+                          .join(" · ")}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              ))}
+              {logs.length === 0 && (
+                <Text style={{ fontSize: 12, color: theme.colors.textSecondary, marginTop: 6 }}>
+                  Aucune activité.
+                </Text>
+              )}
+            </View>
           )}
         </Animated.View>
 
@@ -801,6 +1059,115 @@ const styles = StyleSheet.create({
   },
   uploadMsgOk: { color: "#16A34A" },
   uploadMsgErr: { color: theme.colors.accent },
+  progressWrap: {
+    marginTop: 12,
+  },
+  progressBg: {
+    height: 6,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: theme.colors.gold,
+  },
+  progressText: {
+    marginTop: 6,
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    fontWeight: "600",
+  },
+  levelRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 10,
+    flexWrap: "wrap",
+  },
+  levelChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  levelChipActive: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  levelChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  levelChipTextActive: {
+    color: "#fff",
+  },
+  annRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+    alignItems: "center",
+  },
+  annRowActive: {
+    backgroundColor: "rgba(176, 141, 87, 0.06)",
+    borderLeftWidth: 3,
+    borderLeftColor: theme.colors.gold,
+    paddingLeft: 8,
+  },
+  annMessage: {
+    fontSize: 12.5,
+    color: theme.colors.textPrimary,
+    fontWeight: "600",
+    lineHeight: 17,
+  },
+  annMeta: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    fontWeight: "700",
+  },
+  logRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingVertical: 8,
+    alignItems: "flex-start",
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  logIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  logAction: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    letterSpacing: 0.3,
+  },
+  logMeta: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    marginTop: 1,
+  },
+  logExtra: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    marginTop: 2,
+    fontStyle: "italic",
+  },
 
   racesList: { paddingHorizontal: 16, marginTop: 8 },
   raceItem: {

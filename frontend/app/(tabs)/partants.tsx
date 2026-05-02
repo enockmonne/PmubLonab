@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import { theme, API_URL, formatFCFA } from "../../src/theme";
 import { haptics } from "../../src/haptics";
 import HorseLoader from "../../src/HorseLoader";
+import { HorseListSkeleton } from "../../src/Skeleton";
 
 type Horse = {
   number: number;
@@ -143,11 +144,9 @@ export default function PartantsScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator
-          style={{ marginTop: 40 }}
-          color={theme.colors.brand}
-          testID="partants-loading"
-        />
+        <View testID="partants-loading">
+          <HorseListSkeleton count={6} />
+        </View>
       ) : (
         <FlatList
           testID="horses-list"

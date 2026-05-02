@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL } from "../src/theme";
 import ArrestCountdown from "../src/ArrestCountdown";
+import AnnouncementBanner from "../src/AnnouncementBanner";
 
 const ONBOARDING_KEY = "pmub_onboarded_v1";
 
@@ -83,9 +84,12 @@ export default function Landing() {
         </View>
 
         {/* Live countdown */}
-        <View style={{ paddingHorizontal: 20, marginTop: 4, marginBottom: 16 }}>
+        <View style={{ paddingHorizontal: 20, marginTop: 4, marginBottom: 4 }}>
           <ArrestCountdown variant="full" />
         </View>
+
+        {/* Announcement banner */}
+        <AnnouncementBanner />
 
         {/* Two CTAs */}
         <View style={styles.cards}>

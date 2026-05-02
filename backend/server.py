@@ -190,6 +190,7 @@ async def auth_login(payload: LoginPayload):
         {"_id": user["_id"]},
         {"$set": {"last_login_at": datetime.now(timezone.utc)}},
     )
+    await _log_admin_action(email, "auth.login", {})
     token = create_access_token({"email": email, "role": user.get("role", "admin")})
     return {
         "token": token,
@@ -234,6 +235,96 @@ def check_admin(passcode: Optional[str]):
 @api_router.get("/")
 async def root():
     return {"message": "Le Journal Hippique — PMU'B API", "ok": True}
+
+
+# ---------- Announcements (AD3) ----------
+
+class AnnouncementPayload(BaseModel):
+    message: str
+    level: Optional[str] = "info"  # info | success | warning | error
+    active: Optional[bool] = True
+
+
+@api_router.get("/announcements/active")
+async def get_active_announcement():
+    """Public endpoint: returns the most recent active announcement, or null."""
+    doc = await db.announcements.find_one(
+        {"active": True}, sort=[("created_at", -1)], projection={"_id": 0}
+    )
+    return {"announcement": doc}
+
+
+@api_router.get("/admin/announcements")
+async def list_announcements(
+    authorization: Optional[str] = Header(None),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    items = await db.announcements.find({}, projection={"_id": 0}).sort("created_at", -1).to_list(length=50)
+    return {"announcements": items}
+
+
+@api_router.post("/admin/announcements")
+async def create_announcement(
+    payload: AnnouncementPayload,
+    authorization: Optional[str] = Header(None),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    doc = {
+        "id": str(uuid.uuid4()),
+        "message": payload.message.strip(),
+        "level": payload.level or "info",
+        "active": bool(payload.active),
+        "created_at": datetime.now(timezone.utc),
+        "created_by": me.get("email"),
+    }
+    # Deactivate any other active announcement (single banner at a time)
+    if doc["active"]:
+        await db.announcements.update_many({"active": True}, {"$set": {"active": False}})
+    await db.announcements.insert_one(doc)
+    await _log_admin_action(me.get("email"), "announcement.create", {"id": doc["id"], "message": doc["message"]})
+    return {"ok": True, "announcement": {k: v for k, v in doc.items() if k != "_id"}}
+
+
+@api_router.delete("/admin/announcements/{ann_id}")
+async def delete_announcement(
+    ann_id: str,
+    authorization: Optional[str] = Header(None),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    res = await db.announcements.delete_one({"id": ann_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Annonce introuvable")
+    await _log_admin_action(me.get("email"), "announcement.delete", {"id": ann_id})
+    return {"ok": True}
+
+
+# ---------- Admin Activity Logs (AD4) ----------
+
+async def _log_admin_action(email: Optional[str], action: str, meta: Optional[dict] = None):
+    try:
+        await db.admin_logs.insert_one({
+            "id": str(uuid.uuid4()),
+            "email": email or "unknown",
+            "action": action,
+            "meta": meta or {},
+            "created_at": datetime.now(timezone.utc),
+        })
+    except Exception as e:
+        logger.warning("log fail: %s", e)
+
+
+@api_router.get("/admin/logs")
+async def list_admin_logs(
+    limit: int = 50,
+    authorization: Optional[str] = Header(None),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    items = await db.admin_logs.find({}, projection={"_id": 0}).sort("created_at", -1).to_list(length=min(limit, 200))
+    return {"logs": items}
 
 
 async def _get_current_race_doc() -> Optional[dict]:
@@ -610,7 +701,7 @@ async def admin_upload_race(
     x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
     authorization: Optional[str] = Header(None),
 ):
-    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Veuillez fournir un fichier .pdf")
     pdf_bytes = await file.read()
@@ -623,6 +714,7 @@ async def admin_upload_race(
         raise HTTPException(status_code=422, detail=f"Erreur de parsing: {e}")
     doc = build_race_doc(parsed)
     await db.races.insert_one(doc)
+    await _log_admin_action(me.get("email"), "race.upload", {"race_id": doc["race_id"], "name": doc["name"], "doc_type": doc.get("doc_type")})
     return {"ok": True, "race_id": doc["race_id"], "summary": {
         "name": doc["name"], "location": doc["location"], "date": doc["date_text"],
         "runners": doc["runners"], "horses_parsed": len(doc["horses"]),
@@ -635,12 +727,13 @@ async def admin_set_current(
     x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
     authorization: Optional[str] = Header(None),
 ):
-    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
     doc = await db.races.find_one({"race_id": race_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Course introuvable")
     await db.races.update_many({}, {"$set": {"is_current": False}})
     await db.races.update_one({"race_id": race_id}, {"$set": {"is_current": True}})
+    await _log_admin_action(me.get("email"), "race.set_current", {"race_id": race_id, "name": doc.get("name")})
     return {"ok": True, "race_id": race_id}
 
 
@@ -650,8 +743,12 @@ async def admin_delete_race(
     x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
     authorization: Optional[str] = Header(None),
 ):
-    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
     res = await db.races.delete_one({"race_id": race_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Course introuvable")
+    await _log_admin_action(me.get("email"), "race.delete", {"race_id": race_id})
+    return {"ok": True}
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Course introuvable")
     return {"ok": True}
