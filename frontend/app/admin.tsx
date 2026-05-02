@@ -18,6 +18,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import { theme, API_URL } from "../src/theme";
+import { haptics } from "../src/haptics";
+import HorseLoader from "../src/HorseLoader";
 
 const TOKEN_KEY = "pmub_admin_token";
 const EMAIL_KEY = "pmub_admin_email";
@@ -134,6 +136,7 @@ export default function AdminScreen() {
   }, [token, loadStatus, loadRaces]);
 
   const tryLogin = async () => {
+    haptics.light();
     setAuthLoading(true);
     setAuthError(null);
     try {
@@ -144,14 +147,17 @@ export default function AdminScreen() {
       });
       const j = await r.json();
       if (!r.ok) {
+        haptics.error();
         setAuthError(j.detail || "Identifiants invalides");
         return;
       }
+      haptics.success();
       await AsyncStorage.setItem(TOKEN_KEY, j.token);
       await AsyncStorage.setItem(EMAIL_KEY, email.trim().toLowerCase());
       setToken(j.token);
       setPassword("");
     } catch {
+      haptics.error();
       setAuthError("Erreur réseau");
     } finally {
       setAuthLoading(false);
@@ -265,7 +271,7 @@ export default function AdminScreen() {
   if (bootChecking) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator color={theme.colors.brand} />
+        <HorseLoader size={48} label="Vérification…" />
       </View>
     );
   }

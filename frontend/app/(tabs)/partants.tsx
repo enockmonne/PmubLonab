@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL, formatFCFA } from "../../src/theme";
+import { haptics } from "../../src/haptics";
+import HorseLoader from "../../src/HorseLoader";
 
 type Horse = {
   number: number;
@@ -118,6 +120,7 @@ export default function PartantsScreen() {
         <TouchableOpacity
           testID="toggle-compare"
           onPress={() => {
+            haptics.medium();
             setCompareMode((v) => !v);
             setSelected([]);
           }}
@@ -170,6 +173,7 @@ export default function PartantsScreen() {
                 style={[styles.row, isSelected && styles.rowSelected]}
                 onPress={() => {
                   if (compareMode) {
+                    haptics.selection();
                     setSelected((cur) =>
                       cur.includes(item.number)
                         ? cur.filter((n) => n !== item.number)
@@ -254,6 +258,7 @@ export default function PartantsScreen() {
               selected.length < 2 && { opacity: 0.4 },
             ]}
             onPress={() => {
+              haptics.success();
               router.push(`/compare?ids=${selected.join(",")}`);
             }}
           >

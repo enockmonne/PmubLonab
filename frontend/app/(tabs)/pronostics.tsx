@@ -10,11 +10,14 @@ import {
   Modal,
   Pressable,
 } from "react-native";
-import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import Animated, { FadeInDown, FadeIn, runOnJS } from "react-native-reanimated";
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { theme, API_URL } from "../../src/theme";
+import HorseLoader from "../../src/HorseLoader";
+import { haptics } from "../../src/haptics";
 
 type ExpertPred = { source: string; picks: number[] };
 type Consensus = { number: number; score: number; appearances: number };
@@ -93,12 +96,34 @@ export default function PronosticsScreen() {
   if (loading || !data) {
     return (
       <View style={styles.loader} testID="pronostics-loading">
-        <ActivityIndicator color={theme.colors.brand} />
+        <HorseLoader size={48} label="Chargement…" />
       </View>
     );
   }
 
   const maxScore = Math.max(...data.consensus.map((c) => c.score));
+
+  const TAB_ORDER: Tab[] = ["consensus", "experts", "aptitudes", "classement"];
+
+  const goToTabByDelta = (delta: number) => {
+    const idx = TAB_ORDER.indexOf(tab);
+    const next = Math.max(0, Math.min(TAB_ORDER.length - 1, idx + delta));
+    if (next !== idx) {
+      haptics.selection();
+      setTab(TAB_ORDER[next]);
+    }
+  };
+
+  // Horizontal pan to switch tabs
+  const swipeGesture = Gesture.Pan()
+    .activeOffsetX([-20, 20])
+    .failOffsetY([-15, 15])
+    .onEnd((e) => {
+      if (Math.abs(e.translationX) > 60 && Math.abs(e.velocityX) > 250) {
+        const delta = e.translationX < 0 ? 1 : -1;
+        runOnJS(goToTabByDelta)(delta);
+      }
+    });
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -120,7 +145,10 @@ export default function PronosticsScreen() {
             key={t.k}
             testID={`tab-${t.k}`}
             style={styles.tabBtn}
-            onPress={() => setTab(t.k)}
+            onPress={() => {
+              haptics.selection();
+              setTab(t.k);
+            }}
           >
             <Text style={[styles.tabText, tab === t.k && styles.tabTextActive]}>
               {t.label}
@@ -132,6 +160,7 @@ export default function PronosticsScreen() {
         ))}
       </View>
 
+      <GestureDetector gesture={swipeGesture}>
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         refreshControl={
@@ -393,6 +422,7 @@ export default function PronosticsScreen() {
           </View>
         )}
       </ScrollView>
+      </GestureDetector>
 
       {/* ---- Modal : Chevaux de l'entraîneur / jockey ---- */}
       <Modal

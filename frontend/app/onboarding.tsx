@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme } from "../src/theme";
+import { haptics } from "../src/haptics";
 
 const ONBOARDING_KEY = "pmub_onboarded_v1";
 
@@ -65,6 +66,7 @@ export default function Onboarding() {
   const listRef = useRef<FlatList<Slide>>(null);
 
   const finish = async () => {
+    haptics.success();
     try {
       await AsyncStorage.setItem(ONBOARDING_KEY, "1");
     } catch {}
@@ -73,6 +75,7 @@ export default function Onboarding() {
 
   const goNext = () => {
     if (index < slides.length - 1) {
+      haptics.selection();
       listRef.current?.scrollToIndex({ index: index + 1, animated: true });
       setIndex(index + 1);
     } else {
