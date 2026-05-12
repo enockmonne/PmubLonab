@@ -3,7 +3,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = "https://data-mobile-hub-2.preview.emergentagent.com"
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:8001").rstrip("/")
 
 
 @pytest.fixture(scope="module")

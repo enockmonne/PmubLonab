@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
   Modal,

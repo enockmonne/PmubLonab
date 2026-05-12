@@ -4,8 +4,8 @@ import io
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://data-mobile-hub-2.preview.emergentagent.com").rstrip("/")
-ADMIN_PASSCODE = "pmub-admin-2026"
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "http://localhost:8001").rstrip("/")
+ADMIN_PASSCODE = os.environ.get("ADMIN_PASSCODE")
 SEED_RACE_ID = "prix-pavillon-royal-2026-04-12"
 
 
@@ -147,6 +147,8 @@ class TestTipsters:
 # -------- Admin --------
 class TestAdmin:
     def test_verify_ok(self, api):
+        if not ADMIN_PASSCODE:
+            pytest.skip("ADMIN_PASSCODE is not configured")
         r = api.post(f"{BASE_URL}/api/admin/verify",
                      headers={"X-Admin-Passcode": ADMIN_PASSCODE}, timeout=30)
         assert r.status_code == 200
@@ -168,6 +170,8 @@ class TestAdmin:
         assert r.status_code == 401
 
     def test_upload_non_pdf_400(self, api):
+        if not ADMIN_PASSCODE:
+            pytest.skip("ADMIN_PASSCODE is not configured")
         files = {"file": ("dummy.txt", io.BytesIO(b"hello world"), "text/plain")}
         r = api.post(f"{BASE_URL}/api/admin/races/upload",
                      files=files,
@@ -175,11 +179,15 @@ class TestAdmin:
         assert r.status_code == 400
 
     def test_set_current_unknown_404(self, api):
+        if not ADMIN_PASSCODE:
+            pytest.skip("ADMIN_PASSCODE is not configured")
         r = api.post(f"{BASE_URL}/api/admin/races/unknown-race-xyz/set-current",
                      headers={"X-Admin-Passcode": ADMIN_PASSCODE}, timeout=30)
         assert r.status_code == 404
 
     def test_set_current_valid(self, api):
+        if not ADMIN_PASSCODE:
+            pytest.skip("ADMIN_PASSCODE is not configured")
         # set seeded race as current; verify /api/race reflects it
         r = api.post(f"{BASE_URL}/api/admin/races/{SEED_RACE_ID}/set-current",
                      headers={"X-Admin-Passcode": ADMIN_PASSCODE}, timeout=30)
@@ -196,6 +204,8 @@ class TestAdmin:
         assert r.status_code == 401
 
     def test_delete_unknown_404(self, api):
+        if not ADMIN_PASSCODE:
+            pytest.skip("ADMIN_PASSCODE is not configured")
         r = api.delete(f"{BASE_URL}/api/admin/races/unknown-race-xyz",
                        headers={"X-Admin-Passcode": ADMIN_PASSCODE}, timeout=30)
         assert r.status_code == 404

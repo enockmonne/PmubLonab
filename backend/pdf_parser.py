@@ -1,13 +1,16 @@
-"""PDF → structured race JSON via Claude Sonnet 4.5 (Emergent LLM Key)."""
+"""PDF -> structured race JSON via direct Gemini API."""
+import asyncio
 import json
 import os
 import re
 from typing import Any, Dict
 
 import pdfplumber
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+import requests
 
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_TIMEOUT_SECONDS = int(os.environ.get("GEMINI_TIMEOUT_SECONDS", "180"))
 
 EXTRACT_SYSTEM_PROMPT = """Tu es un expert en extraction de données depuis des publications françaises de courses hippiques (PMU'B / Le Journal Hippique).
 
@@ -112,10 +115,10 @@ def _strip_fences(s: str) -> str:
 
 
 async def parse_pdf_to_race(pdf_bytes: bytes, session_id: str) -> Dict[str, Any]:
-    """Parse a PDF to structured race data using Claude Sonnet 4.5."""
-    api_key = os.environ.get("EMERGENT_LLM_KEY", "")
+    """Parse a PDF to structured race data using Gemini."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
-        raise ValueError("EMERGENT_LLM_KEY non configurée côté serveur.")
+        raise ValueError("GEMINI_API_KEY non configuree cote serveur.")
 
     raw_text = extract_pdf_text(pdf_bytes)
     if not raw_text.strip():
@@ -125,15 +128,13 @@ async def parse_pdf_to_race(pdf_bytes: bytes, session_id: str) -> Dict[str, Any]
     if len(raw_text) > 40000:
         raw_text = raw_text[:40000]
 
-    chat = LlmChat(
+    response_text = await _send_gemini_prompt(
         api_key=api_key,
-        session_id=session_id,
-        system_message=EXTRACT_SYSTEM_PROMPT,
-    ).with_model("gemini", "gemini-2.5-flash")
+        model=os.environ.get("GEMINI_MODEL", GEMINI_MODEL),
+        prompt=f"{EXTRACT_SYSTEM_PROMPT}\n\nVoici le texte du PDF a parser :\n\n{raw_text}",
+    )
 
-    msg = UserMessage(text=f"Voici le texte du PDF à parser :\n\n{raw_text}")
-    response = await chat.send_message(msg)
-    cleaned = _strip_fences(str(response))
+    cleaned = _strip_fences(response_text)
 
     try:
         data = json.loads(cleaned)
@@ -145,3 +146,75 @@ async def parse_pdf_to_race(pdf_bytes: bytes, session_id: str) -> Dict[str, Any]
         data = json.loads(match.group(0))
 
     return data
+
+
+async def check_llm_health() -> Dict[str, Any]:
+    """Return a lightweight Gemini health status for the admin dashboard."""
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return {"status": "error", "error": "GEMINI_API_KEY non configuree."}
+
+    try:
+        response_text = await _send_gemini_prompt(
+            api_key=api_key,
+            model=os.environ.get("GEMINI_MODEL", GEMINI_MODEL),
+            prompt="Reponds uniquement avec: ok",
+            timeout_seconds=30,
+            response_mime_type="text/plain",
+        )
+        return {"status": "ok" if response_text.strip() else "error", "error": None}
+    except Exception as e:
+        return {"status": "error", "error": str(e)[:200]}
+
+
+async def _send_gemini_prompt(
+    api_key: str,
+    model: str,
+    prompt: str,
+    timeout_seconds: int = GEMINI_TIMEOUT_SECONDS,
+    response_mime_type: str = "application/json",
+) -> str:
+    return await asyncio.to_thread(
+        _send_gemini_prompt_sync,
+        api_key,
+        model,
+        prompt,
+        timeout_seconds,
+        response_mime_type,
+    )
+
+
+def _send_gemini_prompt_sync(
+    api_key: str,
+    model: str,
+    prompt: str,
+    timeout_seconds: int,
+    response_mime_type: str,
+) -> str:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": prompt}],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0,
+            "responseMimeType": response_mime_type,
+        },
+    }
+    response = requests.post(
+        url,
+        params={"key": api_key},
+        json=payload,
+        timeout=timeout_seconds,
+    )
+    if response.status_code >= 400:
+        raise ValueError(f"Gemini API error {response.status_code}: {response.text[:500]}")
+
+    body = response.json()
+    try:
+        return body["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise ValueError(f"Gemini response missing text: {body}") from e

@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
-import Svg, { Line, Circle, Rect, G, Text as SvgText, Path } from "react-native-svg";
+import Svg, { Line, Circle, G, Text as SvgText, Path } from "react-native-svg";
 import { theme } from "./theme";
 
 type Props = {

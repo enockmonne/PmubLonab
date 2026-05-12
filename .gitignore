@@ -18,6 +18,7 @@ node_modules/
 
 # Testing
 /coverage
+.pytest_cache/
 
 # Next.js
 /.next/
@@ -41,6 +42,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 dump.rdb
+backend-test-*.log
+backend-test-*.pid
+backend-test-job.id
 
 # System files
 .DS_Store
@@ -51,6 +55,7 @@ __pycache__/
 *pyc*
 venv/
 .venv/
+.python-backend/
 
 # Development tools
 chainlit.md
@@ -75,6 +80,9 @@ agenthub/agents/youtube/db
 
 # Build caches
 .cache/
+.metro-cache/
+frontend/.metro-cache/
+.emergent/
 
 memory/test_credentials.md
 
@@ -84,6 +92,7 @@ android-sdk/-e
 .env
 .env.*
 *.env
+!.env.example
 credentials.json
 *.pem
 *.key

@@ -40,9 +40,9 @@ def _load_backend_url() -> str:
 
 BASE = _load_backend_url()
 API = f"{BASE}/api"
-EMAIL = "enockmoonne.admin@pmub.app"
-PASSWORD = "@Unlimited86"
-LEGACY_PASSCODE = "pmub-admin-2026"
+EMAIL = os.environ.get("ADMIN_EMAIL", "")
+PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+LEGACY_PASSCODE = os.environ.get("ADMIN_PASSCODE", "")
 
 results = []  # (name, passed, details)
 

@@ -188,8 +188,6 @@ export default function Landing() {
   );
 }
 
-const landingStyles = StyleSheet.create({ _: {} });
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
   scroll: { paddingBottom: 24 },

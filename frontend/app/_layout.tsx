@@ -14,8 +14,11 @@ import {
   Inter_700Bold,
   Inter_900Black,
 } from "@expo-google-fonts/inter";
+import { usePushRegistration } from "../src/push";
 
 export default function RootLayout() {
+  usePushRegistration();
+
   const [serifLoaded] = usePlayfair({
     PlayfairDisplay_400Regular_Italic,
     PlayfairDisplay_700Bold,

@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Compile backend modules
+        run: python -m py_compile backend/server.py backend/auth.py backend/pdf_parser.py
+
+      - name: Run API tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          MONGO_URL: mongodb://localhost:27017
+          DB_NAME: pmub_ci
+          APP_ENV: test
+          JWT_SECRET: test-secret
+          ADMIN_EMAIL: admin@example.com
+          ADMIN_PASSWORD: test-password-change-me
+          ADMIN_PASSCODE: test-passcode-change-me
+          CORS_ORIGINS: http://localhost:8081,http://localhost:5173
+          EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8002
+        run: |
+          cd backend
+          python -m uvicorn server:app --host 127.0.0.1 --port 8002 &
+          api_pid=$!
+          trap 'kill "$api_pid"' EXIT
+          cd ..
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8002/api/races >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          python -m pytest backend/tests
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: frontend/yarn.lock
+
+      - name: Install dependencies
+        run: corepack yarn install --frozen-lockfile
+
+      - name: Lint
+        run: corepack yarn lint
+
+      - name: Typecheck
+        run: corepack yarn tsc --noEmit
+
+  admin-web:
+    name: Admin web build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: admin-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build

@@ -5,16 +5,14 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   TextInput,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL, formatFCFA } from "../../src/theme";
+import { theme, API_URL } from "../../src/theme";
 import { haptics } from "../../src/haptics";
-import HorseLoader from "../../src/HorseLoader";
 import { HorseListSkeleton } from "../../src/Skeleton";
 
 type Horse = {
@@ -481,5 +479,3 @@ const styles = StyleSheet.create({
   },
 });
 
-// suppress unused import warning
-void formatFCFA;
