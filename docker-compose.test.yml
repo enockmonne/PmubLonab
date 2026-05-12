@@ -1,0 +1,26 @@
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - "27018:27017"
+    tmpfs:
+      - /data/db
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      APP_ENV: test
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: pmub_test
+      JWT_SECRET: test-only-change-me
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: test-password-change-me
+      ADMIN_PASSCODE: test-passcode-change-me
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      CORS_ORIGINS: http://localhost:8081,http://localhost:5173
+    ports:
+      - "8002:8001"
+    depends_on:
+      - mongo

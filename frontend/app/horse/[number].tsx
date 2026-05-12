@@ -14,7 +14,7 @@ import { theme, API_URL, formatFCFA } from "../../src/theme";
 import FormHeatmap from "../../src/FormHeatmap";
 import PerformanceChart from "../../src/PerformanceChart";
 
-type HorseDetail = {
+type HorseDetailData = {
   horse: {
     number: number;
     name: string;
@@ -36,7 +36,7 @@ type HorseDetail = {
 export default function HorseDetail() {
   const { number } = useLocalSearchParams<{ number: string }>();
   const router = useRouter();
-  const [data, setData] = useState<HorseDetail | null>(null);
+  const [data, setData] = useState<HorseDetailData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {

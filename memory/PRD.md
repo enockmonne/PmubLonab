@@ -41,7 +41,7 @@ Application mobile éditoriale premium (React Native / Expo Router) digitalisant
 
 ### PDF Parser (`pdf_parser.py`)
 - `pdfplumber` extrait le texte.
-- **Gemini 2.5 Flash** via Emergent LLM Key (`emergentintegrations`) extrait un JSON strict selon un schéma défini (race, horses[16], predictions[], classifications{}, previous_results{}).
+- **Gemini 2.5 Flash** via `GEMINI_API_KEY` extrait un JSON strict selon un schéma défini (race, horses[16], predictions[], classifications{}, previous_results{}).
 - Robuste aux variations de mise en page — l'LLM s'adapte.
 
 ## Design (inchangé)
@@ -57,4 +57,4 @@ Swiss & High-Contrast + Editorial Old Money Tech : vert `#0A2E1A`, or `#B08D57`,
 - Tests frontend des 5 onglets non rejoués (fonctionnent d'après screenshots).
 
 ## Notes
-- ⚠️ La clé Emergent LLM était épuisée au moment du test (`$0.455 / $0.40`). Utilisateur doit recharger via Profile → Universal Key → Add Balance pour activer le parsing PDF en production. Le reste de l'app fonctionne sans la clé.
+- ⚠️ Le parsing PDF nécessite une clé Gemini valide côté backend (`GEMINI_API_KEY`). Le reste de l'app fonctionne sans la clé.

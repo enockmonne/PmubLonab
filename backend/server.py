@@ -1,6 +1,7 @@
 import os
 import re
 import uuid
+import asyncio
 import logging
 import unicodedata
 from datetime import datetime, timezone
@@ -14,6 +15,7 @@ from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel
+import requests
 
 from race_data import (
     RACE_INFO,
@@ -23,7 +25,7 @@ from race_data import (
     PREVIOUS_RESULTS,
     BETTING_INFO,
 )
-from pdf_parser import parse_pdf_to_race
+from pdf_parser import parse_pdf_to_race, check_llm_health
 from auth import (
     require_admin,
     create_access_token,
@@ -38,13 +40,20 @@ load_dotenv(ROOT_DIR / '.env')
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
-ADMIN_PASSCODE = os.environ.get("ADMIN_PASSCODE", "pmub-admin-2026")
+ADMIN_PASSCODE = os.environ.get("ADMIN_PASSCODE")
 
 app = FastAPI(title="Le Journal Hippique API")
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+def _cors_origins() -> List[str]:
+    raw = os.environ.get("CORS_ORIGINS", "")
+    if not raw:
+        return ["http://localhost:8081", "http://localhost:5173"]
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
 # ---------- Helpers ----------
@@ -130,6 +139,55 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     return doc
 
 
+async def _send_push_messages(messages: List[dict]) -> Dict[str, Any]:
+    """Send messages through Expo Push Service without blocking the event loop."""
+    if not messages:
+        return {"sent": 0, "tickets": []}
+
+    def _post():
+        res = requests.post(
+            "https://exp.host/--/api/v2/push/send",
+            json=messages,
+            headers={
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip, deflate",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
+        if res.status_code >= 400:
+            raise ValueError(f"Expo push error {res.status_code}: {res.text[:300]}")
+        return res.json()
+
+    body = await asyncio.to_thread(_post)
+    return {"sent": len(messages), "tickets": body.get("data", [])}
+
+
+async def _send_push_to_topic(
+    topic: str,
+    title: str,
+    body: str,
+    data: Optional[dict] = None,
+) -> Dict[str, Any]:
+    cursor = db.push_tokens.find(
+        {"enabled": True, "topics": topic},
+        {"_id": 0, "token": 1},
+    ).limit(500)
+    docs = await cursor.to_list(length=500)
+    messages = [
+        {
+            "to": doc["token"],
+            "sound": "default",
+            "title": title,
+            "body": body,
+            "data": data or {},
+        }
+        for doc in docs
+        if doc.get("token", "").startswith("ExponentPushToken[")
+    ]
+    return await _send_push_messages(messages)
+
+
 # ---------- Seeding ----------
 
 async def seed_initial_race():
@@ -163,9 +221,21 @@ async def seed_initial_race():
     logger.info("Seeded initial race: %s", RACE_INFO["id"])
 
 
+async def ensure_indexes():
+    await db.races.create_index("race_id", unique=True)
+    await db.races.create_index([("date_iso", -1)])
+    await db.races.create_index("doc_type")
+    await db.races.create_index("is_current")
+    await db.favorites.create_index([("device_id", 1), ("race_id", 1), ("horse_number", 1)], unique=True)
+    await db.push_tokens.create_index("token", unique=True)
+    await db.push_tokens.create_index("device_id")
+    await db.push_tokens.create_index("topics")
+
+
 @app.on_event("startup")
 async def on_startup():
-    logger.info("EMERGENT_LLM_KEY configured: %s (len=%d)", bool(os.environ.get("EMERGENT_LLM_KEY")), len(os.environ.get("EMERGENT_LLM_KEY", "")))
+    logger.info("GEMINI_API_KEY configured: %s", bool(os.environ.get("GEMINI_API_KEY")))
+    await ensure_indexes()
     await seed_initial_race()
     await ensure_seed_admin(db)
 
@@ -245,6 +315,7 @@ class AnnouncementPayload(BaseModel):
     message: str
     level: Optional[str] = "info"  # info | success | warning | error
     active: Optional[bool] = True
+    notify: Optional[bool] = False
 
 
 @api_router.get("/announcements/active")
@@ -286,6 +357,13 @@ async def create_announcement(
         await db.announcements.update_many({"active": True}, {"$set": {"active": False}})
     await db.announcements.insert_one(doc)
     await _log_admin_action(me.get("email"), "announcement.create", {"id": doc["id"], "message": doc["message"]})
+    if payload.notify and doc["active"]:
+        asyncio.create_task(_send_push_to_topic(
+            "announcements",
+            "PMU'B",
+            doc["message"],
+            {"type": "announcement", "id": doc["id"]},
+        ))
     return {"ok": True, "announcement": {k: v for k, v in doc.items() if k != "_id"}}
 
 
@@ -415,6 +493,86 @@ async def get_results():
     if not doc:
         return {"previous": {}}
     return {"previous": doc.get("previous_results", {})}
+
+
+# ---------- Push notifications ----------
+
+class PushTokenPayload(BaseModel):
+    token: str
+    device_id: str
+    platform: Optional[str] = None
+    topics: Optional[List[str]] = None
+
+
+class PushPreferencesPayload(BaseModel):
+    device_id: str
+    enabled: bool = True
+    topics: Optional[List[str]] = None
+
+
+class AdminPushPayload(BaseModel):
+    title: str
+    body: str
+    topic: Optional[str] = "race_updates"
+    data: Optional[Dict[str, Any]] = None
+
+
+DEFAULT_PUSH_TOPICS = ["race_updates", "results", "announcements"]
+
+
+@api_router.post("/push/register")
+async def register_push_token(payload: PushTokenPayload):
+    token = payload.token.strip()
+    if not token.startswith("ExponentPushToken["):
+        raise HTTPException(status_code=400, detail="Token Expo invalide")
+    topics = payload.topics or DEFAULT_PUSH_TOPICS
+    doc = {
+        "token": token,
+        "device_id": payload.device_id.strip(),
+        "platform": payload.platform or "",
+        "topics": sorted(set(topics)),
+        "enabled": True,
+        "updated_at": datetime.now(timezone.utc),
+    }
+    await db.push_tokens.update_one(
+        {"token": token},
+        {"$set": doc, "$setOnInsert": {"created_at": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
+    return {"ok": True, "topics": doc["topics"]}
+
+
+@api_router.post("/push/preferences")
+async def update_push_preferences(payload: PushPreferencesPayload):
+    topics = sorted(set(payload.topics or DEFAULT_PUSH_TOPICS))
+    res = await db.push_tokens.update_many(
+        {"device_id": payload.device_id.strip()},
+        {
+            "$set": {
+                "enabled": bool(payload.enabled),
+                "topics": topics,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        },
+    )
+    return {"ok": True, "matched": res.matched_count, "topics": topics}
+
+
+@api_router.post("/admin/notifications/send")
+async def admin_send_notification(
+    payload: AdminPushPayload,
+    authorization: Optional[str] = Header(None),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    result = await _send_push_to_topic(
+        payload.topic or "race_updates",
+        payload.title.strip(),
+        payload.body.strip(),
+        payload.data or {},
+    )
+    await _log_admin_action(me.get("email"), "notification.send", {"topic": payload.topic, "sent": result["sent"]})
+    return {"ok": True, **result}
 
 
 # ---------- Races library ----------
@@ -736,6 +894,12 @@ async def admin_set_current(
     await db.races.update_many({}, {"$set": {"is_current": False}})
     await db.races.update_one({"race_id": race_id}, {"$set": {"is_current": True}})
     await _log_admin_action(me.get("email"), "race.set_current", {"race_id": race_id, "name": doc.get("name")})
+    asyncio.create_task(_send_push_to_topic(
+        "race_updates",
+        "Nouvelle course disponible",
+        doc.get("name") or "Le programme a ete mis a jour.",
+        {"type": "race", "race_id": race_id},
+    ))
     return {"ok": True, "race_id": race_id}
 
 
@@ -776,21 +940,8 @@ async def admin_status(
     current = await db.races.find_one({"is_current": True}, {"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "location": 1})
     last = await db.races.find_one({}, sort=[("created_at", -1)], projection={"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "created_at": 1, "doc_type": 1})
 
-    # LLM key health: try a tiny ping
-    llm_status = "unknown"
-    llm_error: Optional[str] = None
-    try:
-        from emergentintegrations.llm.chat import LlmChat, UserMessage
-        chat = LlmChat(
-            api_key=os.environ.get("EMERGENT_LLM_KEY", ""),
-            session_id=f"healthcheck-{uuid.uuid4().hex[:6]}",
-            system_message="Health check.",
-        ).with_model("gemini", "gemini-2.5-flash")
-        await chat.send_message(UserMessage(text="ok"))
-        llm_status = "ok"
-    except Exception as e:
-        llm_status = "error"
-        llm_error = str(e)[:200]
+    # LLM key health: try a tiny direct Gemini ping.
+    llm_health = await check_llm_health()
 
     # Admin user info
     admin_user = await db.admin_users.find_one(
@@ -807,8 +958,8 @@ async def admin_status(
         "current_race": current,
         "last_upload": last,
         "llm": {
-            "status": llm_status,
-            "error": llm_error,
+            "status": llm_health["status"],
+            "error": llm_health["error"],
         },
         "admin": admin_user or {"email": me.get("email"), "role": me.get("role")},
     }
@@ -855,7 +1006,7 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )

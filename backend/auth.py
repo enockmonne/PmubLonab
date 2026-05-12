@@ -30,6 +30,8 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def _jwt_secret() -> str:
     secret = os.environ.get("JWT_SECRET")
+    if os.environ.get("APP_ENV") == "production" and not secret:
+        raise RuntimeError("JWT_SECRET must be configured in production.")
     if not secret:
         # Generate a deterministic-ish secret based on Mongo DB name as fallback.
         # In production, ALWAYS set JWT_SECRET in .env.
@@ -78,7 +80,7 @@ async def require_admin(
         return {"email": user["email"], "role": user.get("role", "admin")}
 
     # Legacy fallback
-    legacy_passcode = os.environ.get("ADMIN_PASSCODE", "pmub-admin-2026")
+    legacy_passcode = os.environ.get("ADMIN_PASSCODE")
     if x_admin_passcode and x_admin_passcode == legacy_passcode:
         return {"email": "legacy@pmub.app", "role": "admin"}
 

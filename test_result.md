@@ -153,7 +153,7 @@ backend:
           comment: "Returns stats (total/programmes/results), current_race, last_upload, llm.status (live ping to gemini-2.5-flash), admin info. Requires JWT or legacy passcode."
         - working: true
           agent: "testing"
-          comment: "All 3 admin/status scenarios passed. With Bearer JWT: 200, payload has stats={total_races:4, programmes:3, results:1}, current_race, last_upload, llm={status:'ok', error:null}, admin={email:enockmoonne.admin@pmub.app, role:admin, created_at, last_login_at}. With X-Admin-Passcode: 200 same shape (admin shows legacy@pmub.app fallback identity). Without auth: 401. LLM live ping to gemini-2.5-flash returned 'ok' — emergent key is healthy."
+    comment: "All 3 admin/status scenarios passed. With Bearer JWT: 200, payload has stats={total_races:4, programmes:3, results:1}, current_race, last_upload, llm={status:'ok', error:null}, admin={email:enockmoonne.admin@pmub.app, role:admin, created_at, last_login_at}. With X-Admin-Passcode: 200 same shape (admin shows legacy@pmub.app fallback identity). Without auth: 401. LLM live ping to gemini-2.5-flash returned 'ok'."
 
 frontend:
   - task: "Admin email/password login screen + JWT storage in AsyncStorage"
