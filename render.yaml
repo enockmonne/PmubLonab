@@ -29,6 +29,8 @@ services:
         value: gemini-2.5-flash
       - key: GEMINI_TIMEOUT_SECONDS
         value: "180"
+      - key: PORT
+        value: "10000"
       - key: CORS_ORIGINS
         value: https://pmublonab-staging-web.onrender.com,https://pmublonab-staging-admin.onrender.com,http://localhost:8081,http://localhost:5173
 
@@ -39,6 +41,8 @@ services:
     staticPublishPath: ./frontend/dist
     autoDeployTrigger: checksPass
     envVars:
+      - key: NODE_VERSION
+        value: "22"
       - key: EXPO_PUBLIC_BACKEND_URL
         value: https://pmublonab-staging-api.onrender.com
       - key: EXPO_PUBLIC_APP_ENV
@@ -57,6 +61,8 @@ services:
     staticPublishPath: ./admin-web/dist
     autoDeployTrigger: checksPass
     envVars:
+      - key: NODE_VERSION
+        value: "22"
       - key: VITE_API_URL
         value: https://pmublonab-staging-api.onrender.com
       - key: VITE_BASE
