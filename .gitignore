@@ -45,6 +45,7 @@ dump.rdb
 backend-test-*.log
 backend-test-*.pid
 backend-test-job.id
+*-dev-server.log
 
 # System files
 .DS_Store

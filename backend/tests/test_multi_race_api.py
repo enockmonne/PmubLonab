@@ -37,6 +37,16 @@ class TestRacesList:
         assert all("pavillon" in (x.get("name", "") + x.get("location", "") + x.get("race_id", "")).lower()
                    for x in data["races"])
 
+    def test_list_filter_has_results(self, api):
+        r = api.get(f"{BASE_URL}/api/races", params={"has_results": "true"}, timeout=30)
+        assert r.status_code == 200
+        data = r.json()
+        assert data["total"] >= 1
+        seeded = next((x for x in data["races"] if x["race_id"] == SEED_RACE_ID), None)
+        assert seeded is not None, "seeded race with previous results not found"
+        assert seeded["has_results"] is True
+        assert seeded["finishing_order"][:5] == [4, 14, 3, 9, 16]
+
 
 # -------- /api/races/{id} and /api/races/current --------
 class TestRaceDetail:

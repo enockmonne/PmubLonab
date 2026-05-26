@@ -596,6 +596,7 @@ async def list_races(
     q: Optional[str] = None,
     location: Optional[str] = None,
     doc_type: Optional[str] = None,
+    has_results: Optional[bool] = None,
     limit: int = Query(20, ge=1, le=500),
     skip: int = Query(0, ge=0),
 ):
@@ -607,6 +608,10 @@ async def list_races(
         query["location"] = {"$regex": re.escape(location), "$options": "i"}
     if doc_type in ("programme", "result"):
         query["doc_type"] = doc_type
+    if has_results is True:
+        query["previous_results.finishing_order.0"] = {"$exists": True}
+    elif has_results is False:
+        query["previous_results.finishing_order.0"] = {"$exists": False}
     total = await db.races.count_documents(query)
     cursor = db.races.find(query, {"_id": 0}).sort("date_iso", -1).skip(skip).limit(limit)
     races = await cursor.to_list(length=limit)

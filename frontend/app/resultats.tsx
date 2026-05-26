@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  Linking,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
@@ -11,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL, formatFCFA } from "../src/theme";
+import { theme, API_URL, ADMIN_WEB_URL, formatFCFA } from "../src/theme";
 
 type ResultRace = {
   race_id: string;
@@ -34,7 +35,7 @@ export default function ResultatsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/races?doc_type=result&limit=100`);
+      const r = await fetch(`${API_URL}/api/races?has_results=true&limit=100`);
       const j = await r.json();
       setRaces(j.races || []);
     } catch (e) {
@@ -69,7 +70,7 @@ export default function ResultatsScreen() {
         <Text style={styles.lead}>
           Ordre d&apos;arrivée officiel et rapports (Ordre, Désordre, Bonus,
           Couplé, Tiercé, Quarté+, Quinté+) en F CFA. Données importées depuis
-          les PDF de résultats.
+          les PDF de courses ou de résultats.
         </Text>
       </View>
 
@@ -96,13 +97,13 @@ export default function ResultatsScreen() {
               <Ionicons name="trophy-outline" size={36} color={theme.colors.gold} />
               <Text style={styles.emptyTitle}>Aucun résultat publié</Text>
               <Text style={styles.emptyText}>
-                Les PDF de résultats (QUARTE+, TIERCE, QUINTE+...) importés via
-                l&apos;admin apparaîtront ici.
+                Les résultats présents dans les PDF de courses ou les PDF de
+                résultats importés via l&apos;admin apparaîtront ici.
               </Text>
               <TouchableOpacity
                 testID="go-admin-empty"
                 style={styles.adminBtn}
-                onPress={() => router.push("/admin")}
+                onPress={() => Linking.openURL(ADMIN_WEB_URL)}
               >
                 <Ionicons name="lock-closed-outline" size={16} color="#fff" />
                 <Text style={styles.adminBtnText}>Espace admin</Text>

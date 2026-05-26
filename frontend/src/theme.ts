@@ -22,6 +22,8 @@ export const theme = {
 };
 
 export const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+export const ADMIN_WEB_URL =
+  process.env.EXPO_PUBLIC_ADMIN_WEB_URL || "https://pmublonab-staging-admin.onrender.com";
 
 export const formatFCFA = (n: number) => {
   if (!n && n !== 0) return "-";
