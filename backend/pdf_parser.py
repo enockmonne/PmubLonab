@@ -69,6 +69,13 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
     "Outsiders": [int, ...],
     "Gros outsiders": [int, ...]
   },
+  "betting": {
+    "arret_jeux_weekday": "string (ex: '11h 45mn', laisse '' si absent)",
+    "arret_jeux_weekend": "string (ex: '13h 05mn', laisse '' si absent)",
+    "arret_jeux_nocturne": "string (ex: '18h 05mn', laisse '' si absent)",
+    "daylight_saving_note": "string (note officielle sur le changement d'heure ou les horaires d'arret des jeux, laisse '' si absent)",
+    "customer_service": "string (telephone/service client si present, laisse '' si absent)"
+  },
   "previous_results": {
     "date": "string",
     "race_name": "string",
@@ -91,6 +98,7 @@ Règles strictes :
 - IMPORTANT : pour chaque cheval, remplis "history" avec TOUTES les courses précédentes listées dans la rubrique du cheval (souvent un tableau ou liste de dates+positions+lieux). Inclus le maximum d'éléments (jusqu'à 10). Position = chiffre de l'arrivée (1 si gagnant, 2 si 2e, etc.). Met 0 si le cheval n'était pas placé. Si aucune course passée n'est listée, mets "history": [].
 - Nettoie les poids ('60.KG' → '60 kg') et les noms ('A.POUCHIN' → 'A. Pouchin').
 - date_iso au format YYYY-MM-DD. Si le PDF a '20/04/2026' → '2026-04-20'.
+- IMPORTANT : extrais la section "Arret des jeux" / horaires PMU'B / note officielle de changement d'heure dans "betting". Si le PDF mentionne des jours ouvrables (lundi-vendredi), week-end (samedi/dimanche) ou course nocturne, remplis les champs correspondants. Ne copie pas d'horaires depuis un exemple si le PDF ne les contient pas.
 - Pour les rapports F CFA : extrais les montants en entier (pas d'espaces). Exemple : '591 000' → 591000.
 """
 
