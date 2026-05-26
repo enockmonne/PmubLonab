@@ -114,7 +114,12 @@ export default function ResultatsScreen() {
             <TouchableOpacity
               testID={`result-card-${item.race_id}`}
               style={styles.card}
-              onPress={() => router.push(`/race/${item.race_id}`)}
+              onPress={() =>
+                router.push({
+                  pathname: "/race/[race_id]",
+                  params: { race_id: item.race_id, from: "resultats" },
+                })
+              }
             >
               <View style={styles.cardTop}>
                 <View style={styles.badge}>
