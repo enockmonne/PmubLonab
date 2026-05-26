@@ -98,6 +98,18 @@ def enrich_race(doc: dict) -> dict:
     return {**doc, "horses": enriched_horses, "consensus": consensus}
 
 
+def normalize_betting(raw: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
+    """Return a complete betting footer, falling back to the original race data."""
+    raw = raw or {}
+    return {
+        "arret_jeux_weekday": str(raw.get("arret_jeux_weekday") or BETTING_INFO.get("arret_jeux_weekday", "")),
+        "arret_jeux_weekend": str(raw.get("arret_jeux_weekend") or BETTING_INFO.get("arret_jeux_weekend", "")),
+        "arret_jeux_nocturne": str(raw.get("arret_jeux_nocturne") or BETTING_INFO.get("arret_jeux_nocturne", "")),
+        "daylight_saving_note": str(raw.get("daylight_saving_note") or BETTING_INFO.get("daylight_saving_note", "")),
+        "customer_service": str(raw.get("customer_service") or BETTING_INFO.get("customer_service", "")),
+    }
+
+
 def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a parsed LLM output into a race document."""
     race = parsed.get("race") or {}
@@ -132,6 +144,7 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "predictions": parsed.get("predictions", []) or [],
         "classifications": parsed.get("classifications", {}) or {},
         "classement": parsed.get("classement", {}) or {},
+        "betting": normalize_betting(parsed.get("betting") or {}),
         "previous_results": prev,
         "is_current": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -213,6 +226,7 @@ async def seed_initial_race():
         "horses": HORSES,
         "predictions": EXPERT_PREDICTIONS,
         "classifications": CLASSIFICATIONS,
+        "betting": normalize_betting(BETTING_INFO),
         "previous_results": PREVIOUS_RESULTS,
         "is_current": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -436,7 +450,7 @@ async def get_current_race():
             "hero_image": enriched["hero_image"],
             "editorial_synthesis": enriched.get("editorial_synthesis", ""),
         },
-        "betting": BETTING_INFO,
+        "betting": normalize_betting(enriched.get("betting") or {}),
         "top_picks": enriched["consensus"][:3],
     }
 
@@ -625,7 +639,8 @@ async def get_current_race_full():
     doc = await _get_current_race_doc()
     if not doc:
         raise HTTPException(status_code=404, detail="Aucune course actuelle")
-    return enrich_race(doc)
+    enriched = enrich_race(doc)
+    return {**enriched, "betting": normalize_betting(enriched.get("betting") or {})}
 
 
 @api_router.get("/races/{race_id}")
@@ -633,7 +648,8 @@ async def get_race_by_id(race_id: str):
     doc = await db.races.find_one({"race_id": race_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Course introuvable")
-    return enrich_race(doc)
+    enriched = enrich_race(doc)
+    return {**enriched, "betting": normalize_betting(enriched.get("betting") or {})}
 
 
 # ---------- Search ----------

@@ -52,8 +52,11 @@ type RaceData = {
     editorial_synthesis?: string;
   };
   betting: {
+    arret_jeux_weekday: string;
     arret_jeux_weekend: string;
+    arret_jeux_nocturne: string;
     daylight_saving_note: string;
+    customer_service?: string;
   };
   top_picks: { number: number; score: number; appearances: number }[];
 };
@@ -112,36 +115,31 @@ export default function RaceScreen() {
     try {
       const r = await fetch(`${API_URL}/api/races/${raceId}`);
       const full = await r.json();
-      // also fetch /api/race for consistent shape (top_picks + betting) when it's the current
-      const isCurrent = programmes.find((p) => p.race_id === raceId)?.is_current;
-      let adapted: RaceData;
-      if (isCurrent) {
-        const cur = await fetch(`${API_URL}/api/race`).then((x) => x.json());
-        adapted = cur;
-      } else {
-        const top = (full.consensus || []).slice(0, 3);
-        adapted = {
-          race: {
-            id: full.race_id,
-            name: full.name,
-            event_type: full.event_type,
-            date: full.date_text,
-            location: full.location,
-            discipline: full.discipline,
-            distance_m: full.distance_m,
-            runners: full.runners,
-            prize_euros: full.prize_euros,
-            prize_fcfa: full.prize_fcfa,
-            hero_image: full.hero_image,
-            editorial_synthesis: full.editorial_synthesis || "",
-          },
-          betting: {
-            arret_jeux_weekend: "13h 05mn",
-            daylight_saving_note: "",
-          },
-          top_picks: top,
-        };
-      }
+      const top = (full.consensus || []).slice(0, 3);
+      const adapted: RaceData = {
+        race: {
+          id: full.race_id,
+          name: full.name,
+          event_type: full.event_type,
+          date: full.date_text,
+          location: full.location,
+          discipline: full.discipline,
+          distance_m: full.distance_m,
+          runners: full.runners,
+          prize_euros: full.prize_euros,
+          prize_fcfa: full.prize_fcfa,
+          hero_image: full.hero_image,
+          editorial_synthesis: full.editorial_synthesis || "",
+        },
+        betting: {
+          arret_jeux_weekday: full.betting?.arret_jeux_weekday || "11h 45mn",
+          arret_jeux_weekend: full.betting?.arret_jeux_weekend || "13h 05mn",
+          arret_jeux_nocturne: full.betting?.arret_jeux_nocturne || "18h 05mn",
+          daylight_saving_note: full.betting?.daylight_saving_note || "",
+          customer_service: full.betting?.customer_service || "",
+        },
+        top_picks: top,
+      };
       setData(adapted);
     } catch (e) {
       console.error(e);
@@ -149,7 +147,7 @@ export default function RaceScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [programmes]);
+  }, []);
 
   useEffect(() => {
     loadProgrammes();
@@ -177,9 +175,6 @@ export default function RaceScreen() {
   }
 
   const { race, betting, top_picks } = data;
-  const isCurrentRace = !!programmes.find(
-    (p) => p.race_id === selectedId && p.is_current
-  );
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -353,8 +348,7 @@ export default function RaceScreen() {
           </View>
         </View>
 
-        {/* Betting info — uniquement pour la course courante */}
-        {isCurrentRace && (
+        {/* Betting info */}
         <View style={styles.section}>
           <Text style={styles.sectionOverline}>Arrêt des jeux</Text>
           <View style={styles.infoCard}>
@@ -367,10 +361,6 @@ export default function RaceScreen() {
               Dimanche — {betting.arret_jeux_weekend}
             </Text>
           </View>
-          {!!betting.daylight_saving_note && (
-            <Text style={styles.daylightNote}>{betting.daylight_saving_note}</Text>
-          )}
-
           {/* Official information banner */}
           <View style={styles.infoBanner}>
             <View style={styles.infoBannerHeader}>
@@ -382,12 +372,16 @@ export default function RaceScreen() {
               <Text style={styles.infoBannerTitle}>Information</Text>
             </View>
             <Text style={styles.infoBannerBody}>
+              {betting.daylight_saving_note ? betting.daylight_saving_note : (
+                <>
               Le passage de l’heure d’hiver à l’heure d’été («&nbsp;GMT+1&nbsp;» à
               «&nbsp;GMT+2&nbsp;») en France interviendra dans la nuit du samedi
               28 au dimanche 29 mars 2026. En conséquence, les heures d’arrêt
               de jeu PMU’B sont revues ainsi qu’il suit dans toutes les
               représentations de la LONAB, à compter du dimanche 29 mars 2026
               et ce, jusqu’à nouvel ordre :
+                </>
+              )}
             </Text>
 
             <View style={styles.scheduleCard}>
@@ -395,22 +389,21 @@ export default function RaceScreen() {
                 <Text style={styles.scheduleDay}>
                   Lundi, Mardi, Mercredi, Jeudi et Vendredi
                 </Text>
-                <Text style={styles.scheduleTime}>11h 45mn</Text>
+                <Text style={styles.scheduleTime}>{betting.arret_jeux_weekday}</Text>
               </View>
               <View style={styles.scheduleDivider} />
               <View style={styles.scheduleRow}>
                 <Text style={styles.scheduleDay}>Samedi et Dimanche</Text>
-                <Text style={styles.scheduleTime}>13h 05mn</Text>
+                <Text style={styles.scheduleTime}>{betting.arret_jeux_weekend}</Text>
               </View>
               <View style={styles.scheduleDivider} />
               <View style={styles.scheduleRow}>
                 <Text style={styles.scheduleDay}>Course nocturne</Text>
-                <Text style={styles.scheduleTime}>18h 05mn</Text>
+                <Text style={styles.scheduleTime}>{betting.arret_jeux_nocturne}</Text>
               </View>
             </View>
           </View>
         </View>
-        )}
 
         <View style={{ height: 32 }} />
       </ScrollView>
