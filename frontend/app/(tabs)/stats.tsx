@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  Linking,
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
@@ -11,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL } from "../../src/theme";
+import { theme, API_URL, ADMIN_WEB_URL } from "../../src/theme";
 
 type Tipster = {
   source: string;
@@ -259,7 +260,7 @@ export default function StatsScreen() {
           <TouchableOpacity
             testID="go-admin"
             style={styles.linkCard}
-            onPress={() => router.push("/admin")}
+            onPress={() => Linking.openURL(ADMIN_WEB_URL)}
           >
             <Ionicons name="lock-closed-outline" size={20} color={theme.colors.gold} />
             <View style={{ flex: 1 }}>
