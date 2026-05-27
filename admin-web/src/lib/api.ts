@@ -80,6 +80,33 @@ export interface AdminLog {
   created_at?: string;
 }
 
+export interface ParseQuality {
+  doc_type: string;
+  expected_runners: number;
+  horses_count: number;
+  predictions_count: number;
+  classifications_count: number;
+  has_predictions: boolean;
+  has_classifications: boolean;
+  has_previous_results: boolean;
+  has_betting_info: boolean;
+  warnings: string[];
+}
+
+export interface UploadRaceResponse {
+  ok: boolean;
+  race_id: string;
+  summary: {
+    name: string;
+    location?: string;
+    date?: string;
+    runners: number;
+    horses_parsed: number;
+    doc_type?: string;
+    parse_quality?: ParseQuality;
+  };
+}
+
 export const Auth = {
   login: (email: string, password: string) =>
     api.post<{ token: string; user: { email: string; role: string } }>(
@@ -96,7 +123,7 @@ export const Admin = {
   uploadRace: (file: File, onProgress?: (p: number) => void) => {
     const fd = new FormData();
     fd.append('file', file);
-    return api.post<{ ok: boolean; race_id: string }>('/admin/races/upload', fd, {
+    return api.post<UploadRaceResponse>('/admin/races/upload', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
       // PDF parsing via LLM can take 2-3 minutes per file. Override default timeout.
       timeout: 300000, // 5 min

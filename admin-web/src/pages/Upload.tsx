@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { UploadCloud, FileText, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Admin, apiError } from '@/lib/api';
+import { Admin, apiError, ParseQuality } from '@/lib/api';
 import PageHeader from '@/components/PageHeader';
 import Spinner from '@/components/Spinner';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,14 @@ interface FileItem {
   progress: number;
   error?: string;
   raceId?: string;
+  summary?: {
+    name: string;
+    date?: string;
+    runners: number;
+    horses_parsed: number;
+    doc_type?: string;
+    parse_quality?: ParseQuality;
+  };
 }
 
 export default function Upload() {
@@ -64,7 +72,13 @@ export default function Upload() {
         setItems((prev) =>
           prev.map((it, idx) =>
             idx === i
-              ? { ...it, status: 'success' as const, progress: 100, raceId: data.race_id }
+              ? {
+                  ...it,
+                  status: 'success' as const,
+                  progress: 100,
+                  raceId: data.race_id,
+                  summary: data.summary,
+                }
               : it
           )
         );
@@ -156,6 +170,9 @@ export default function Upload() {
                   {it.raceId && (
                     <p className="text-xs text-fg-subtle mt-1 font-mono">{it.raceId}</p>
                   )}
+                  {it.summary?.parse_quality && (
+                    <ValidationSummary summary={it.summary} />
+                  )}
                 </div>
                 <div className="shrink-0">
                   {it.status === 'pending' && (
@@ -187,6 +204,79 @@ export default function Upload() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ValidationSummary({ summary }: { summary: NonNullable<FileItem['summary']> }) {
+  const quality = summary.parse_quality;
+  if (!quality) return null;
+
+  const checks = [
+    {
+      label: 'Chevaux',
+      ok:
+        quality.doc_type === 'result' ||
+        !quality.expected_runners ||
+        quality.horses_count === quality.expected_runners,
+      value: quality.expected_runners
+        ? `${quality.horses_count}/${quality.expected_runners}`
+        : `${quality.horses_count}`,
+    },
+    {
+      label: 'Pronostics',
+      ok: quality.doc_type === 'result' || quality.has_predictions,
+      value: quality.has_predictions ? `${quality.predictions_count}` : 'Non',
+    },
+    {
+      label: 'Rapports',
+      ok: quality.has_previous_results,
+      value: quality.has_previous_results ? 'Oui' : 'Non',
+    },
+    {
+      label: 'Arret des jeux',
+      ok: quality.has_betting_info || quality.doc_type === 'result',
+      value: quality.has_betting_info ? 'Oui' : 'Non',
+    },
+  ];
+
+  return (
+    <div className="mt-3 rounded-md border border-border bg-bg-elevated/60 p-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="text-xs font-semibold text-fg">
+          Validation: {summary.name || 'Course'} {summary.date ? `- ${summary.date}` : ''}
+        </p>
+        <span className="badge bg-bg text-fg-muted">
+          {quality.doc_type === 'result' ? 'Resultat' : 'Programme'}
+        </span>
+      </div>
+      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {checks.map((check) => (
+          <div key={check.label} className="rounded border border-border bg-bg-surface px-2 py-1.5">
+            <div className="flex items-center gap-1.5">
+              {check.ok ? (
+                <CheckCircle2 size={13} className="text-success" />
+              ) : (
+                <AlertTriangle size={13} className="text-warning" />
+              )}
+              <span className="text-[11px] font-medium text-fg-muted">{check.label}</span>
+            </div>
+            <p className="mt-0.5 text-xs font-semibold text-fg">{check.value}</p>
+          </div>
+        ))}
+      </div>
+      {quality.warnings.length > 0 && (
+        <div className="mt-2 rounded border border-warning/30 bg-warning/10 px-2 py-1.5">
+          <p className="text-[11px] font-semibold text-warning">Points a verifier</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {quality.warnings.map((warning, idx) => (
+              <li key={idx} className="text-xs text-fg-muted">
+                {warning}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

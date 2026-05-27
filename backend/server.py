@@ -110,6 +110,43 @@ def normalize_betting(raw: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     }
 
 
+def build_parse_quality(parsed: Dict[str, Any], doc_type: str) -> Dict[str, Any]:
+    race = parsed.get("race") or {}
+    horses = parsed.get("horses", []) or []
+    predictions = parsed.get("predictions", []) or []
+    classifications = parsed.get("classifications", {}) or {}
+    prev = parsed.get("previous_results", {}) or {}
+    betting = parsed.get("betting", {}) or {}
+    expected_runners = int(race.get("runners") or 0)
+    horses_count = len(horses)
+    warnings = []
+
+    if doc_type == "programme":
+        if expected_runners and horses_count != expected_runners:
+            warnings.append(f"Chevaux extraits: {horses_count}/{expected_runners}.")
+        if horses_count == 0:
+            warnings.append("Aucun cheval extrait.")
+        if not predictions:
+            warnings.append("Aucun pronostic extrait.")
+    if not prev.get("finishing_order"):
+        warnings.append("Aucun resultat/rapport officiel extrait.")
+    if not any(str(v or "").strip() for v in betting.values()):
+        warnings.append("Aucune information 'Arret des jeux' extraite.")
+
+    return {
+        "doc_type": doc_type,
+        "expected_runners": expected_runners,
+        "horses_count": horses_count,
+        "predictions_count": len(predictions),
+        "classifications_count": len(classifications),
+        "has_predictions": bool(predictions),
+        "has_classifications": bool(classifications),
+        "has_previous_results": bool(prev.get("finishing_order")),
+        "has_betting_info": any(str(v or "").strip() for v in betting.values()),
+        "warnings": warnings,
+    }
+
+
 def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a parsed LLM output into a race document."""
     race = parsed.get("race") or {}
@@ -124,6 +161,7 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     has_finishing = bool(prev.get("finishing_order"))
     # doc_type: 'programme' if full programme (horses present), else 'result' (result-only PDF)
     doc_type = "programme" if len(horses) > 0 else ("result" if has_finishing else "programme")
+    parse_quality = build_parse_quality(parsed, doc_type)
 
     doc = {
         "race_id": race_id,
@@ -146,6 +184,7 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "classement": parsed.get("classement", {}) or {},
         "betting": normalize_betting(parsed.get("betting") or {}),
         "previous_results": prev,
+        "parse_quality": parse_quality,
         "is_current": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -899,6 +938,8 @@ async def admin_upload_race(
     return {"ok": True, "race_id": doc["race_id"], "summary": {
         "name": doc["name"], "location": doc["location"], "date": doc["date_text"],
         "runners": doc["runners"], "horses_parsed": len(doc["horses"]),
+        "doc_type": doc.get("doc_type"),
+        "parse_quality": doc.get("parse_quality", {}),
     }}
 
 

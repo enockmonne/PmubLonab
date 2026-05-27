@@ -20,19 +20,20 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Results embedded in course PDFs are now surfaced on the Resultats screen.
 - "Voir tous les rapports" now uses a results-focused detail view.
 - The implementation tracker exists at `docs/IMPLEMENTATION.md`.
+- Cached Programmes and Resultats data can hydrate repeat app opens before background refresh.
 
 ## Active PRs
 
-- Cached initial app data / loading improvement
-  - Status: in progress on branch `codex-cache-initial-app-data`.
-  - Purpose: show cached Programmes and Resultats data immediately on repeat app opens, then refresh from the API in the background.
+- Admin post-upload validation summary
+  - Status: in progress on branch `codex-upload-validation-summary`.
+  - Purpose: show admins whether important PDF data was extracted after upload.
 
 ## Immediate Next Steps
 
-1. Open PR for cached initial Programmes/Resultats data.
+1. Open PR for admin post-upload validation summary.
 2. Verify CI.
 3. Merge and let Render redeploy.
-4. Test repeat app opens in staging.
+4. Upload a programme PDF in staging and review validation summary.
 5. Continue staging QA on uploaded PDFs.
 
 ## Documentation Roadmap
