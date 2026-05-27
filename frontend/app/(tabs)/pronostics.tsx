@@ -100,7 +100,8 @@ export default function PronosticsScreen() {
     );
   }
 
-  const maxScore = Math.max(...data.consensus.map((c) => c.score));
+  const maxScore = Math.max(1, ...data.consensus.map((c) => c.score));
+  const mediaInsight = buildMediaInsight(data, horses);
 
   const TAB_ORDER: Tab[] = ["consensus", "experts", "aptitudes", "classement"];
 
@@ -179,6 +180,26 @@ export default function PronosticsScreen() {
               Classement calculé à partir de 7 médias. Plus un cheval figure haut
               dans les pronostics, plus son score est élevé.
             </Text>
+            <View style={styles.insightCard} testID="media-insight-summary">
+              <View style={styles.insightHeader}>
+                <Ionicons name="git-compare-outline" size={18} color={theme.colors.gold} />
+                <Text style={styles.insightTitle}>{mediaInsight.title}</Text>
+              </View>
+              <Text style={styles.insightBody}>{mediaInsight.summary}</Text>
+              <View style={styles.signalRow}>
+                {mediaInsight.signals.map((signal) => (
+                  <View key={signal} style={styles.signalPill}>
+                    <Text style={styles.signalText}>{signal}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.metricGrid}>
+                <InsightMetric label="Accord" value={mediaInsight.agreementValue} />
+                <InsightMetric label="Ecart" value={mediaInsight.gapValue} />
+                <InsightMetric label="Bases" value={mediaInsight.baseValue} />
+                <InsightMetric label="Outlier" value={mediaInsight.outlierValue} />
+              </View>
+            </View>
             {data.consensus
               .filter((c) => c.score > 0)
               .map((c, idx) => (
@@ -502,6 +523,81 @@ export default function PronosticsScreen() {
   );
 }
 
+function buildMediaInsight(data: Data, horses: Horse[]) {
+  const consensus = data.consensus.filter((c) => c.score > 0);
+  const top = consensus[0];
+  const second = consensus[1];
+  const expertCount = data.experts.length;
+  const topHorse = horses.find((h) => h.number === top?.number);
+  const gap = (top?.score || 0) - (second?.score || 0);
+  const agreement = expertCount ? (top?.appearances || 0) / expertCount : 0;
+  const baseCounts = new Map<number, number>();
+
+  data.experts.forEach((expert) => {
+    const base = expert.picks[0];
+    if (typeof base === "number") {
+      baseCounts.set(base, (baseCounts.get(base) || 0) + 1);
+    }
+  });
+
+  const uniqueBases = baseCounts.size;
+  const outlier = [...baseCounts.entries()]
+    .map(([number, count]) => ({
+      number,
+      count,
+      consensusAppearances:
+        consensus.find((entry) => entry.number === number)?.appearances || 0,
+    }))
+    .filter((entry) => entry.count === 1 && entry.consensusAppearances <= 2)
+    .sort((a, b) => a.consensusAppearances - b.consensusAppearances)[0];
+
+  const signals: string[] = [];
+  if (!top || expertCount === 0) {
+    signals.push("Donnees limitees");
+  } else if (agreement >= 0.6 && gap >= 5) {
+    signals.push("Accord fort");
+  } else if (agreement >= 0.4) {
+    signals.push("Accord modere");
+  } else {
+    signals.push("Avis partages");
+  }
+  if (uniqueBases >= 4) signals.push("Bases dispersees");
+  if (outlier) signals.push("Outlier a noter");
+
+  const title = topHorse
+    ? `Lecture medias: ${top.number} - ${topHorse.name}`
+    : "Lecture medias";
+  const topPhrase = topHorse
+    ? `Le ${top.number} (${topHorse.name}) concentre le plus de points et apparait chez ${top.appearances}/${expertCount} media(s).`
+    : "Aucun signal media dominant ne ressort encore des pronostics disponibles.";
+  const spreadPhrase =
+    uniqueBases >= 4
+      ? `Les bases sont dispersees entre ${uniqueBases} chevaux, ce qui indique une course moins tranchee.`
+      : `Les bases sont relativement regroupees autour de ${uniqueBases || 0} cheval(aux).`;
+  const outlierPhrase = outlier
+    ? `Le ${outlier.number} apparait comme base isolee chez un media, a lire comme un point de divergence plutot qu'une recommandation.`
+    : "Aucun outlier net ne ressort dans les bases des medias.";
+
+  return {
+    title,
+    summary: `${topPhrase} L'ecart avec le suivant est de ${gap} point(s). ${spreadPhrase} ${outlierPhrase}`,
+    signals: signals.slice(0, 3),
+    agreementValue: top && expertCount ? `${top.appearances}/${expertCount}` : "-",
+    gapValue: top ? `${gap} pts` : "-",
+    baseValue: `${uniqueBases}`,
+    outlierValue: outlier ? `${outlier.number}` : "-",
+  };
+}
+
+function InsightMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.metricCell}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
   loader: {
@@ -551,6 +647,80 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginBottom: 14,
     lineHeight: 18,
+  },
+  insightCard: {
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    marginBottom: 14,
+  },
+  insightHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  insightTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  insightBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: theme.colors.textPrimary,
+    marginTop: 10,
+  },
+  signalRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 12,
+  },
+  signalPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  signalText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: theme.colors.brand,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+  },
+  metricGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  metricCell: {
+    width: "50%",
+    padding: 10,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  metricLabel: {
+    fontSize: 9,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  metricValue: {
+    fontSize: 17,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    marginTop: 3,
   },
   consensusRow: {
     flexDirection: "row",

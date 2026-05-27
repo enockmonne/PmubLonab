@@ -23,20 +23,21 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Cached Programmes and Resultats data can hydrate repeat app opens before background refresh.
 - Admin uploads now show a post-upload validation summary for extracted horses, pronostics, rapports, and Arret des jeux.
 - Horse detail pages now include a compact Horse Intelligence panel.
+- Programmes now include a Race Insight Summary built from structured consensus and form signals.
 
 ## Active PRs
 
-- Race Insight Summary v1
-  - Status: in progress on branch `codex-race-insight-summary-v1`.
-  - Purpose: add a compact race-level summary using consensus, form, and data completeness signals.
+- Pronostics Upgrade v1
+  - Status: in progress on branch `codex-pronostics-upgrade-v1`.
+  - Purpose: add media agreement, source spread, and outlier context to the Pronostics tab.
 
 ## Immediate Next Steps
 
-1. Open PR for Race Insight Summary v1.
+1. Open PR for Pronostics Upgrade v1.
 2. Verify CI.
 3. Merge and let Render redeploy.
-4. Review the Programmes screen in staging.
-5. Continue staging QA on race insight quality and wording.
+4. Review the Pronostics consensus screen in staging.
+5. Continue staging QA on media insight quality and wording.
 
 ## Documentation Roadmap
 
