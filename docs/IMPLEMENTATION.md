@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Last updated: 2026-05-26
+Last updated: 2026-05-27
 
 This is the living project control document for PmubLonab. Use it to track what is live, what is in progress, what should be done next, and which decisions have already been made.
 
@@ -18,25 +18,22 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Push notification foundation exists, but physical Android testing is still pending.
 - "Arret des jeux" display is fixed and verified in staging.
 - Results embedded in course PDFs are now surfaced on the Resultats screen.
+- "Voir tous les rapports" now uses a results-focused detail view.
+- The implementation tracker exists at `docs/IMPLEMENTATION.md`.
 
 ## Active PRs
 
-- PR #6: Focus race detail when opened from results
-  - Status: open at time of writing.
-  - CI: green.
-  - Purpose: make "Voir tous les rapports" open a results-focused detail view instead of the archive-style programme detail view.
-  - Next action: merge, let Render redeploy, then verify in staging.
+- Cached initial app data / loading improvement
+  - Status: in progress on branch `codex-cache-initial-app-data`.
+  - Purpose: show cached Programmes and Resultats data immediately on repeat app opens, then refresh from the API in the background.
 
 ## Immediate Next Steps
 
-1. Merge PR #6.
-2. Confirm Render redeploy completes.
-3. Test "Voir tous les rapports" in staging:
-   - back label should say "Resultats"
-   - programme-only sections should be hidden
-   - reports/results should be visible
-4. Continue staging QA on uploaded PDFs.
-5. Start the documentation package beyond this implementation tracker.
+1. Open PR for cached initial Programmes/Resultats data.
+2. Verify CI.
+3. Merge and let Render redeploy.
+4. Test repeat app opens in staging.
+5. Continue staging QA on uploaded PDFs.
 
 ## Documentation Roadmap
 

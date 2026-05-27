@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL, ADMIN_WEB_URL, formatFCFA } from "../src/theme";
+import { readCache, writeCache } from "../src/storageCache";
 
 type ResultRace = {
   race_id: string;
@@ -27,6 +28,8 @@ type ResultRace = {
   top_payout: { type: string; amount_fcfa: number; label: string } | null;
 };
 
+const RESULTS_CACHE_KEY = "pmub.resultats.v1";
+
 export default function ResultatsScreen() {
   const [races, setRaces] = useState<ResultRace[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +40,9 @@ export default function ResultatsScreen() {
     try {
       const r = await fetch(`${API_URL}/api/races?has_results=true&limit=100`);
       const j = await r.json();
-      setRaces(j.races || []);
+      const list: ResultRace[] = j.races || [];
+      setRaces(list);
+      writeCache(RESULTS_CACHE_KEY, list);
     } catch (e) {
       console.error(e);
     } finally {
@@ -47,7 +52,16 @@ export default function ResultatsScreen() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    readCache<ResultRace[]>(RESULTS_CACHE_KEY).then((cached) => {
+      if (!mounted || !cached) return;
+      setRaces(cached);
+      setLoading(false);
+    });
     load();
+    return () => {
+      mounted = false;
+    };
   }, [load]);
 
   return (
