@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 import { haptics } from "../../src/haptics";
+import { readCache, writeCache } from "../../src/storageCache";
 
 // French locale
 LocaleConfig.locales["fr"] = {
@@ -70,6 +71,14 @@ type ProgrammeSummary = {
   is_current: boolean;
 };
 
+type ProgrammesCache = {
+  data: RaceData;
+  programmes: ProgrammeSummary[];
+  selectedId: string;
+};
+
+const PROGRAMMES_CACHE_KEY = "pmub.programmes.v1";
+
 export default function RaceScreen() {
   const [data, setData] = useState<RaceData | null>(null);
   const [programmes, setProgrammes] = useState<ProgrammeSummary[]>([]);
@@ -93,6 +102,20 @@ export default function RaceScreen() {
     return m;
   }, [programmes, selectedId]);
   const router = useRouter();
+
+  useEffect(() => {
+    let mounted = true;
+    readCache<ProgrammesCache>(PROGRAMMES_CACHE_KEY).then((cached) => {
+      if (!mounted || !cached) return;
+      setData(cached.data);
+      setProgrammes(cached.programmes || []);
+      setSelectedId(cached.selectedId || cached.data.race.id);
+      setLoading(false);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Load the list of all available programmes
   const loadProgrammes = useCallback(async () => {
@@ -150,12 +173,20 @@ export default function RaceScreen() {
   }, []);
 
   useEffect(() => {
+    if (!data) return;
+    writeCache(PROGRAMMES_CACHE_KEY, {
+      data,
+      programmes,
+      selectedId: selectedId || data.race.id,
+    });
+  }, [data, programmes, selectedId]);
+
+  useEffect(() => {
     loadProgrammes();
   }, [loadProgrammes]);
 
   useEffect(() => {
     if (selectedId) {
-      setLoading(true);
       loadRace(selectedId);
     }
   }, [selectedId, loadRace]);
