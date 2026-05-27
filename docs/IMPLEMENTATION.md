@@ -117,6 +117,11 @@ Phase 5: Premium Analytics Later
 
 ## UI/UX To Do
 
+- Add staging access gate:
+  - require an invite code before showing staging app content
+  - store approved access locally on the device/browser
+  - show a simple French access screen for testers
+  - provide a clear message when a code is disabled or invalid
 - Improve perceived loading speed:
   - cache last loaded programme/results locally
   - show cached data immediately on app open
@@ -148,6 +153,13 @@ Phase 5: Premium Analytics Later
 
 ## Backend To Do
 
+- Add staging tester invite-code access control:
+  - `access_codes` collection with code, label/name, enabled flag, created_at, last_used_at, uses
+  - generated frontend device ID stored locally
+  - validation endpoint for the app
+  - access log records with code, device ID, timestamp, IP, and user agent
+  - ability to disable/revoke a code
+  - suspicious-use signals such as one code used by many devices
 - Add app bootstrap endpoint:
   - one request for initial app data
   - include current programme summary/detail
@@ -264,6 +276,7 @@ After each staging deploy:
 
 ## Launch Readiness
 
+- Decide staging access-control policy before wider tester sharing.
 - Decide production admin access model.
 - Prepare production env vars.
 - Create production MongoDB database.
