@@ -59,7 +59,24 @@ type RaceData = {
     daylight_saving_note: string;
     customer_service?: string;
   };
-  top_picks: { number: number; score: number; appearances: number }[];
+  top_picks: ConsensusPick[];
+  consensus: ConsensusPick[];
+  horses: HorseSummary[];
+  predictions_count: number;
+};
+
+type ConsensusPick = {
+  number: number;
+  score: number;
+  appearances: number;
+};
+
+type HorseSummary = {
+  number: number;
+  name: string;
+  perf?: string;
+  consensus_score?: number;
+  consensus_appearances?: number;
 };
 
 type ProgrammeSummary = {
@@ -77,7 +94,7 @@ type ProgrammesCache = {
   selectedId: string;
 };
 
-const PROGRAMMES_CACHE_KEY = "pmub.programmes.v1";
+const PROGRAMMES_CACHE_KEY = "pmub.programmes.v2";
 
 export default function RaceScreen() {
   const [data, setData] = useState<RaceData | null>(null);
@@ -162,6 +179,9 @@ export default function RaceScreen() {
           customer_service: full.betting?.customer_service || "",
         },
         top_picks: top,
+        consensus: full.consensus || [],
+        horses: full.horses || [],
+        predictions_count: (full.predictions || []).length,
       };
       setData(adapted);
     } catch (e) {
@@ -206,6 +226,7 @@ export default function RaceScreen() {
   }
 
   const { race, betting, top_picks } = data;
+  const raceInsight = buildRaceInsight(data);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -316,6 +337,31 @@ export default function RaceScreen() {
             value={formatEuro(race.prize_euros)}
             subValue={formatFCFA(race.prize_fcfa)}
           />
+        </View>
+
+        <View style={styles.section} testID="race-insight-summary">
+          <Text style={styles.sectionOverline}>Intelligence course</Text>
+          <Text style={styles.sectionTitle}>Resume de la course</Text>
+          <View style={insightStyles.card}>
+            <View style={insightStyles.header}>
+              <Ionicons name="analytics-outline" size={18} color={theme.colors.gold} />
+              <Text style={insightStyles.headerText}>{raceInsight.title}</Text>
+            </View>
+            <Text style={insightStyles.body}>{raceInsight.summary}</Text>
+            <View style={insightStyles.signalRow}>
+              {raceInsight.signals.map((signal) => (
+                <View key={signal} style={insightStyles.signalPill}>
+                  <Text style={insightStyles.signalText}>{signal}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={insightStyles.metricGrid}>
+              <InsightMetric label="Consensus" value={raceInsight.consensusValue} />
+              <InsightMetric label="Medias" value={raceInsight.mediaValue} />
+              <InsightMetric label="Profil regulier" value={raceInsight.formValue} />
+              <InsightMetric label="Donnees" value={raceInsight.dataValue} />
+            </View>
+          </View>
         </View>
 
         {/* Editorial synthesis */}
@@ -526,6 +572,83 @@ function Stat({
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={styles.statValue}>{value}</Text>
       {subValue ? <Text style={styles.statSub}>{subValue}</Text> : null}
+    </View>
+  );
+}
+
+function buildRaceInsight(data: RaceData) {
+  const consensus = data.consensus || [];
+  const horses = data.horses || [];
+  const top = consensus[0];
+  const second = consensus[1];
+  const topHorse = horses.find((h) => h.number === top?.number);
+  const totalSources = data.predictions_count || 0;
+  const topMentions = top?.appearances || 0;
+  const consensusGap = (top?.score || 0) - (second?.score || 0);
+  const coverageRate = totalSources ? topMentions / totalSources : 0;
+  const formProfiles = horses
+    .map((horse) => ({
+      horse,
+      top3: countRecentTop3(horse.perf),
+    }))
+    .filter((entry) => entry.top3 > 0)
+    .sort((a, b) => b.top3 - a.top3);
+  const bestForm = formProfiles[0];
+
+  const signals: string[] = [];
+  if (!top || totalSources === 0) {
+    signals.push("Donnees limitees");
+  } else if (coverageRate >= 0.6 && consensusGap >= 5) {
+    signals.push("Consensus fort");
+  } else if (coverageRate >= 0.4) {
+    signals.push("Consensus modere");
+  } else {
+    signals.push("Course ouverte");
+  }
+  if (bestForm && bestForm.top3 >= 3) signals.push("Profil regulier");
+  if (data.race.runners >= 14) signals.push("Peloton fourni");
+  if (signals.length === 0) signals.push("A surveiller");
+
+  const title = topHorse
+    ? `Signal principal: ${top.number} - ${topHorse.name}`
+    : "Lecture rapide";
+  const consensusPhrase = topHorse
+    ? `Le ${top.number} (${topHorse.name}) ressort le plus dans les pronostics disponibles, cite par ${topMentions}/${totalSources || "?"} media(s).`
+    : "Les pronostics disponibles ne donnent pas encore un signal de consensus exploitable.";
+  const fieldPhrase =
+    coverageRate >= 0.6 && consensusGap >= 5
+      ? "Le consensus est relativement concentre."
+      : "La lecture reste ouverte et merite d'etre croisee avec la forme recente.";
+  const formPhrase = bestForm
+    ? `Cote regularite, le ${bestForm.horse.number} (${bestForm.horse.name}) affiche ${bestForm.top3} place(s) dans le top 3 sur ses dernieres indications de forme.`
+    : "La forme recente ne fait pas encore ressortir un profil clairement regulier.";
+
+  return {
+    title,
+    summary: `${consensusPhrase} ${fieldPhrase} ${formPhrase}`,
+    signals: signals.slice(0, 3),
+    consensusValue: top ? `${top.number}` : "-",
+    mediaValue: totalSources ? `${topMentions}/${totalSources}` : "-",
+    formValue: bestForm ? `${bestForm.horse.number}` : "-",
+    dataValue: `${horses.length}/${data.race.runners || horses.length}`,
+  };
+}
+
+function countRecentTop3(perf?: string) {
+  if (!perf) return 0;
+  return perf
+    .split(/[^0-9]+/)
+    .map((part) => Number(part))
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .slice(0, 5)
+    .filter((n) => n <= 3).length;
+}
+
+function InsightMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={insightStyles.metricCell}>
+      <Text style={insightStyles.metricLabel}>{label}</Text>
+      <Text style={insightStyles.metricValue}>{value}</Text>
     </View>
   );
 }
@@ -925,6 +1048,83 @@ const synthStyles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 2,
     textTransform: "uppercase",
+  },
+});
+
+const insightStyles = StyleSheet.create({
+  card: {
+    marginTop: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  headerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  body: {
+    marginTop: 10,
+    fontSize: 14,
+    lineHeight: 21,
+    color: theme.colors.textPrimary,
+  },
+  signalRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 12,
+  },
+  signalPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  signalText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: theme.colors.brand,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+  },
+  metricGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  metricCell: {
+    width: "50%",
+    padding: 10,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  metricLabel: {
+    fontSize: 9,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  metricValue: {
+    marginTop: 3,
+    fontSize: 17,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
   },
 });
 
