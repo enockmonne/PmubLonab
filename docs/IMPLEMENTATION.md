@@ -20,24 +20,25 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Results embedded in course PDFs are now surfaced on the Resultats screen.
 - "Voir tous les rapports" now uses a results-focused detail view.
 - The implementation tracker exists at `docs/IMPLEMENTATION.md`.
+- Core project documentation package exists in `docs/`.
 
 ## Active PRs
 
-- Cached initial app data / loading improvement
-  - Status: in progress on branch `codex-cache-initial-app-data`.
-  - Purpose: show cached Programmes and Resultats data immediately on repeat app opens, then refresh from the API in the background.
+- Formal project docs
+  - Status: in progress on branch `codex-add-project-docs`.
+  - Purpose: add PRD, architecture, system design, data model, API, PDF parsing, QA, deployment, and launch readiness docs.
 
 ## Immediate Next Steps
 
-1. Open PR for cached initial Programmes/Resultats data.
+1. Open PR for formal project docs.
 2. Verify CI.
 3. Merge and let Render redeploy.
-4. Test repeat app opens in staging.
+4. Keep using `docs/IMPLEMENTATION.md` as the source of truth.
 5. Continue staging QA on uploaded PDFs.
 
 ## Documentation Roadmap
 
-Create a formal `docs/` package:
+Created a formal `docs/` package:
 
 - `PRD.md`
 - `ARCHITECTURE.md`
