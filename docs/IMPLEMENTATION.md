@@ -22,20 +22,21 @@ This is the living project control document for PmubLonab. Use it to track what 
 - The implementation tracker exists at `docs/IMPLEMENTATION.md`.
 - Cached Programmes and Resultats data can hydrate repeat app opens before background refresh.
 - Admin uploads now show a post-upload validation summary for extracted horses, pronostics, rapports, and Arret des jeux.
+- Horse detail pages now include a compact Horse Intelligence panel.
 
 ## Active PRs
 
-- Horse Intelligence Page v1
-  - Status: in progress on branch `codex-horse-intelligence-v1`.
-  - Purpose: add a compact horse insight panel using historical stats and consensus signals.
+- Race Insight Summary v1
+  - Status: in progress on branch `codex-race-insight-summary-v1`.
+  - Purpose: add a compact race-level summary using consensus, form, and data completeness signals.
 
 ## Immediate Next Steps
 
-1. Open PR for Horse Intelligence Page v1.
+1. Open PR for Race Insight Summary v1.
 2. Verify CI.
 3. Merge and let Render redeploy.
-4. Review horse detail pages in staging.
-5. Continue staging QA on uploaded PDFs and horse stats quality.
+4. Review the Programmes screen in staging.
+5. Continue staging QA on race insight quality and wording.
 
 ## Documentation Roadmap
 
