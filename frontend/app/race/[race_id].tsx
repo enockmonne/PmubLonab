@@ -16,7 +16,7 @@ import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 type Race = any;
 
 export default function RaceDetail() {
-  const { race_id } = useLocalSearchParams<{ race_id: string }>();
+  const { race_id, from } = useLocalSearchParams<{ race_id: string; from?: string }>();
   const [race, setRace] = useState<Race | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -60,6 +60,7 @@ export default function RaceDetail() {
 
   const prev = race.previous_results || {};
   const isResultDoc = race.doc_type === "result";
+  const isResultsView = from === "resultats" || isResultDoc;
   const hasResults = prev && prev.finishing_order && prev.finishing_order.length > 0;
   const payoutGroups = (() => {
     if (!hasResults) return {} as Record<string, any[]>;
@@ -95,7 +96,7 @@ export default function RaceDetail() {
           hitSlop={10}
         >
           <Ionicons name="chevron-back" size={22} color={theme.colors.brand} />
-          <Text style={styles.backText}>Archives</Text>
+          <Text style={styles.backText}>{isResultsView ? "Résultats" : "Archives"}</Text>
         </TouchableOpacity>
       </View>
       <ScrollView testID="race-detail-screen" contentContainerStyle={{ paddingBottom: 40 }}>
@@ -126,7 +127,7 @@ export default function RaceDetail() {
         </View>
 
         {/* Top 3 consensus */}
-        {race.consensus && race.consensus.length > 0 && (
+        {!isResultsView && race.consensus && race.consensus.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Top 3 Consensus</Text>
             <View style={styles.podium}>
@@ -144,7 +145,7 @@ export default function RaceDetail() {
         )}
 
         {/* Horses list - only if race has partants */}
-        {(race.horses || []).length > 0 && (
+        {!isResultsView && (race.horses || []).length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Partants ({(race.horses || []).length})</Text>
             <View style={styles.list}>
@@ -170,9 +171,9 @@ export default function RaceDetail() {
         {hasResults && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>
-              {isResultDoc ? "Arrivée officielle" : "Résultats précédents"}
+              {isResultsView ? "Rapports officiels" : "Résultats précédents"}
             </Text>
-            {!isResultDoc && (
+            {!isResultsView && (
               <Text style={styles.prevSub}>
                 {prev.race_name} — {prev.date}
               </Text>
