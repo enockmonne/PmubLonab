@@ -122,6 +122,19 @@ class TestSearch:
 
 # -------- /api/stats/horses/{name} --------
 class TestHorseStats:
+    def test_horse_leaderboard(self, api):
+        r = api.get(f"{BASE_URL}/api/stats/horses/leaderboard", timeout=30)
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data["by_wins"], list)
+        assert isinstance(data["by_top3"], list)
+        assert isinstance(data["total_horses"], int)
+        assert isinstance(data["evaluated_races"], int)
+        if data["by_top3"]:
+            entry = data["by_top3"][0]
+            for k in ("name", "runs", "wins", "top3", "win_rate", "top3_rate", "latest_race_id"):
+                assert k in entry, f"missing key {k} in {entry}"
+
     def test_stats_zulu_warrior(self, api):
         r = api.get(f"{BASE_URL}/api/stats/horses/ZULU%20WARRIOR", timeout=30)
         assert r.status_code == 200

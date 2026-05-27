@@ -744,6 +744,61 @@ async def global_search(q: str = Query(..., min_length=2)):
 
 # ---------- Stats ----------
 
+@api_router.get("/stats/horses/leaderboard")
+async def horse_leaderboard():
+    """Top horses by wins and top-3 finishes across races with official results."""
+    races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
+    stats: Dict[str, Dict[str, Any]] = {}
+
+    for r in races:
+        order = (r.get("previous_results") or {}).get("finishing_order", []) or []
+        if not order:
+            continue
+        for horse in r.get("horses", []) or []:
+            name = (horse.get("name") or "").strip()
+            number = horse.get("number")
+            if not name or number not in order:
+                continue
+            key = name.upper()
+            finishing_pos = order.index(number) + 1
+            entry = stats.setdefault(key, {
+                "name": name,
+                "runs": 0,
+                "wins": 0,
+                "top3": 0,
+                "latest_race_id": r.get("race_id"),
+                "latest_date": r.get("date_iso", ""),
+                "latest_number": number,
+            })
+            entry["runs"] += 1
+            if finishing_pos == 1:
+                entry["wins"] += 1
+            if finishing_pos <= 3:
+                entry["top3"] += 1
+            if (r.get("date_iso") or "") >= (entry.get("latest_date") or ""):
+                entry["latest_race_id"] = r.get("race_id")
+                entry["latest_date"] = r.get("date_iso", "")
+                entry["latest_number"] = number
+
+    leaderboard = []
+    for entry in stats.values():
+        runs = entry["runs"] or 1
+        leaderboard.append({
+            **entry,
+            "win_rate": round((entry["wins"] / runs) * 100, 1),
+            "top3_rate": round((entry["top3"] / runs) * 100, 1),
+        })
+
+    by_wins = sorted(leaderboard, key=lambda x: (-x["win_rate"], -x["wins"], -x["runs"], x["name"]))[:20]
+    by_top3 = sorted(leaderboard, key=lambda x: (-x["top3_rate"], -x["top3"], -x["runs"], x["name"]))[:20]
+    return {
+        "by_wins": by_wins,
+        "by_top3": by_top3,
+        "total_horses": len(leaderboard),
+        "evaluated_races": sum(1 for r in races if (r.get("previous_results") or {}).get("finishing_order")),
+    }
+
+
 @api_router.get("/stats/horses/{name}")
 async def horse_history(name: str):
     """Aggregate a horse's history across all races in DB."""

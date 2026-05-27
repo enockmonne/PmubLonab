@@ -33,10 +33,25 @@ type Person = {
   top3_rate: number;
 };
 
+type HorseLeader = {
+  name: string;
+  runs: number;
+  wins: number;
+  top3: number;
+  win_rate: number;
+  top3_rate: number;
+  latest_race_id: string;
+  latest_number: number;
+};
+
 export default function StatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
+  const [horsesByWins, setHorsesByWins] = useState<HorseLeader[]>([]);
+  const [horsesByTop3, setHorsesByTop3] = useState<HorseLeader[]>([]);
+  const [evaluatedRaces, setEvaluatedRaces] = useState(0);
   const [jockeys, setJockeys] = useState<Person[]>([]);
   const [trainers, setTrainers] = useState<Person[]>([]);
+  const [horseTab, setHorseTab] = useState<"top3" | "wins">("top3");
   const [peopleTab, setPeopleTab] = useState<"jockeys" | "trainers">("jockeys");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -44,11 +59,15 @@ export default function StatsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [tip, ppl] = await Promise.all([
+      const [tip, horseStats, ppl] = await Promise.all([
         fetch(`${API_URL}/api/stats/tipsters`).then((r) => r.json()),
+        fetch(`${API_URL}/api/stats/horses/leaderboard`).then((r) => r.json()),
         fetch(`${API_URL}/api/stats/people`).then((r) => r.json()),
       ]);
       setLeaderboard(tip.leaderboard || []);
+      setHorsesByWins(horseStats.by_wins || []);
+      setHorsesByTop3(horseStats.by_top3 || []);
+      setEvaluatedRaces(horseStats.evaluated_races || 0);
       setJockeys(ppl.jockeys || []);
       setTrainers(ppl.trainers || []);
     } catch (e) {
@@ -91,6 +110,116 @@ export default function StatsScreen() {
             Les taux sont calculés sur les courses archivées disposant d&apos;un
             résultat confirmé.
           </Text>
+        </View>
+
+        <View style={styles.coverageCard}>
+          <Text style={styles.coverageText}>
+            Couverture actuelle : {evaluatedRaces} course
+            {evaluatedRaces > 1 ? "s" : ""} evaluee
+            {evaluatedRaces > 1 ? "s" : ""}.
+          </Text>
+        </View>
+
+        {/* Horse leaderboard */}
+        <View style={styles.section}>
+          <Text style={styles.sectionOverline}>Chevaux</Text>
+          <Text style={styles.sectionTitle}>Profils performants</Text>
+          <Text style={styles.sectionLead}>
+            Classement base sur les arrivees officielles deja disponibles.
+            Les petits echantillons restent a lire avec prudence.
+          </Text>
+
+          <View style={styles.peopleTabs}>
+            <TouchableOpacity
+              testID="horse-tab-top3"
+              style={styles.peopleTabBtn}
+              onPress={() => setHorseTab("top3")}
+            >
+              <Text
+                style={[
+                  styles.peopleTabText,
+                  horseTab === "top3" && styles.peopleTabTextActive,
+                ]}
+              >
+                Top 3
+              </Text>
+              <View
+                style={[
+                  styles.peopleTabUnderline,
+                  horseTab === "top3" && styles.peopleTabUnderlineActive,
+                ]}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="horse-tab-wins"
+              style={styles.peopleTabBtn}
+              onPress={() => setHorseTab("wins")}
+            >
+              <Text
+                style={[
+                  styles.peopleTabText,
+                  horseTab === "wins" && styles.peopleTabTextActive,
+                ]}
+              >
+                Victoires
+              </Text>
+              <View
+                style={[
+                  styles.peopleTabUnderline,
+                  horseTab === "wins" && styles.peopleTabUnderlineActive,
+                ]}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 20 }} color={theme.colors.brand} />
+          ) : (horseTab === "top3" ? horsesByTop3 : horsesByWins).length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="hourglass-outline" size={28} color={theme.colors.textSecondary} />
+              <Text style={styles.emptyText}>
+                Pas encore assez de resultats pour classer les chevaux.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.lbList}>
+              {(horseTab === "top3" ? horsesByTop3 : horsesByWins)
+                .slice(0, 8)
+                .map((h, idx) => {
+                  const rate = horseTab === "top3" ? h.top3_rate : h.win_rate;
+                  return (
+                    <TouchableOpacity
+                      key={`${horseTab}-${h.name}`}
+                      style={styles.lbRow}
+                      testID={`horse-leader-${horseTab}-${idx}`}
+                      onPress={() => router.push(`/horse-history/${encodeURIComponent(h.name)}`)}
+                    >
+                      <Text style={styles.lbRank}>#{idx + 1}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.lbSource} numberOfLines={1}>{h.name}</Text>
+                        <Text style={styles.lbMeta}>
+                          {h.wins} V - {h.top3} top 3 - {h.runs} courses
+                        </Text>
+                        <View style={styles.barBg}>
+                          <View
+                            style={[
+                              styles.barFill,
+                              { width: `${Math.min(rate, 100)}%` },
+                            ]}
+                          />
+                        </View>
+                      </View>
+                      <View style={styles.lbScoreCol}>
+                        <Text style={styles.lbScore}>{rate}%</Text>
+                        <Text style={styles.lbScoreLabel}>
+                          {horseTab === "top3" ? "top 3" : "vict."}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+            </View>
+          )}
         </View>
 
         {/* Tipsters leaderboard */}
@@ -307,6 +436,22 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceAlt,
   },
   infoText: { fontSize: 12, color: theme.colors.textSecondary, flex: 1, lineHeight: 17 },
+  coverageCard: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  coverageText: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
   section: { marginTop: 24, paddingHorizontal: 16 },
   sectionOverline: {
     fontSize: 10,
