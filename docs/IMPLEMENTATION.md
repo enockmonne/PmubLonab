@@ -21,20 +21,21 @@ This is the living project control document for PmubLonab. Use it to track what 
 - "Voir tous les rapports" now uses a results-focused detail view.
 - The implementation tracker exists at `docs/IMPLEMENTATION.md`.
 - Cached Programmes and Resultats data can hydrate repeat app opens before background refresh.
+- Admin uploads now show a post-upload validation summary for extracted horses, pronostics, rapports, and Arret des jeux.
 
 ## Active PRs
 
-- Admin post-upload validation summary
-  - Status: in progress on branch `codex-upload-validation-summary`.
-  - Purpose: show admins whether important PDF data was extracted after upload.
+- Horse Intelligence Page v1
+  - Status: in progress on branch `codex-horse-intelligence-v1`.
+  - Purpose: add a compact horse insight panel using historical stats and consensus signals.
 
 ## Immediate Next Steps
 
-1. Open PR for admin post-upload validation summary.
+1. Open PR for Horse Intelligence Page v1.
 2. Verify CI.
 3. Merge and let Render redeploy.
-4. Upload a programme PDF in staging and review validation summary.
-5. Continue staging QA on uploaded PDFs.
+4. Review horse detail pages in staging.
+5. Continue staging QA on uploaded PDFs and horse stats quality.
 
 ## Documentation Roadmap
 

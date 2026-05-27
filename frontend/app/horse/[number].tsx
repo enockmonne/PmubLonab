@@ -33,10 +33,36 @@ type HorseDetailData = {
   consensus_score: number;
 };
 
+type HorseAppearance = {
+  race_id: string;
+  race_name: string;
+  date_text: string;
+  date_iso: string;
+  location: string;
+  number: number;
+  jockey: string;
+  trainer: string;
+  perf: string;
+  finishing_pos: number | null;
+};
+
+type HorseHistoryData = {
+  appearances: HorseAppearance[];
+  stats: {
+    total_appearances: number;
+    total_runs_with_result: number;
+    wins: number;
+    places_top3: number;
+    win_rate: number;
+    place_rate: number;
+  };
+};
+
 export default function HorseDetail() {
   const { number } = useLocalSearchParams<{ number: string }>();
   const router = useRouter();
   const [data, setData] = useState<HorseDetailData | null>(null);
+  const [history, setHistory] = useState<HorseHistoryData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -44,6 +70,19 @@ export default function HorseDetail() {
       const r = await fetch(`${API_URL}/api/horses/${number}`);
       const j = await r.json();
       setData(j);
+
+      const historyRes = await fetch(
+        `${API_URL}/api/stats/horses/${encodeURIComponent(j.horse.name)}`
+      );
+      if (historyRes.ok) {
+        const historyJson = await historyRes.json();
+        setHistory({
+          appearances: historyJson.appearances || [],
+          stats: historyJson.stats,
+        });
+      } else {
+        setHistory(null);
+      }
     } catch (e) {
       console.error(e);
     } finally {
@@ -64,6 +103,7 @@ export default function HorseDetail() {
   }
 
   const { horse, expert_mentions, classifications, consensus_score } = data;
+  const intelligence = buildHorseIntelligence(data, history);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -99,6 +139,30 @@ export default function HorseDetail() {
           <InfoCell label="Jockey" value={horse.jockey} />
           <InfoCell label="Entraîneur" value={horse.trainer} />
           <InfoCell label="Propriétaire" value={horse.owner} span />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Intelligence cheval</Text>
+          <View style={styles.insightCard}>
+            <View style={styles.insightHeader}>
+              <Ionicons name="sparkles-outline" size={18} color={theme.colors.gold} />
+              <Text style={styles.insightTitle}>A retenir</Text>
+            </View>
+            <Text style={styles.insightBody}>{intelligence.summary}</Text>
+            <View style={styles.signalRow}>
+              {intelligence.signals.map((signal) => (
+                <View key={signal} style={styles.signalPill}>
+                  <Text style={styles.signalText}>{signal}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.metricGrid}>
+              <Metric label="Courses" value={intelligence.totalAppearances} />
+              <Metric label="Top 3" value={intelligence.top3Rate} />
+              <Metric label="Victoire" value={intelligence.winRate} />
+              <Metric label="Moy. arrivee" value={intelligence.avgFinish} />
+            </View>
+          </View>
         </View>
 
         {/* Stats row */}
@@ -175,6 +239,63 @@ export default function HorseDetail() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function buildHorseIntelligence(
+  data: HorseDetailData,
+  history: HorseHistoryData | null
+) {
+  const stats = history?.stats;
+  const runsWithResult = stats?.total_runs_with_result || 0;
+  const appearances = history?.appearances || [];
+  const finished = appearances.filter(
+    (a): a is HorseAppearance & { finishing_pos: number } =>
+      typeof a.finishing_pos === "number"
+  );
+  const avgFinish =
+    finished.length > 0
+      ? finished.reduce((sum, a) => sum + a.finishing_pos, 0) / finished.length
+      : null;
+
+  const signals: string[] = [];
+  if (runsWithResult < 2) signals.push("Donnees limitees");
+  if ((stats?.place_rate || 0) >= 50) signals.push("Profil regulier");
+  if ((stats?.win_rate || 0) >= 25) signals.push("Signal fort");
+  if (data.expert_mentions.length >= 3) signals.push("Consensus media");
+  if (signals.length === 0) signals.push("A surveiller");
+
+  const recent = finished.slice(0, 3);
+  const recentTop3 = recent.filter((a) => a.finishing_pos <= 3).length;
+  const formPhrase =
+    recent.length === 0
+      ? "Les donnees de resultats restent limitees pour evaluer sa forme recente."
+      : recentTop3 >= 2
+        ? "Sa forme recente montre une presence reguliere dans les premieres places."
+        : recentTop3 === 1
+          ? "Sa forme recente montre un signal modere, avec au moins une place notable."
+          : "Ses resultats recents invitent a rester prudent dans l'analyse.";
+  const mediaPhrase =
+    data.expert_mentions.length > 0
+      ? `Il est cite par ${data.expert_mentions.length} media(s), avec un score consensus de ${data.consensus_score}.`
+      : "Il n'est pas fortement cite par les pronostics disponibles.";
+
+  return {
+    summary: `${formPhrase} ${mediaPhrase}`,
+    signals: signals.slice(0, 3),
+    totalAppearances: `${stats?.total_appearances || 1}`,
+    top3Rate: runsWithResult ? `${stats?.place_rate || 0}%` : "-",
+    winRate: runsWithResult ? `${stats?.win_rate || 0}%` : "-",
+    avgFinish: avgFinish ? `${avgFinish.toFixed(1)}e` : "-",
+  };
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.metricCell}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+    </View>
   );
 }
 
@@ -284,6 +405,78 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     marginBottom: 8,
+  },
+  insightCard: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    padding: 14,
+  },
+  insightHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  insightTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  insightBody: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: theme.colors.textPrimary,
+    marginTop: 10,
+  },
+  signalRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 12,
+  },
+  signalPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  signalText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: theme.colors.brand,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  metricGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  metricCell: {
+    width: "50%",
+    padding: 10,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  metricLabel: {
+    fontSize: 9,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  metricValue: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    marginTop: 3,
   },
   perfBox: {
     padding: 14,
