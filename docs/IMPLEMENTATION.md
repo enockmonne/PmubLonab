@@ -119,6 +119,11 @@ Phase 5: Premium Analytics Later
 
 ## UI/UX To Do
 
+- Improve perceived loading speed:
+  - cache last loaded programme/results locally
+  - show cached data immediately on app open
+  - refresh data in the background
+  - replace full-screen spinners with skeleton/partial loading states where useful
 - Improve Results detail UX:
   - "Arrivee officielle"
   - "Rapports principaux"
@@ -145,6 +150,16 @@ Phase 5: Premium Analytics Later
 
 ## Backend To Do
 
+- Add app bootstrap endpoint:
+  - one request for initial app data
+  - include current programme summary/detail
+  - include counts/status needed by home screen
+  - reduce sequential frontend requests on startup
+- Add backend caching/precomputation for expensive data:
+  - stats
+  - Race Intelligence summaries
+  - historical leaderboards
+  - prediction source accuracy
 - Store parse quality report per upload:
   - horses_count
   - expected_runners
@@ -213,6 +228,10 @@ Prioritize:
 - API: https://pmublonab-staging-api.onrender.com
 - Purpose: shared review, feedback, production-like testing.
 - This is where product review should happen.
+- Current performance note:
+  - Render may cold start after inactivity.
+  - First app open can be slower while the API wakes up.
+  - Consider keep-warm monitoring or a paid/always-on instance before broader public testing.
 
 ### Production
 
