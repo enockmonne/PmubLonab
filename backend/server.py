@@ -4,9 +4,11 @@ import uuid
 import asyncio
 import logging
 import unicodedata
+from html import unescape
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Header, Query, Request
 from fastapi.responses import FileResponse
@@ -63,6 +65,39 @@ def slugify(value: str) -> str:
     value = re.sub(r"[^\w\s-]", "", value.lower()).strip()
     value = re.sub(r"[\s_-]+", "-", value)
     return value or "course"
+
+
+def _is_allowed_lonab_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.scheme in {"http", "https"} and parsed.netloc.lower() in {"lonab.bf", "www.lonab.bf"}
+
+
+def _url_with_page(url: str, page: int) -> str:
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query["page"] = str(page)
+    return urlunparse(parsed._replace(query=urlencode(query)))
+
+
+def _extract_links(html: str, base_url: str) -> List[Dict[str, str]]:
+    links: List[Dict[str, str]] = []
+    for match in re.finditer(r"<a\s+[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", html, flags=re.I | re.S):
+        href, label_html = match.groups()
+        label = unescape(re.sub(r"<[^>]+>", " ", label_html))
+        label = re.sub(r"\s+", " ", label).strip()
+        absolute = urljoin(base_url, unescape(href))
+        if _is_allowed_lonab_url(absolute):
+            links.append({"url": absolute, "label": label})
+    return links
+
+
+def _infer_lonab_doc_type(filename: str, title: str = "") -> str:
+    value = f"{filename} {title}".lower()
+    if "result" in value or "res_" in value or "res41" in value:
+        return "result"
+    if "jh_" in value or "journal hippique" in value or "pmu_du" in value or "pmub_du" in value:
+        return "programme"
+    return "unknown"
 
 
 def compute_consensus_for(horses: List[dict], predictions: List[dict]) -> List[dict]:
@@ -913,6 +948,85 @@ async def people_leaderboard():
 
 class SetCurrentPayload(BaseModel):
     pass
+
+
+class LonabArchivePreviewPayload(BaseModel):
+    source_url: str = "https://lonab.bf/fr/resultats-gains-pmub?page=0"
+    max_pages: int = 1
+    limit: int = 25
+    follow_detail_pages: bool = True
+
+
+@api_router.post("/admin/imports/lonab/preview")
+async def admin_lonab_archive_preview(
+    payload: LonabArchivePreviewPayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    if not _is_allowed_lonab_url(payload.source_url):
+        raise HTTPException(status_code=400, detail="URL LONAB invalide")
+    max_pages = max(1, min(payload.max_pages, 5))
+    limit = max(1, min(payload.limit, 100))
+
+    def discover() -> Dict[str, Any]:
+        session = requests.Session()
+        seen_pages: set[str] = set()
+        seen_pdfs: set[str] = set()
+        items: List[Dict[str, Any]] = []
+        errors: List[str] = []
+
+        for page in range(max_pages):
+            list_url = _url_with_page(payload.source_url, page)
+            try:
+                res = session.get(list_url, timeout=20)
+                res.raise_for_status()
+            except Exception as exc:
+                errors.append(f"{list_url}: {exc}")
+                continue
+
+            for link in _extract_links(res.text, list_url):
+                if len(items) >= limit:
+                    break
+                url = link["url"]
+                label = link["label"]
+                candidate_links = [link]
+                if payload.follow_detail_pages and "/fr/node/" in url and url not in seen_pages:
+                    seen_pages.add(url)
+                    try:
+                        detail = session.get(url, timeout=20)
+                        detail.raise_for_status()
+                        candidate_links = _extract_links(detail.text, url)
+                    except Exception as exc:
+                        errors.append(f"{url}: {exc}")
+                        candidate_links = [link]
+
+                for candidate in candidate_links:
+                    pdf_url = candidate["url"]
+                    if ".pdf" not in pdf_url.lower() or pdf_url in seen_pdfs:
+                        continue
+                    seen_pdfs.add(pdf_url)
+                    filename = pdf_url.split("/")[-1].split("?")[0]
+                    title = label or candidate.get("label", "")
+                    items.append({
+                        "title": title,
+                        "page_url": url,
+                        "pdf_url": pdf_url,
+                        "filename": filename,
+                        "doc_type": _infer_lonab_doc_type(filename, title),
+                    })
+                    if len(items) >= limit:
+                        break
+
+        return {
+            "source_url": payload.source_url,
+            "scanned_pages": max_pages,
+            "items": items,
+            "count": len(items),
+            "errors": errors,
+        }
+
+    return await asyncio.to_thread(discover)
 
 
 @api_router.post("/admin/races/upload")

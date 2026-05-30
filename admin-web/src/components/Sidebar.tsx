@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
   UploadCloud,
+  DownloadCloud,
   Trophy,
   Megaphone,
   History,
@@ -12,6 +13,7 @@ import { cn } from '@/lib/utils';
 const navItems = [
   { to: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { to: '/upload', label: 'Upload PDF', icon: UploadCloud },
+  { to: '/archive-import', label: 'Import LONAB', icon: DownloadCloud },
   { to: '/races', label: 'Courses', icon: Trophy },
   { to: '/announcements', label: 'Annonces', icon: Megaphone },
   { to: '/logs', label: 'Activité', icon: History },

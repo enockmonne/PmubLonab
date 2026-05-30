@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Upload from './pages/Upload';
 import Races from './pages/Races';
+import ArchiveImport from './pages/ArchiveImport';
 import Announcements from './pages/Announcements';
 import Logs from './pages/Logs';
 import Settings from './pages/Settings';
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/upload" element={<Upload />} />
+        <Route path="/archive-import" element={<ArchiveImport />} />
         <Route path="/races" element={<Races />} />
         <Route path="/announcements" element={<Announcements />} />
         <Route path="/logs" element={<Logs />} />
