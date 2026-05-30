@@ -107,6 +107,22 @@ export interface UploadRaceResponse {
   };
 }
 
+export interface LonabImportPreviewItem {
+  title: string;
+  page_url: string;
+  pdf_url: string;
+  filename: string;
+  doc_type: string;
+}
+
+export interface LonabImportPreviewResponse {
+  source_url: string;
+  scanned_pages: number;
+  items: LonabImportPreviewItem[];
+  count: number;
+  errors: string[];
+}
+
 export const Auth = {
   login: (email: string, password: string) =>
     api.post<{ token: string; user: { email: string; role: string } }>(
@@ -134,6 +150,12 @@ export const Admin = {
   },
   setCurrent: (race_id: string) => api.post(`/admin/races/${race_id}/set-current`),
   deleteRace: (race_id: string) => api.delete(`/admin/races/${race_id}`),
+  previewLonabArchive: (payload: {
+    source_url: string;
+    max_pages: number;
+    limit: number;
+    follow_detail_pages: boolean;
+  }) => api.post<LonabImportPreviewResponse>('/admin/imports/lonab/preview', payload, { timeout: 120000 }),
   listRaces: () => api.get<{ races: Race[] }>('/races?limit=200'),
   listAnnouncements: () => api.get<{ announcements: Announcement[] }>('/admin/announcements'),
   createAnnouncement: (message: string, level: string) =>

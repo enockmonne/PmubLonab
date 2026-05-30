@@ -24,20 +24,22 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Admin uploads now show a post-upload validation summary for extracted horses, pronostics, rapports, and Arret des jeux.
 - Horse detail pages now include a compact Horse Intelligence panel.
 - Programmes now include a Race Insight Summary built from structured consensus and form signals.
+- Pronostics now include media agreement, base spread, and outlier context.
+- Admin now has a LONAB archive preview screen for discovering PDF links before bulk import.
 
 ## Active PRs
 
-- Pronostics Upgrade v1
-  - Status: in progress on branch `codex-pronostics-upgrade-v1`.
-  - Purpose: add media agreement, source spread, and outlier context to the Pronostics tab.
+- LONAB Archive Importer v1
+  - Status: in progress on branch `codex-lonab-archive-importer-v1`.
+  - Purpose: preview/discover LONAB archive PDFs before enabling controlled bulk parsing.
 
 ## Immediate Next Steps
 
-1. Open PR for Pronostics Upgrade v1.
+1. Open PR for LONAB Archive Importer v1.
 2. Verify CI.
 3. Merge and let Render redeploy.
-4. Review the Pronostics consensus screen in staging.
-5. Continue staging QA on media insight quality and wording.
+4. Review the new Import LONAB admin screen in staging.
+5. Decide the next importer phase: download + hash + queued parsing.
 
 ## Documentation Roadmap
 
