@@ -188,6 +188,47 @@ class TestAdmin:
                      headers={"X-Admin-Passcode": ADMIN_PASSCODE}, timeout=30)
         assert r.status_code == 400
 
+    def test_lonab_import_without_passcode_401(self, api):
+        r = api.post(
+            f"{BASE_URL}/api/admin/imports/lonab/import",
+            json={"pdf_urls": ["https://lonab.bf/example.pdf"]},
+            timeout=30,
+        )
+        assert r.status_code == 401
+
+    def test_lonab_import_empty_selection_400(self, api):
+        if not ADMIN_PASSCODE:
+            pytest.skip("ADMIN_PASSCODE is not configured")
+        r = api.post(
+            f"{BASE_URL}/api/admin/imports/lonab/import",
+            json={"pdf_urls": []},
+            headers={"X-Admin-Passcode": ADMIN_PASSCODE},
+            timeout=30,
+        )
+        assert r.status_code == 400
+
+    def test_lonab_import_rejects_non_lonab_url(self, api):
+        if not ADMIN_PASSCODE:
+            pytest.skip("ADMIN_PASSCODE is not configured")
+        r = api.post(
+            f"{BASE_URL}/api/admin/imports/lonab/import",
+            json={"pdf_urls": ["https://example.com/file.pdf"]},
+            headers={"X-Admin-Passcode": ADMIN_PASSCODE},
+            timeout=30,
+        )
+        assert r.status_code == 400
+
+    def test_lonab_import_limited_to_five_pdfs(self, api):
+        if not ADMIN_PASSCODE:
+            pytest.skip("ADMIN_PASSCODE is not configured")
+        r = api.post(
+            f"{BASE_URL}/api/admin/imports/lonab/import",
+            json={"pdf_urls": [f"https://lonab.bf/file-{i}.pdf" for i in range(6)]},
+            headers={"X-Admin-Passcode": ADMIN_PASSCODE},
+            timeout=30,
+        )
+        assert r.status_code == 400
+
     def test_set_current_unknown_404(self, api):
         if not ADMIN_PASSCODE:
             pytest.skip("ADMIN_PASSCODE is not configured")
