@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 import asyncio
+import hashlib
 import logging
 import unicodedata
 from html import unescape
@@ -957,6 +958,10 @@ class LonabArchivePreviewPayload(BaseModel):
     follow_detail_pages: bool = True
 
 
+class LonabArchiveImportPayload(BaseModel):
+    pdf_urls: List[str]
+
+
 @api_router.post("/admin/imports/lonab/preview")
 async def admin_lonab_archive_preview(
     payload: LonabArchivePreviewPayload,
@@ -1027,6 +1032,83 @@ async def admin_lonab_archive_preview(
         }
 
     return await asyncio.to_thread(discover)
+
+
+@api_router.post("/admin/imports/lonab/import")
+async def admin_lonab_archive_import(
+    payload: LonabArchiveImportPayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    pdf_urls = [url for url in payload.pdf_urls if url]
+    if not pdf_urls:
+        raise HTTPException(status_code=400, detail="Aucun PDF selectionne")
+    if len(pdf_urls) > 5:
+        raise HTTPException(status_code=400, detail="Import limite a 5 PDF par lot")
+    for url in pdf_urls:
+        if not _is_allowed_lonab_url(url) or ".pdf" not in url.lower():
+            raise HTTPException(status_code=400, detail=f"URL PDF LONAB invalide: {url}")
+
+    results = []
+    session = requests.Session()
+    for pdf_url in pdf_urls:
+        filename = pdf_url.split("/")[-1].split("?")[0] or "lonab.pdf"
+        try:
+            download = await asyncio.to_thread(session.get, pdf_url, timeout=40)
+            download.raise_for_status()
+            pdf_bytes = download.content
+            if not pdf_bytes:
+                raise ValueError("Fichier vide")
+            file_hash = hashlib.sha256(pdf_bytes).hexdigest()
+            existing = await db.races.find_one({"import_source.file_hash": file_hash}, {"_id": 0, "race_id": 1, "name": 1})
+            if existing:
+                results.append({
+                    "pdf_url": pdf_url,
+                    "filename": filename,
+                    "status": "skipped",
+                    "reason": "duplicate",
+                    "race_id": existing.get("race_id"),
+                    "name": existing.get("name"),
+                })
+                continue
+
+            parsed = await parse_pdf_to_race(pdf_bytes, session_id=f"lonab-{uuid.uuid4().hex[:8]}")
+            doc = build_race_doc(parsed)
+            doc["import_source"] = {
+                "provider": "lonab",
+                "pdf_url": pdf_url,
+                "filename": filename,
+                "file_hash": file_hash,
+                "imported_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await db.races.insert_one(doc)
+            await _log_admin_action(me.get("email"), "lonab.import", {"race_id": doc["race_id"], "pdf_url": pdf_url, "doc_type": doc.get("doc_type")})
+            results.append({
+                "pdf_url": pdf_url,
+                "filename": filename,
+                "status": "imported",
+                "race_id": doc["race_id"],
+                "name": doc.get("name"),
+                "doc_type": doc.get("doc_type"),
+                "parse_quality": doc.get("parse_quality", {}),
+            })
+        except Exception as exc:
+            logger.exception("LONAB import error for %s", pdf_url)
+            results.append({
+                "pdf_url": pdf_url,
+                "filename": filename,
+                "status": "error",
+                "error": str(exc),
+            })
+
+    return {
+        "ok": True,
+        "results": results,
+        "imported": sum(1 for r in results if r["status"] == "imported"),
+        "skipped": sum(1 for r in results if r["status"] == "skipped"),
+        "errors": sum(1 for r in results if r["status"] == "error"),
+    }
 
 
 @api_router.post("/admin/races/upload")

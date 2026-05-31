@@ -123,6 +123,26 @@ export interface LonabImportPreviewResponse {
   errors: string[];
 }
 
+export interface LonabImportResult {
+  pdf_url: string;
+  filename: string;
+  status: 'imported' | 'skipped' | 'error';
+  reason?: string;
+  race_id?: string;
+  name?: string;
+  doc_type?: string;
+  error?: string;
+  parse_quality?: ParseQuality;
+}
+
+export interface LonabImportResponse {
+  ok: boolean;
+  results: LonabImportResult[];
+  imported: number;
+  skipped: number;
+  errors: number;
+}
+
 export const Auth = {
   login: (email: string, password: string) =>
     api.post<{ token: string; user: { email: string; role: string } }>(
@@ -156,6 +176,8 @@ export const Admin = {
     limit: number;
     follow_detail_pages: boolean;
   }) => api.post<LonabImportPreviewResponse>('/admin/imports/lonab/preview', payload, { timeout: 120000 }),
+  importLonabPdfs: (pdf_urls: string[]) =>
+    api.post<LonabImportResponse>('/admin/imports/lonab/import', { pdf_urls }, { timeout: 900000 }),
   listRaces: () => api.get<{ races: Race[] }>('/races?limit=200'),
   listAnnouncements: () => api.get<{ announcements: Announcement[] }>('/admin/announcements'),
   createAnnouncement: (message: string, level: string) =>
