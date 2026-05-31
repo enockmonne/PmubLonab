@@ -26,20 +26,21 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Programmes now include a Race Insight Summary built from structured consensus and form signals.
 - Pronostics now include media agreement, base spread, and outlier context.
 - Admin now has a LONAB archive preview screen for discovering PDF links before bulk import.
+- LONAB archive imports can now download selected PDFs, hash them for deduplication, parse them, and report per-file results.
 
 ## Active PRs
 
-- LONAB Archive Importer v1
-  - Status: in progress on branch `codex-lonab-archive-importer-v1`.
-  - Purpose: preview/discover LONAB archive PDFs before enabling controlled bulk parsing.
+- LONAB Selected Import v1
+  - Status: in progress on branch `codex-lonab-import-selected-v1`.
+  - Purpose: import selected LONAB PDFs with download, SHA-256 dedupe, parsing, and per-file reporting.
 
 ## Immediate Next Steps
 
-1. Open PR for LONAB Archive Importer v1.
+1. Open PR for LONAB Selected Import v1.
 2. Verify CI.
 3. Merge and let Render redeploy.
-4. Review the new Import LONAB admin screen in staging.
-5. Decide the next importer phase: download + hash + queued parsing.
+4. Test selected LONAB imports in staging with a small batch.
+5. Decide the next importer phase: background queue + larger date ranges.
 
 ## Documentation Roadmap
 

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Search, ExternalLink, AlertTriangle, FileText } from 'lucide-react';
+import { Search, ExternalLink, AlertTriangle, FileText, DownloadCloud, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Spinner from '@/components/Spinner';
-import { Admin, LonabImportPreviewItem, apiError } from '@/lib/api';
+import { Admin, LonabImportPreviewItem, LonabImportResult, apiError } from '@/lib/api';
 
 const DEFAULT_SOURCE = 'https://lonab.bf/fr/resultats-gains-pmub?page=0';
 
@@ -12,7 +12,10 @@ export default function ArchiveImport() {
   const [maxPages, setMaxPages] = useState(1);
   const [limit, setLimit] = useState(25);
   const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [items, setItems] = useState<LonabImportPreviewItem[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [importResults, setImportResults] = useState<LonabImportResult[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
 
   const preview = async () => {
@@ -26,12 +29,41 @@ export default function ArchiveImport() {
         follow_detail_pages: true,
       });
       setItems(data.items);
+      setSelected(data.items.slice(0, 5).map((item) => item.pdf_url));
+      setImportResults([]);
       setErrors(data.errors || []);
       toast.success(`${data.count} PDF detecte(s)`);
     } catch (err) {
       toast.error(apiError(err));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleSelected = (pdfUrl: string) => {
+    setSelected((prev) =>
+      prev.includes(pdfUrl)
+        ? prev.filter((url) => url !== pdfUrl)
+        : prev.length >= 5
+          ? prev
+          : [...prev, pdfUrl]
+    );
+  };
+
+  const importSelected = async () => {
+    if (selected.length === 0) {
+      toast.error('Selectionnez au moins un PDF');
+      return;
+    }
+    setImporting(true);
+    try {
+      const { data } = await Admin.importLonabPdfs(selected);
+      setImportResults(data.results);
+      toast.success(`${data.imported} importe(s), ${data.skipped} ignore(s), ${data.errors} erreur(s)`);
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -92,9 +124,9 @@ export default function ArchiveImport() {
 
       <div className="mt-4 rounded-md border border-border bg-bg-elevated/50 p-3">
         <p className="text-xs text-fg-muted leading-relaxed">
-          Cette version ne lance pas encore le parsing en masse. Elle verifie d'abord la
-          decouverte des PDF, le type probable de document et les liens sources. L'import
-          automatique viendra ensuite avec deduplication et revue des fichiers incertains.
+          Selectionnez jusqu'a 5 PDF par lot. Chaque fichier est telecharge, hashe pour
+          eviter les doublons, puis parse avec le pipeline existant. Les fichiers incertains
+          restent visibles dans le resultat d'import.
         </p>
       </div>
 
@@ -114,6 +146,12 @@ export default function ArchiveImport() {
           <h2 className="text-sm font-semibold text-fg">
             {items.length} PDF detecte{items.length > 1 ? 's' : ''}
           </h2>
+          {items.length > 0 && (
+            <button onClick={importSelected} disabled={importing || selected.length === 0} className="btn-primary">
+              {importing ? <Spinner /> : <DownloadCloud size={16} />}
+              {importing ? 'Import en cours...' : `Importer (${selected.length}/5)`}
+            </button>
+          )}
         </div>
         <div className="card divide-y divide-border">
           {items.length === 0 ? (
@@ -123,6 +161,13 @@ export default function ArchiveImport() {
           ) : (
             items.map((item) => (
               <div key={item.pdf_url} className="p-4 flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(item.pdf_url)}
+                  onChange={() => toggleSelected(item.pdf_url)}
+                  disabled={!selected.includes(item.pdf_url) && selected.length >= 5}
+                  className="mt-1"
+                />
                 <FileText size={20} className="text-accent shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-fg truncate">
@@ -148,6 +193,40 @@ export default function ArchiveImport() {
           )}
         </div>
       </div>
+
+      {importResults.length > 0 && (
+        <div className="mt-6">
+          <h2 className="text-sm font-semibold text-fg mb-3">Resultat import</h2>
+          <div className="card divide-y divide-border">
+            {importResults.map((result) => (
+              <div key={result.pdf_url} className="p-4 flex items-start gap-3">
+                {result.status === 'imported' ? (
+                  <CheckCircle2 size={18} className="text-success shrink-0 mt-0.5" />
+                ) : (
+                  <AlertTriangle
+                    size={18}
+                    className={
+                      result.status === 'skipped'
+                        ? 'text-fg-muted shrink-0 mt-0.5'
+                        : 'text-danger shrink-0 mt-0.5'
+                    }
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-fg truncate">
+                    {result.name || result.filename}
+                  </p>
+                  <p className="text-xs text-fg-subtle font-mono truncate">
+                    {result.race_id || result.pdf_url}
+                  </p>
+                  {result.error && <p className="text-xs text-danger mt-1 break-words">{result.error}</p>}
+                </div>
+                <span className="badge bg-bg-elevated text-fg-muted">{result.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
