@@ -1111,6 +1111,31 @@ async def admin_lonab_archive_import(
     }
 
 
+@api_router.get("/admin/imports/lonab/recent")
+async def admin_lonab_recent_imports(
+    limit: int = Query(20, ge=1, le=100),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    cursor = db.races.find(
+        {"import_source.provider": "lonab"},
+        {
+            "_id": 0,
+            "race_id": 1,
+            "name": 1,
+            "date_text": 1,
+            "date_iso": 1,
+            "location": 1,
+            "doc_type": 1,
+            "parse_quality": 1,
+            "import_source": 1,
+        },
+    ).sort("import_source.imported_at", -1).limit(limit)
+    imports = await cursor.to_list(length=limit)
+    return {"imports": imports, "count": len(imports)}
+
+
 @api_router.post("/admin/races/upload")
 async def admin_upload_race(
     file: UploadFile = File(...),
