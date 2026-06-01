@@ -27,24 +27,25 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Pronostics now include media agreement, base spread, and outlier context.
 - Admin now has a LONAB archive preview screen for discovering PDF links before bulk import.
 - LONAB archive imports can now download selected PDFs, hash them for deduplication, parse them, and report per-file results.
+- Formal project docs package exists under `docs/`.
 
 ## Active PRs
 
-- LONAB Selected Import v1
-  - Status: in progress on branch `codex-lonab-import-selected-v1`.
-  - Purpose: import selected LONAB PDFs with download, SHA-256 dedupe, parsing, and per-file reporting.
+- Docs Package v1
+  - Status: in progress on branch `codex-docs-package-v1`.
+  - Purpose: add PRD, architecture, system design, data model, API, parsing, QA, deployment, and launch references.
 
 ## Immediate Next Steps
 
-1. Open PR for LONAB Selected Import v1.
+1. Open PR for Docs Package v1.
 2. Verify CI.
 3. Merge and let Render redeploy.
-4. Test selected LONAB imports in staging with a small batch.
-5. Decide the next importer phase: background queue + larger date ranges.
+4. Keep docs updated as importer and production readiness work evolves.
+5. Test selected LONAB imports in staging with a small batch.
 
 ## Documentation Roadmap
 
-Create a formal `docs/` package:
+Formal `docs/` package:
 
 - `PRD.md`
 - `ARCHITECTURE.md`
