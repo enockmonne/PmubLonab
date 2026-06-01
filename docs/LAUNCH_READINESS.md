@@ -18,6 +18,7 @@
 - Import queue for larger LONAB batches.
 - Result/programme linking improvements.
 - Physical Android push notification test.
+- LONAB import smoke-tested on staging with one PDF, duplicate retry, then a 3-5 PDF batch.
 
 ## Product Readiness
 
