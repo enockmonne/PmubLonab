@@ -20,7 +20,9 @@ Base path: `/api`.
 - `GET /stats/horses/{name}`: historical horse appearances and rates.
 - `GET /stats/horses/leaderboard`: top horses by win/top-3 rate.
 - `GET /stats/tipsters`: prediction source accuracy.
+  - Uses embedded results or linked official result documents when available.
 - `GET /stats/people`: jockey and trainer leaderboards.
+  - Uses linked official result documents when programme/result links exist.
 
 ## Admin
 
