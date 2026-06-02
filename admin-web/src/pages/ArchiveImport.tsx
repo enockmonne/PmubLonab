@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, ExternalLink, AlertTriangle, FileText, DownloadCloud, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Spinner from '@/components/Spinner';
-import { Admin, LonabImportPreviewItem, LonabImportResult, apiError } from '@/lib/api';
+import { Admin, LonabImportPreviewItem, LonabImportResult, LonabRecentImport, apiError } from '@/lib/api';
 
 const DEFAULT_SOURCE = 'https://lonab.bf/fr/resultats-gains-pmub?page=0';
 
@@ -16,7 +16,21 @@ export default function ArchiveImport() {
   const [items, setItems] = useState<LonabImportPreviewItem[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [importResults, setImportResults] = useState<LonabImportResult[]>([]);
+  const [recentImports, setRecentImports] = useState<LonabRecentImport[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+
+  const loadRecent = async () => {
+    try {
+      const { data } = await Admin.listLonabImports(10);
+      setRecentImports(data.imports);
+    } catch {
+      setRecentImports([]);
+    }
+  };
+
+  useEffect(() => {
+    loadRecent();
+  }, []);
 
   const preview = async () => {
     setLoading(true);
@@ -59,6 +73,7 @@ export default function ArchiveImport() {
     try {
       const { data } = await Admin.importLonabPdfs(selected);
       setImportResults(data.results);
+      loadRecent();
       toast.success(`${data.imported} importe(s), ${data.skipped} ignore(s), ${data.errors} erreur(s)`);
     } catch (err) {
       toast.error(apiError(err));
@@ -227,6 +242,33 @@ export default function ArchiveImport() {
           </div>
         </div>
       )}
+
+      <div className="mt-6">
+        <h2 className="text-sm font-semibold text-fg mb-3">Imports LONAB recents</h2>
+        <div className="card divide-y divide-border">
+          {recentImports.length === 0 ? (
+            <div className="p-6 text-center text-sm text-fg-muted">
+              Aucun import LONAB enregistre pour le moment.
+            </div>
+          ) : (
+            recentImports.map((item) => (
+              <div key={item.race_id} className="p-4 flex items-start gap-3">
+                <FileText size={18} className="text-accent shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-fg truncate">{item.name}</p>
+                  <p className="text-xs text-fg-subtle truncate">
+                    {item.date_text || item.date_iso || '-'} - {item.location || '-'}
+                  </p>
+                  <p className="text-xs text-fg-subtle font-mono truncate mt-1">
+                    {item.import_source?.filename || item.race_id}
+                  </p>
+                </div>
+                <span className="badge bg-bg-elevated text-fg-muted">{item.doc_type || 'doc'}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

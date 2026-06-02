@@ -37,9 +37,10 @@ Use this procedure before importing larger batches.
 5. Confirm the result is `imported` or a clear `error`.
 6. If imported, open Courses and confirm the new document exists.
 7. Open the public app and confirm the imported programme/result behaves as expected.
-8. Re-import the same PDF and confirm it is skipped as a duplicate.
-9. Only after this passes, try a 3-5 PDF batch.
-10. Record any parser warnings or format issues for follow-up.
+8. Confirm the document appears in the recent LONAB imports list.
+9. Re-import the same PDF and confirm it is skipped as a duplicate.
+10. Only after this passes, try a 3-5 PDF batch.
+11. Record any parser warnings or format issues for follow-up.
 
 ## Content QA
 

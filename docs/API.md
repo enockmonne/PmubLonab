@@ -44,4 +44,6 @@ Base path: `/api`.
   - Max 5 PDFs per request.
   - Accepts only LONAB PDF URLs.
   - Computes file hash and skips duplicate imports.
+- `GET /admin/imports/lonab/recent`
+  - Lists recent LONAB imports from stored race import metadata.
 
