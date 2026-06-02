@@ -7,7 +7,8 @@
 3. Gemini-backed parser extracts structured race data.
 4. Temporary Gemini 429/5xx and timeout failures are retried with backoff.
 5. Backend normalizes output into the race document shape.
-6. Parse quality is computed and returned to admin.
+6. Newly inserted programme/result documents are linked to likely same-date counterparts.
+7. Parse quality is computed and returned to admin.
 
 ## Supported Document Types
 

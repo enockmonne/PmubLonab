@@ -6,6 +6,7 @@ Base path: `/api`.
 
 - `GET /race`: current race summary for legacy/current app flow.
 - `GET /races`: race library summaries.
+  - Includes programme/result link counts when documents have been matched.
 - `GET /races/current`: full current race.
 - `GET /races/{race_id}`: full race by id.
 - `GET /horses`: current race horses.
@@ -29,6 +30,8 @@ Base path: `/api`.
 - `GET /admin/status`
 - `POST /admin/races/upload`
 - `POST /admin/races/{race_id}/set-current`
+- `POST /admin/races/link-related`
+  - Rebuilds automatic programme/result links for existing stored documents.
 - `DELETE /admin/races/{race_id}`
 - `GET /admin/logs`
 - `GET /admin/announcements`

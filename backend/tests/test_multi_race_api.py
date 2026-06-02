@@ -200,6 +200,10 @@ class TestAdmin:
         r = api.get(f"{BASE_URL}/api/admin/imports/lonab/recent", timeout=30)
         assert r.status_code == 401
 
+    def test_link_related_without_passcode_401(self, api):
+        r = api.post(f"{BASE_URL}/api/admin/races/link-related", timeout=30)
+        assert r.status_code == 401
+
     def test_lonab_import_empty_selection_400(self, api):
         if not ADMIN_PASSCODE:
             pytest.skip("ADMIN_PASSCODE is not configured")
