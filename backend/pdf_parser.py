@@ -3,6 +3,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from typing import Any, Dict
 
 import pdfplumber
@@ -11,6 +12,9 @@ import requests
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
 GEMINI_TIMEOUT_SECONDS = int(os.environ.get("GEMINI_TIMEOUT_SECONDS", "180"))
+GEMINI_MAX_RETRIES = int(os.environ.get("GEMINI_MAX_RETRIES", "2"))
+GEMINI_RETRY_BACKOFF_SECONDS = float(os.environ.get("GEMINI_RETRY_BACKOFF_SECONDS", "4"))
+GEMINI_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 EXTRACT_SYSTEM_PROMPT = """Tu es un expert en extraction de données depuis des publications françaises de courses hippiques (PMU'B / Le Journal Hippique).
 
@@ -169,6 +173,7 @@ async def check_llm_health() -> Dict[str, Any]:
             prompt="Reponds uniquement avec: ok",
             timeout_seconds=30,
             response_mime_type="text/plain",
+            max_retries=0,
         )
         return {"status": "ok" if response_text.strip() else "error", "error": None}
     except Exception as e:
@@ -181,6 +186,7 @@ async def _send_gemini_prompt(
     prompt: str,
     timeout_seconds: int = GEMINI_TIMEOUT_SECONDS,
     response_mime_type: str = "application/json",
+    max_retries: int = GEMINI_MAX_RETRIES,
 ) -> str:
     return await asyncio.to_thread(
         _send_gemini_prompt_sync,
@@ -189,6 +195,7 @@ async def _send_gemini_prompt(
         prompt,
         timeout_seconds,
         response_mime_type,
+        max_retries,
     )
 
 
@@ -198,6 +205,7 @@ def _send_gemini_prompt_sync(
     prompt: str,
     timeout_seconds: int,
     response_mime_type: str,
+    max_retries: int,
 ) -> str:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     payload = {
@@ -212,17 +220,33 @@ def _send_gemini_prompt_sync(
             "responseMimeType": response_mime_type,
         },
     }
-    response = requests.post(
-        url,
-        params={"key": api_key},
-        json=payload,
-        timeout=timeout_seconds,
-    )
-    if response.status_code >= 400:
-        raise ValueError(f"Gemini API error {response.status_code}: {response.text[:500]}")
+    attempts = max(1, max_retries + 1)
+    last_error: Exception | None = None
 
-    body = response.json()
-    try:
-        return body["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError, TypeError) as e:
-        raise ValueError(f"Gemini response missing text: {body}") from e
+    for attempt in range(attempts):
+        try:
+            response = requests.post(
+                url,
+                params={"key": api_key},
+                json=payload,
+                timeout=timeout_seconds,
+            )
+            if response.status_code >= 400:
+                error = ValueError(f"Gemini API error {response.status_code}: {response.text[:500]}")
+                if response.status_code not in GEMINI_RETRYABLE_STATUS_CODES or attempt == attempts - 1:
+                    raise error
+                last_error = error
+            else:
+                body = response.json()
+                try:
+                    return body["candidates"][0]["content"]["parts"][0]["text"]
+                except (KeyError, IndexError, TypeError) as e:
+                    raise ValueError(f"Gemini response missing text: {body}") from e
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            if attempt == attempts - 1:
+                raise
+            last_error = exc
+
+        time.sleep(GEMINI_RETRY_BACKOFF_SECONDS * (attempt + 1))
+
+    raise ValueError(f"Gemini request failed after retries: {last_error}")

@@ -19,6 +19,9 @@ Current staging target:
 - `ADMIN_PASSWORD`
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL`
+- `GEMINI_TIMEOUT_SECONDS`
+- `GEMINI_MAX_RETRIES`
+- `GEMINI_RETRY_BACKOFF_SECONDS`
 - `CORS_ORIGINS`
 
 ## Required Frontend Environment
