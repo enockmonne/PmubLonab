@@ -331,6 +331,31 @@ async def rebuild_programme_result_links() -> Dict[str, int]:
     }
 
 
+def official_results_for_race(race: Dict[str, Any], races_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Return official results from the race itself or a linked result document."""
+    own_results = race.get("previous_results") or {}
+    if own_results.get("finishing_order"):
+        return {
+            "results": own_results,
+            "source": "embedded",
+            "result_race_id": race.get("race_id"),
+        }
+
+    for linked_id in race.get("linked_result_ids", []) or []:
+        linked = races_by_id.get(linked_id)
+        if not linked:
+            continue
+        linked_results = linked.get("previous_results") or {}
+        if linked_results.get("finishing_order"):
+            return {
+                "results": linked_results,
+                "source": "linked_result",
+                "result_race_id": linked.get("race_id"),
+            }
+
+    return {"results": {}, "source": "none", "result_race_id": None}
+
+
 async def _send_push_messages(messages: List[dict]) -> Dict[str, Any]:
     """Send messages through Expo Push Service without blocking the event loop."""
     if not messages:
@@ -895,12 +920,13 @@ async def horse_history(name: str):
     """Aggregate a horse's history across all races in DB."""
     target = name.upper().strip()
     all_races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
+    races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
     appearances = []
     wins = 0
     places = 0  # top 3
     total_runs = 0
     for r in all_races:
-        prev = r.get("previous_results", {}) or {}
+        prev = official_results_for_race(r, races_by_id)["results"]
         order = prev.get("finishing_order", []) or []
         # Find horse by name in this race's roster
         horse = next((h for h in r.get("horses", []) if (h.get("name") or "").upper() == target), None)
@@ -945,16 +971,26 @@ async def horse_history(name: str):
 
 @api_router.get("/stats/tipsters")
 async def tipsters_leaderboard():
-    """Leaderboard: for each source, success rate = how often their #1 pick finished in top 3 of previous_results."""
+    """Leaderboard: how often each source's #1 pick finished in top 3."""
     all_races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
     agg: Dict[str, Dict[str, int]] = {}
+    linked_results_used = 0
+    evaluated_race_ids: set[str] = set()
     for r in all_races:
-        order = (r.get("previous_results") or {}).get("finishing_order", []) or []
+        predictions = r.get("predictions", []) or []
+        if not predictions:
+            continue
+        result_context = official_results_for_race(r, races_by_id)
+        order = (result_context["results"] or {}).get("finishing_order", []) or []
         if not order:
             continue
+        if result_context["source"] == "linked_result":
+            linked_results_used += 1
+        evaluated_race_ids.add(r.get("race_id", ""))
         winner = order[0]
         top3 = order[:3]
-        for p in r.get("predictions", []) or []:
+        for p in predictions:
             src = p.get("source")
             picks = p.get("picks", []) or []
             if not src or not picks:
@@ -980,7 +1016,11 @@ async def tipsters_leaderboard():
             "top3_rate": round((v["top_pick_top3"] / ev) * 100, 1),
         })
     leaderboard.sort(key=lambda x: (-x["top3_rate"], -x["win_rate"]))
-    return {"leaderboard": leaderboard}
+    return {
+        "leaderboard": leaderboard,
+        "evaluated_races": len([race_id for race_id in evaluated_race_ids if race_id]),
+        "linked_results_used": linked_results_used,
+    }
 
 
 @api_router.get("/stats/people")
@@ -988,6 +1028,7 @@ async def people_leaderboard():
     """Top jockeys & entraîneurs based on top-3 finishes across all races.
     Cross-references result docs (finishing_order) with programme docs (horses)."""
     races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    races_by_id = {r.get("race_id"): r for r in races if r.get("race_id")}
     # Build a lookup: date_iso -> list of programmes with horses
     prog_by_date: Dict[str, List[dict]] = {}
     for r in races:
@@ -1008,7 +1049,7 @@ async def people_leaderboard():
             e["top3"] += 1
 
     for r in races:
-        order = (r.get("previous_results") or {}).get("finishing_order", []) or []
+        order = (official_results_for_race(r, races_by_id)["results"] or {}).get("finishing_order", []) or []
         if not order:
             continue
         # Find matching programme on same date OR fallback to current race's horses

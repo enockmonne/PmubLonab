@@ -20,7 +20,7 @@
 - Partants/Horse Detail: horse profile and horse intelligence.
 - Pronostics: consensus, media agreement, classifications.
 - Resultats: official results and reports.
-- Stats: horse, tipster, jockey, trainer leaderboards.
+- Stats: horse, tipster, jockey, trainer leaderboards using embedded or linked official results.
 
 ## Key Admin Areas
 

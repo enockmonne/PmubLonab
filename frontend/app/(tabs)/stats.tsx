@@ -37,6 +37,7 @@ export default function StatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
   const [jockeys, setJockeys] = useState<Person[]>([]);
   const [trainers, setTrainers] = useState<Person[]>([]);
+  const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
   const [peopleTab, setPeopleTab] = useState<"jockeys" | "trainers">("jockeys");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,6 +50,7 @@ export default function StatsScreen() {
         fetch(`${API_URL}/api/stats/people`).then((r) => r.json()),
       ]);
       setLeaderboard(tip.leaderboard || []);
+      setLinkedResultsUsed(tip.linked_results_used || 0);
       setJockeys(ppl.jockeys || []);
       setTrainers(ppl.trainers || []);
     } catch (e) {
@@ -100,6 +102,14 @@ export default function StatsScreen() {
           <Text style={styles.sectionLead}>
             % de fois où le pick n°1 du média termine dans le top 3.
           </Text>
+
+          {linkedResultsUsed > 0 && (
+            <Text style={styles.sectionNote}>
+              {linkedResultsUsed} resultat{linkedResultsUsed > 1 ? "s" : ""} lie
+              {linkedResultsUsed > 1 ? "s" : ""} utilise
+              {linkedResultsUsed > 1 ? "s" : ""} pour ces calculs.
+            </Text>
+          )}
 
           {loading ? (
             <ActivityIndicator style={{ marginTop: 20 }} color={theme.colors.brand} />
@@ -327,6 +337,12 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 6,
     lineHeight: 19,
+  },
+  sectionNote: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 6,
+    lineHeight: 17,
   },
   empty: { alignItems: "center", padding: 24 },
   emptyText: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 8, textAlign: "center" },
