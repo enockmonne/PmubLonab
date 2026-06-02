@@ -5,10 +5,32 @@ import PageHeader from '@/components/PageHeader';
 import Spinner from '@/components/Spinner';
 import { Admin, LonabImportPreviewItem, LonabImportResult, LonabRecentImport, apiError } from '@/lib/api';
 
-const DEFAULT_SOURCE = 'https://lonab.bf/fr/resultats-gains-pmub?page=0';
+const LONAB_SOURCES = {
+  programmes: {
+    label: 'Programmes PMU\'B',
+    url: 'https://lonab.bf/fr/programme-pmub?page=0',
+    description: 'Journal hippique et programmes avant course.',
+  },
+  results: {
+    label: 'Resultats / Gains PMU\'B',
+    url: 'https://lonab.bf/fr/resultats-gains-pmub?page=0',
+    description: 'Rapports, resultats officiels et gains apres course.',
+  },
+  custom: {
+    label: 'URL LONAB personnalisee',
+    url: '',
+    description: 'Pour tester une autre page LONAB contenant des liens PDF.',
+  },
+} as const;
+
+type LonabSourceKey = keyof typeof LONAB_SOURCES;
+
+const DEFAULT_SOURCE_TYPE: LonabSourceKey = 'programmes';
+const DEFAULT_SOURCE = LONAB_SOURCES[DEFAULT_SOURCE_TYPE].url;
 
 export default function ArchiveImport() {
-  const [sourceUrl, setSourceUrl] = useState(DEFAULT_SOURCE);
+  const [sourceType, setSourceType] = useState<LonabSourceKey>(DEFAULT_SOURCE_TYPE);
+  const [sourceUrl, setSourceUrl] = useState<string>(DEFAULT_SOURCE);
   const [maxPages, setMaxPages] = useState(1);
   const [limit, setLimit] = useState(25);
   const [loading, setLoading] = useState(false);
@@ -31,6 +53,17 @@ export default function ArchiveImport() {
   useEffect(() => {
     loadRecent();
   }, []);
+
+  const changeSourceType = (nextType: LonabSourceKey) => {
+    setSourceType(nextType);
+    setItems([]);
+    setSelected([]);
+    setImportResults([]);
+    setErrors([]);
+    if (nextType !== 'custom') {
+      setSourceUrl(LONAB_SOURCES[nextType].url);
+    }
+  };
 
   const preview = async () => {
     setLoading(true);
@@ -86,19 +119,43 @@ export default function ArchiveImport() {
     <div>
       <PageHeader
         title="Import LONAB"
-        subtitle="Decouvrez les PDF disponibles sur les archives LONAB avant import en masse."
+        subtitle="Choisissez les programmes ou les resultats/gains LONAB, puis importez seulement les PDF utiles."
       />
 
       <div className="card p-4 space-y-4">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-fg-muted mb-1">
-            URL archive
+            Source LONAB
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {(Object.keys(LONAB_SOURCES) as LonabSourceKey[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => changeSourceType(key)}
+                className={`rounded-md border p-3 text-left transition ${
+                  sourceType === key
+                    ? 'border-accent bg-accent/10 text-fg'
+                    : 'border-border bg-bg-elevated text-fg-muted hover:text-fg'
+                }`}
+              >
+                <span className="block text-sm font-semibold">{LONAB_SOURCES[key].label}</span>
+                <span className="mt-1 block text-xs leading-relaxed">{LONAB_SOURCES[key].description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase tracking-wider text-fg-muted mb-1">
+            URL utilisee
           </label>
           <input
             value={sourceUrl}
             onChange={(e) => setSourceUrl(e.target.value)}
             className="input w-full"
             placeholder={DEFAULT_SOURCE}
+            readOnly={sourceType !== 'custom'}
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
