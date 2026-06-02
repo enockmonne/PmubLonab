@@ -68,6 +68,37 @@ def slugify(value: str) -> str:
     return value or "course"
 
 
+def normalize_match_text(value: str) -> str:
+    value = unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode()
+    value = re.sub(r"[^a-z0-9]+", " ", value.lower())
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def score_programme_result_match(left: Dict[str, Any], right: Dict[str, Any]) -> int:
+    """Small deterministic score for programme/result linking candidates."""
+    score = 0
+    left_date = (left.get("date_iso") or "")[:10]
+    right_date = (right.get("date_iso") or "")[:10]
+    if left_date and right_date and left_date != right_date:
+        return 0
+    if left_date and left_date == right_date:
+        score += 5
+
+    left_location = normalize_match_text(left.get("location", ""))
+    right_location = normalize_match_text(right.get("location", ""))
+    if left_location and right_location and (left_location in right_location or right_location in left_location):
+        score += 3
+
+    left_name = normalize_match_text(left.get("name", ""))
+    right_name = normalize_match_text(right.get("name", ""))
+    left_tokens = {t for t in left_name.split() if len(t) > 2}
+    right_tokens = {t for t in right_name.split() if len(t) > 2}
+    if left_tokens and right_tokens:
+        score += min(3, len(left_tokens & right_tokens))
+
+    return score
+
+
 def _is_allowed_lonab_url(url: str) -> bool:
     parsed = urlparse(url)
     return parsed.scheme in {"http", "https"} and parsed.netloc.lower() in {"lonab.bf", "www.lonab.bf"}
@@ -227,6 +258,79 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     return doc
 
 
+async def link_related_programme_results(doc: Dict[str, Any]) -> Dict[str, Any]:
+    """Link programme and result documents that likely describe the same race day."""
+    race_id = doc.get("race_id")
+    doc_type = doc.get("doc_type")
+    date_iso = (doc.get("date_iso") or "")[:10]
+    if not race_id or doc_type not in {"programme", "result"} or not date_iso:
+        return {"linked_programmes": [], "linked_results": []}
+
+    opposite = "result" if doc_type == "programme" else "programme"
+    candidates = await db.races.find(
+        {
+            "race_id": {"$ne": race_id},
+            "doc_type": opposite,
+            "date_iso": {"$regex": f"^{re.escape(date_iso)}"},
+        },
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1},
+    ).to_list(length=25)
+
+    linked_ids = [
+        candidate["race_id"] for candidate in candidates
+        if score_programme_result_match(doc, candidate) >= 5
+    ]
+    if not linked_ids:
+        return {"linked_programmes": [], "linked_results": []}
+
+    if doc_type == "programme":
+        await db.races.update_one(
+            {"race_id": race_id},
+            {"$addToSet": {"linked_result_ids": {"$each": linked_ids}}},
+        )
+        await db.races.update_many(
+            {"race_id": {"$in": linked_ids}},
+            {"$addToSet": {"linked_programme_ids": race_id}},
+        )
+        return {"linked_programmes": [], "linked_results": linked_ids}
+
+    await db.races.update_one(
+        {"race_id": race_id},
+        {"$addToSet": {"linked_programme_ids": {"$each": linked_ids}}},
+    )
+    await db.races.update_many(
+        {"race_id": {"$in": linked_ids}},
+        {"$addToSet": {"linked_result_ids": race_id}},
+    )
+    return {"linked_programmes": linked_ids, "linked_results": []}
+
+
+async def rebuild_programme_result_links() -> Dict[str, int]:
+    """Re-run automatic programme/result linking for existing stored documents."""
+    await db.races.update_many(
+        {},
+        {"$unset": {"linked_programme_ids": "", "linked_result_ids": ""}},
+    )
+    docs = await db.races.find(
+        {"doc_type": {"$in": ["programme", "result"]}},
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1},
+    ).sort("date_iso", -1).to_list(length=2000)
+    linked_programmes = 0
+    linked_results = 0
+    for doc in docs:
+        linked = await link_related_programme_results(doc)
+        if linked["linked_programmes"] or linked["linked_results"]:
+            if doc.get("doc_type") == "programme":
+                linked_programmes += 1
+            else:
+                linked_results += 1
+    return {
+        "documents_scanned": len(docs),
+        "programmes_linked": linked_programmes,
+        "results_linked": linked_results,
+    }
+
+
 async def _send_push_messages(messages: List[dict]) -> Dict[str, Any]:
     """Send messages through Expo Push Service without blocking the event loop."""
     if not messages:
@@ -315,6 +419,8 @@ async def ensure_indexes():
     await db.races.create_index([("date_iso", -1)])
     await db.races.create_index("doc_type")
     await db.races.create_index("is_current")
+    await db.races.create_index("linked_programme_ids")
+    await db.races.create_index("linked_result_ids")
     await db.favorites.create_index([("device_id", 1), ("race_id", 1), ("horse_number", 1)], unique=True)
     await db.push_tokens.create_index("token", unique=True)
     await db.push_tokens.create_index("device_id")
@@ -702,6 +808,10 @@ async def list_races(
             "runners": r.get("runners"),
             "prize_fcfa": r.get("prize_fcfa"),
             "is_current": r.get("is_current", False),
+            "linked_programme_ids": r.get("linked_programme_ids", []),
+            "linked_result_ids": r.get("linked_result_ids", []),
+            "linked_programmes_count": len(r.get("linked_programme_ids", []) or []),
+            "linked_results_count": len(r.get("linked_result_ids", []) or []),
             "has_results": bool((r.get("previous_results") or {}).get("finishing_order")),
             "finishing_order": (r.get("previous_results") or {}).get("finishing_order", [])[:5],
             "top_payout": next(
@@ -1083,7 +1193,13 @@ async def admin_lonab_archive_import(
                 "imported_at": datetime.now(timezone.utc).isoformat(),
             }
             await db.races.insert_one(doc)
-            await _log_admin_action(me.get("email"), "lonab.import", {"race_id": doc["race_id"], "pdf_url": pdf_url, "doc_type": doc.get("doc_type")})
+            linked = await link_related_programme_results(doc)
+            await _log_admin_action(me.get("email"), "lonab.import", {
+                "race_id": doc["race_id"],
+                "pdf_url": pdf_url,
+                "doc_type": doc.get("doc_type"),
+                "linked": linked,
+            })
             results.append({
                 "pdf_url": pdf_url,
                 "filename": filename,
@@ -1092,6 +1208,7 @@ async def admin_lonab_archive_import(
                 "name": doc.get("name"),
                 "doc_type": doc.get("doc_type"),
                 "parse_quality": doc.get("parse_quality", {}),
+                "linked": linked,
             })
         except Exception as exc:
             logger.exception("LONAB import error for %s", pdf_url)
@@ -1130,10 +1247,23 @@ async def admin_lonab_recent_imports(
             "doc_type": 1,
             "parse_quality": 1,
             "import_source": 1,
+            "linked_programme_ids": 1,
+            "linked_result_ids": 1,
         },
     ).sort("import_source.imported_at", -1).limit(limit)
     imports = await cursor.to_list(length=limit)
     return {"imports": imports, "count": len(imports)}
+
+
+@api_router.post("/admin/races/link-related")
+async def admin_link_related_races(
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    result = await rebuild_programme_result_links()
+    await _log_admin_action(me.get("email"), "race.link_related", result)
+    return {"ok": True, **result}
 
 
 @api_router.post("/admin/races/upload")
@@ -1155,12 +1285,19 @@ async def admin_upload_race(
         raise HTTPException(status_code=422, detail=f"Erreur de parsing: {e}")
     doc = build_race_doc(parsed)
     await db.races.insert_one(doc)
-    await _log_admin_action(me.get("email"), "race.upload", {"race_id": doc["race_id"], "name": doc["name"], "doc_type": doc.get("doc_type")})
+    linked = await link_related_programme_results(doc)
+    await _log_admin_action(me.get("email"), "race.upload", {
+        "race_id": doc["race_id"],
+        "name": doc["name"],
+        "doc_type": doc.get("doc_type"),
+        "linked": linked,
+    })
     return {"ok": True, "race_id": doc["race_id"], "summary": {
         "name": doc["name"], "location": doc["location"], "date": doc["date_text"],
         "runners": doc["runners"], "horses_parsed": len(doc["horses"]),
         "doc_type": doc.get("doc_type"),
         "parse_quality": doc.get("parse_quality", {}),
+        "linked": linked,
     }}
 
 

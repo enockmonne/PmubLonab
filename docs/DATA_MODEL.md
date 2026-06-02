@@ -22,6 +22,8 @@ Core fields:
 - `editorial_synthesis`
 - `is_current`
 - `created_at`
+- `linked_programme_ids`: result documents can reference related programme documents
+- `linked_result_ids`: programme documents can reference related official result documents
 
 ## Nested Fields
 

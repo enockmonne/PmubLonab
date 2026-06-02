@@ -62,6 +62,10 @@ export interface Race {
   doc_type?: string;
   is_current?: boolean;
   created_at?: string;
+  linked_programme_ids?: string[];
+  linked_result_ids?: string[];
+  linked_programmes_count?: number;
+  linked_results_count?: number;
 }
 
 export interface Announcement {
@@ -104,7 +108,13 @@ export interface UploadRaceResponse {
     horses_parsed: number;
     doc_type?: string;
     parse_quality?: ParseQuality;
+    linked?: RaceLinkSummary;
   };
+}
+
+export interface RaceLinkSummary {
+  linked_programmes: string[];
+  linked_results: string[];
 }
 
 export interface LonabImportPreviewItem {
@@ -133,6 +143,7 @@ export interface LonabImportResult {
   doc_type?: string;
   error?: string;
   parse_quality?: ParseQuality;
+  linked?: RaceLinkSummary;
 }
 
 export interface LonabImportResponse {
@@ -151,6 +162,8 @@ export interface LonabRecentImport {
   location?: string;
   doc_type?: string;
   parse_quality?: ParseQuality;
+  linked_programme_ids?: string[];
+  linked_result_ids?: string[];
   import_source?: {
     provider: string;
     pdf_url: string;
@@ -187,6 +200,13 @@ export const Admin = {
   },
   setCurrent: (race_id: string) => api.post(`/admin/races/${race_id}/set-current`),
   deleteRace: (race_id: string) => api.delete(`/admin/races/${race_id}`),
+  linkRelatedRaces: () =>
+    api.post<{
+      ok: boolean;
+      documents_scanned: number;
+      programmes_linked: number;
+      results_linked: number;
+    }>('/admin/races/link-related'),
   previewLonabArchive: (payload: {
     source_url: string;
     max_pages: number;

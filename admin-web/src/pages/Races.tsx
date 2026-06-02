@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Star, Trash2, RefreshCw, Filter } from 'lucide-react';
+import { Link, Search, Star, Trash2, RefreshCw, Filter } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Admin, Race, apiError } from '@/lib/api';
 import PageHeader from '@/components/PageHeader';
@@ -12,6 +12,7 @@ export default function Races() {
   const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [linking, setLinking] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<DocFilter>('all');
 
@@ -72,6 +73,19 @@ export default function Races() {
     }
   };
 
+  const handleLinkRelated = async () => {
+    setLinking(true);
+    try {
+      const { data } = await Admin.linkRelatedRaces();
+      toast.success(`${data.programmes_linked + data.results_linked} document(s) lie(s)`);
+      await load();
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setLinking(false);
+    }
+  };
+
   if (loading) return <CenteredSpinner label="Chargement des courses…" />;
 
   return (
@@ -80,9 +94,14 @@ export default function Races() {
         title="Courses"
         subtitle={`${races.length} course(s) en base`}
         action={
-          <button onClick={load} className="btn-secondary">
-            <RefreshCw size={14} /> Actualiser
-          </button>
+          <div className="flex gap-2">
+            <button onClick={handleLinkRelated} disabled={linking} className="btn-secondary">
+              <Link size={14} /> {linking ? 'Liaison...' : 'Lier'}
+            </button>
+            <button onClick={load} className="btn-secondary">
+              <RefreshCw size={14} /> Actualiser
+            </button>
+          </div>
         }
       />
 
@@ -143,6 +162,12 @@ export default function Races() {
                       <div>
                         <p className="font-medium text-fg">{r.name}</p>
                         <p className="text-xs text-fg-subtle font-mono">{r.race_id}</p>
+                        {((r.linked_programmes_count || 0) + (r.linked_results_count || 0)) > 0 && (
+                          <span className="badge bg-bg-elevated text-fg-muted mt-1" title="Programme/resultat lie">
+                            <Link size={12} />
+                            Lie
+                          </span>
+                        )}
                       </div>
                     </div>
                   </td>

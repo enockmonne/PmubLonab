@@ -27,6 +27,7 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Pronostics now include media agreement, base spread, and outlier context.
 - Admin now has a LONAB archive preview screen for discovering PDF links before bulk import.
 - LONAB archive imports can now download selected PDFs, hash them for deduplication, parse them, and report per-file results.
+- Programme and result documents are linked after upload/import when a likely same-date counterpart exists.
 - Formal project docs package exists under `docs/`.
 
 ## Active PRs
@@ -172,11 +173,10 @@ Phase 5: Premium Analytics Later
   - has_previous_results
   - has_betting_info
   - warnings
-- Add result/programme linking:
-  - match same date
-  - match same race/event
-  - match same location when available
-  - preserve shared race identity
+- Improve result/programme linking:
+  - review linked records in admin
+  - add manual correction/override tools
+  - use links for prediction-vs-outcome analytics
 - Add admin correction endpoints:
   - edit race metadata
   - edit previous results/reports
