@@ -39,6 +39,7 @@ Base path: `/api`.
 
 - `POST /admin/imports/lonab/preview`
   - Discovers PDF links from LONAB archive/list pages.
+  - Admin UI supports Programme, Resultats/Gains, and custom LONAB source URLs.
 - `POST /admin/imports/lonab/import`
   - Imports selected LONAB PDF URLs.
   - Max 5 PDFs per request.

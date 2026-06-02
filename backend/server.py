@@ -952,7 +952,7 @@ class SetCurrentPayload(BaseModel):
 
 
 class LonabArchivePreviewPayload(BaseModel):
-    source_url: str = "https://lonab.bf/fr/resultats-gains-pmub?page=0"
+    source_url: str = "https://lonab.bf/fr/programme-pmub?page=0"
     max_pages: int = 1
     limit: int = 25
     follow_detail_pages: bool = True
