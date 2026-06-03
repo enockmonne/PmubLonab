@@ -74,6 +74,29 @@ def normalize_match_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+PRONOSTIC_SOURCE_LABELS = {
+    "paristurf": "ParisTurf",
+    "voix du nord": "Voix du Nord",
+    "turf fr com": "Turf-fr.com",
+    "turfomania": "Turfomania",
+    "le parisien": "Le Parisien",
+    "l alsace": "L'Alsace",
+    "zone turf fr": "Zone-Turf.fr",
+}
+
+PRONOSTIC_SOURCE_ALIASES = {
+    "lalsace": "l alsace",
+}
+
+
+def canonical_pronostic_source(source: str) -> tuple[str, str]:
+    key = normalize_match_text(source)
+    key = PRONOSTIC_SOURCE_ALIASES.get(key, key)
+    if key in PRONOSTIC_SOURCE_LABELS:
+        return key, PRONOSTIC_SOURCE_LABELS[key]
+    return key or "source inconnue", (source or "Source inconnue").strip()
+
+
 def score_programme_result_match(left: Dict[str, Any], right: Dict[str, Any]) -> int:
     """Small deterministic score for programme/result linking candidates."""
     score = 0
@@ -1019,11 +1042,21 @@ async def tipsters_leaderboard():
         winner = order[0]
         top3 = order[:3]
         for p in predictions:
-            src = p.get("source")
+            raw_src = p.get("source")
             picks = p.get("picks", []) or []
-            if not src or not picks:
+            if not raw_src or not picks:
                 continue
-            entry = agg.setdefault(src, {"evaluated": 0, "top_pick_wins": 0, "top_pick_top3": 0, "base_in_top3": 0})
+            src_key, src_label = canonical_pronostic_source(raw_src)
+            entry = agg.setdefault(
+                src_key,
+                {
+                    "source": src_label,
+                    "evaluated": 0,
+                    "top_pick_wins": 0,
+                    "top_pick_top3": 0,
+                    "base_in_top3": 0,
+                },
+            )
             entry["evaluated"] += 1
             if picks[0] == winner:
                 entry["top_pick_wins"] += 1
@@ -1032,10 +1065,10 @@ async def tipsters_leaderboard():
             if any(p in top3 for p in picks[:3]):
                 entry["base_in_top3"] += 1
     leaderboard = []
-    for src, v in agg.items():
+    for v in agg.values():
         ev = v["evaluated"] or 1
         leaderboard.append({
-            "source": src,
+            "source": v["source"],
             "evaluated_races": v["evaluated"],
             "top_pick_wins": v["top_pick_wins"],
             "top_pick_top3": v["top_pick_top3"],

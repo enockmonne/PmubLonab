@@ -5,7 +5,11 @@ os.environ.setdefault("DB_NAME", "pmub_test")
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 
-from server import official_results_for_race, score_programme_result_match
+from server import (
+    canonical_pronostic_source,
+    official_results_for_race,
+    score_programme_result_match,
+)
 
 
 def test_programme_result_match_scores_same_date():
@@ -94,3 +98,18 @@ def test_official_results_uses_embedded_results_for_result_document():
     assert context["source"] == "embedded"
     assert context["result_race_id"] == "result-1"
     assert context["results"]["finishing_order"] == [9, 8, 7]
+
+
+def test_canonical_pronostic_source_rolls_up_variants():
+    variants = ["L'Alsace", "L’ALSACE", "l alsace", " L ALSACE "]
+
+    normalized = {canonical_pronostic_source(source) for source in variants}
+
+    assert normalized == {("l alsace", "L'Alsace")}
+
+
+def test_canonical_pronostic_source_preserves_unknown_display_name():
+    assert canonical_pronostic_source("Mon Journal Turf") == (
+        "mon journal turf",
+        "Mon Journal Turf",
+    )
