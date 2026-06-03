@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL } from "../../src/theme";
+import { theme, API_URL, formatFCFA } from "../../src/theme";
 import { haptics } from "../../src/haptics";
 import { HorseListSkeleton } from "../../src/Skeleton";
 
@@ -25,11 +25,9 @@ type Horse = {
   sex: string;
   perf: string;
   gains_fcfa: number;
-  consensus_score: number;
-  consensus_appearances: number;
 };
 
-type SortKey = "number" | "consensus" | "gains";
+type SortKey = "number" | "name" | "gains";
 
 export default function PartantsScreen() {
   const [horses, setHorses] = useState<Horse[]>([]);
@@ -37,6 +35,7 @@ export default function PartantsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("number");
+  const [showAllDetails, setShowAllDetails] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
   const router = useRouter();
@@ -67,7 +66,7 @@ export default function PartantsScreen() {
         String(h.number) === query
     )
     .sort((a, b) => {
-      if (sortKey === "consensus") return b.consensus_score - a.consensus_score;
+      if (sortKey === "name") return a.name.localeCompare(b.name);
       if (sortKey === "gains") return b.gains_fcfa - a.gains_fcfa;
       return a.number - b.number;
     });
@@ -94,8 +93,8 @@ export default function PartantsScreen() {
       <View style={styles.sortRow}>
         {(
           [
-            { k: "number", label: "N°" },
-            { k: "consensus", label: "Consensus" },
+            { k: "number", label: "No" },
+            { k: "name", label: "Cheval" },
             { k: "gains", label: "Gains" },
           ] as { k: SortKey; label: string }[]
         ).map((opt) => (
@@ -116,6 +115,28 @@ export default function PartantsScreen() {
           </TouchableOpacity>
         ))}
         <View style={{ flex: 1 }} />
+        <TouchableOpacity
+          testID="toggle-all-details"
+          onPress={() => {
+            haptics.selection();
+            setShowAllDetails((v) => !v);
+          }}
+          style={[styles.detailsBtn, showAllDetails && styles.detailsBtnActive]}
+        >
+          <Ionicons
+            name={showAllDetails ? "contract-outline" : "expand-outline"}
+            size={14}
+            color={showAllDetails ? "#fff" : theme.colors.brand}
+          />
+          <Text
+            style={[
+              styles.detailsBtnText,
+              showAllDetails && styles.detailsBtnTextActive,
+            ]}
+          >
+            {showAllDetails ? "Reduire" : "Tout afficher"}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           testID="toggle-compare"
           onPress={() => {
@@ -193,24 +214,27 @@ export default function PartantsScreen() {
                   <Text style={styles.subMeta} numberOfLines={1}>
                     {item.jockey} • {item.trainer}
                   </Text>
-                  <View style={styles.metaRow}>
-                    <View style={styles.metaChip}>
-                      <Text style={styles.metaChipText}>{item.weight}</Text>
+                  {showAllDetails && (
+                    <View style={styles.detailPanel}>
+                      <DetailItem label="Poids" value={item.weight || "-"} />
+                      <DetailItem
+                        label="Age / sexe"
+                        value={`${item.age || "-"}a ${item.sex || ""}`.trim()}
+                      />
+                      <DetailItem label="Forme" value={item.perf || "-"} mono />
+                      <DetailItem
+                        label="Gains"
+                        value={item.gains_fcfa ? formatFCFA(item.gains_fcfa) : "-"}
+                      />
                     </View>
-                    <View style={styles.metaChip}>
-                      <Text style={styles.metaChipText}>
-                        {item.age}a {item.sex}
-                      </Text>
-                    </View>
-                    <View style={styles.perfChip}>
-                      <Text style={styles.perfChipText}>{item.perf}</Text>
-                    </View>
+                  )}
+                </View>
+                {!showAllDetails && item.gains_fcfa > 0 && (
+                  <View style={styles.gainsCol}>
+                    <Text style={styles.gainsVal}>{formatCompactFCFA(item.gains_fcfa)}</Text>
+                    <Text style={styles.gainsLabel}>gains</Text>
                   </View>
-                </View>
-                <View style={styles.scoreCol}>
-                  <Text style={styles.scoreVal}>{item.consensus_score}</Text>
-                  <Text style={styles.scoreLabel}>pts</Text>
-                </View>
+                )}
                 {compareMode ? (
                   <View
                     style={[
@@ -268,6 +292,35 @@ export default function PartantsScreen() {
   );
 }
 
+function DetailItem({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <View style={styles.detailItem}>
+      <Text style={styles.detailLabel}>{label}</Text>
+      <Text style={[styles.detailValue, mono && styles.detailValueMono]} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function formatCompactFCFA(value: number) {
+  if (value >= 1000000) {
+    return `${Math.round(value / 100000) / 10}M`;
+  }
+  if (value >= 1000) {
+    return `${Math.round(value / 1000)}k`;
+  }
+  return `${value}`;
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
   header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
@@ -310,6 +363,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 10,
     marginBottom: 4,
+    flexWrap: "wrap",
   },
   sortPill: {
     paddingHorizontal: 14,
@@ -329,6 +383,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   sortPillTextActive: { color: "#fff" },
+  detailsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.surface,
+  },
+  detailsBtnActive: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  detailsBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: theme.colors.brand,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  detailsBtnTextActive: {
+    color: "#fff",
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -358,39 +436,43 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 2,
   },
-  metaRow: { flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" },
-  metaChip: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+  detailPanel: {
+    marginTop: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  metaChipText: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
+  detailItem: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  detailLabel: {
+    fontSize: 9,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  detailValue: {
+    marginTop: 2,
+    fontSize: 12,
+    color: theme.colors.textPrimary,
     fontWeight: "600",
-    letterSpacing: 0.3,
+    lineHeight: 16,
   },
-  perfChip: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    backgroundColor: theme.colors.brand,
-  },
-  perfChipText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.5,
+  detailValueMono: {
     fontFamily: "Courier",
+    letterSpacing: 0.4,
   },
-  scoreCol: { alignItems: "center", minWidth: 36 },
-  scoreVal: {
-    fontSize: 16,
+  gainsCol: { alignItems: "center", minWidth: 46 },
+  gainsVal: {
+    fontSize: 14,
     fontWeight: "800",
     color: theme.colors.gold,
   },
-  scoreLabel: {
+  gainsLabel: {
     fontSize: 9,
     color: theme.colors.textSecondary,
     letterSpacing: 1,
