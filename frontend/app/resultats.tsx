@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   Linking,
   TouchableOpacity,
   ActivityIndicator,
@@ -12,7 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL, ADMIN_WEB_URL, formatFCFA } from "../src/theme";
+import { theme, API_URL, ADMIN_WEB_URL } from "../src/theme";
 import { readCache, writeCache } from "../src/storageCache";
 
 type ResultRace = {
@@ -34,6 +35,7 @@ export default function ResultatsScreen() {
   const [races, setRaces] = useState<ResultRace[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -64,6 +66,25 @@ export default function ResultatsScreen() {
     };
   }, [load]);
 
+  const dateOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return races
+      .filter((race) => {
+        if (!race.date_iso || seen.has(race.date_iso)) return false;
+        seen.add(race.date_iso);
+        return true;
+      })
+      .map((race) => ({
+        date_iso: race.date_iso,
+        date_text: race.date_text,
+      }));
+  }, [races]);
+
+  const filteredRaces = useMemo(() => {
+    if (!selectedDate) return races;
+    return races.filter((race) => race.date_iso === selectedDate);
+  }, [races, selectedDate]);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.headerBar}>
@@ -93,7 +114,7 @@ export default function ResultatsScreen() {
       ) : (
         <FlatList
           testID="resultats-list"
-          data={races}
+          data={filteredRaces}
           keyExtractor={(r) => r.race_id}
           refreshControl={
             <RefreshControl
@@ -106,6 +127,58 @@ export default function ResultatsScreen() {
             />
           }
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+          ListHeaderComponent={
+            dateOptions.length > 0 ? (
+              <View style={styles.dateFilterWrap}>
+                <Text style={styles.dateFilterLabel}>Choisir une date</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.dateFilterScroll}
+                  testID="results-date-filter"
+                >
+                  <TouchableOpacity
+                    testID="results-date-all"
+                    onPress={() => setSelectedDate(null)}
+                    style={[
+                      styles.dateChip,
+                      !selectedDate && styles.dateChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.dateChipText,
+                        !selectedDate && styles.dateChipTextActive,
+                      ]}
+                    >
+                      Toutes
+                    </Text>
+                  </TouchableOpacity>
+                  {dateOptions.map((date) => {
+                    const active = selectedDate === date.date_iso;
+                    return (
+                      <TouchableOpacity
+                        key={date.date_iso}
+                        testID={`results-date-${date.date_iso}`}
+                        onPress={() => setSelectedDate(date.date_iso)}
+                        style={[styles.dateChip, active && styles.dateChipActive]}
+                      >
+                        <Text
+                          style={[
+                            styles.dateChipText,
+                            active && styles.dateChipTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {date.date_text || date.date_iso}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="trophy-outline" size={36} color={theme.colors.gold} />
@@ -125,15 +198,9 @@ export default function ResultatsScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <View
               testID={`result-card-${item.race_id}`}
               style={styles.card}
-              onPress={() =>
-                router.push({
-                  pathname: "/race/[race_id]",
-                  params: { race_id: item.race_id, from: "resultats" },
-                })
-              }
             >
               <View style={styles.cardTop}>
                 <View style={styles.badge}>
@@ -155,33 +222,27 @@ export default function ResultatsScreen() {
                 {item.finishing_order.slice(0, 5).map((n, idx) => (
                   <View
                     key={`${item.race_id}-${idx}`}
-                    style={[styles.podiumItem, idx === 0 && styles.podiumGold]}
+                    style={styles.podiumItem}
                   >
-                    <Text style={[styles.podiumPos, idx === 0 && { color: "rgba(255,255,255,0.7)" }]}>
-                      {idx + 1}
-                    </Text>
-                    <Text style={[styles.podiumNum, idx === 0 && { color: "#fff" }]}>
-                      {n}
-                    </Text>
+                    <Text style={styles.podiumNum}>{n}</Text>
                   </View>
                 ))}
               </View>
 
-              {/* Payout */}
-              {item.top_payout && (
-                <View style={styles.payoutRow}>
-                  <Text style={styles.payoutLabel}>{item.top_payout.type}</Text>
-                  <Text style={styles.payoutAmt}>
-                    {formatFCFA(item.top_payout.amount_fcfa)}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.ctaRow}>
+              <TouchableOpacity
+                testID={`result-reports-${item.race_id}`}
+                style={styles.ctaRow}
+                onPress={() =>
+                  router.push({
+                    pathname: "/race/[race_id]",
+                    params: { race_id: item.race_id, from: "resultats" },
+                  })
+                }
+              >
                 <Text style={styles.ctaText}>Voir tous les rapports</Text>
                 <Ionicons name="arrow-forward" size={14} color={theme.colors.brand} />
-              </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+            </View>
           )}
         />
       )}
@@ -216,6 +277,43 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   lead: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 8, lineHeight: 17 },
+  dateFilterWrap: {
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
+  dateFilterLabel: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  dateFilterScroll: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  dateChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    minWidth: 82,
+    alignItems: "center",
+  },
+  dateChipActive: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  dateChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
+  },
+  dateChipTextActive: {
+    color: "#fff",
+  },
   empty: { alignItems: "center", padding: 40, marginTop: 20 },
   emptyTitle: {
     fontSize: 18,
@@ -274,8 +372,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   dateText: {
-    fontSize: 11,
-    color: theme.colors.textSecondary,
+    fontSize: 12,
+    color: theme.colors.brand,
+    fontWeight: "800",
     letterSpacing: 0.5,
   },
   raceName: {
@@ -294,40 +393,10 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  podiumGold: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
-  podiumPos: {
-    fontSize: 9,
-    color: theme.colors.textSecondary,
-    fontWeight: "700",
-    letterSpacing: 1,
-  },
   podiumNum: {
     fontSize: 18,
     fontWeight: "800",
     color: theme.colors.textPrimary,
-    marginTop: 3,
-  },
-  payoutRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-  },
-  payoutLabel: {
-    fontSize: 11,
-    color: theme.colors.gold,
-    fontWeight: "700",
-    letterSpacing: 2,
-    textTransform: "uppercase",
-  },
-  payoutAmt: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: theme.colors.brand,
-    letterSpacing: -0.3,
   },
   ctaRow: {
     flexDirection: "row",
