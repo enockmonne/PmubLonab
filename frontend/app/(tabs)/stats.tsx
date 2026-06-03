@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL, ADMIN_WEB_URL } from "../../src/theme";
 import { buildRaceInsight, type RaceInsightData } from "../../src/raceInsight";
+import { buildMediaInsight, type MediaInsightData } from "../../src/mediaInsight";
 
 type Tipster = {
   source: string;
@@ -39,6 +40,7 @@ export default function StatsScreen() {
   const [jockeys, setJockeys] = useState<Person[]>([]);
   const [trainers, setTrainers] = useState<Person[]>([]);
   const [currentRace, setCurrentRace] = useState<RaceInsightData | null>(null);
+  const [currentMedia, setCurrentMedia] = useState<MediaInsightData | null>(null);
   const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
   const [evaluatedRaces, setEvaluatedRaces] = useState(0);
   const [peopleTab, setPeopleTab] = useState<"jockeys" | "trainers">("jockeys");
@@ -73,6 +75,15 @@ export default function StatsScreen() {
             }
           : null,
       );
+      setCurrentMedia(
+        current
+          ? {
+              experts: current.predictions || [],
+              consensus: current.consensus || [],
+              horses: current.horses || [],
+            }
+          : null,
+      );
     } catch (e) {
       console.error(e);
     } finally {
@@ -90,6 +101,7 @@ export default function StatsScreen() {
   const bestPerson = activePeople[0];
   const sourcesCount = leaderboard.length;
   const raceInsight = currentRace ? buildRaceInsight(currentRace) : null;
+  const mediaInsight = currentMedia ? buildMediaInsight(currentMedia) : null;
 
   const insightText = useMemo(() => {
     if (!bestTipster) return "Les signaux se renforceront avec plus de resultats officiels.";
@@ -194,6 +206,36 @@ export default function StatsScreen() {
                 <InsightMetric label="Medias" value={raceInsight.mediaValue} />
                 <InsightMetric label="Profil regulier" value={raceInsight.formValue} />
                 <InsightMetric label="Donnees" value={raceInsight.dataValue} />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {mediaInsight && (
+          <View style={styles.section} testID="media-insight-summary">
+            <Text style={styles.sectionOverline}>Lecture pronostics</Text>
+            <Text style={styles.sectionTitle}>Accord des medias</Text>
+            <Text style={styles.sectionLead}>
+              Synthese enrichie des pronostics de la course actuelle.
+            </Text>
+            <View style={styles.raceInsightCard}>
+              <View style={styles.raceInsightHeader}>
+                <Ionicons name="git-compare-outline" size={18} color={theme.colors.gold} />
+                <Text style={styles.raceInsightHeaderText}>{mediaInsight.title}</Text>
+              </View>
+              <Text style={styles.raceInsightBody}>{mediaInsight.summary}</Text>
+              <View style={styles.raceInsightSignalRow}>
+                {mediaInsight.signals.map((signal) => (
+                  <View key={signal} style={styles.raceInsightPill}>
+                    <Text style={styles.raceInsightPillText}>{signal}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.raceInsightMetricGrid}>
+                <InsightMetric label="Accord" value={mediaInsight.agreementValue} />
+                <InsightMetric label="Ecart" value={mediaInsight.gapValue} />
+                <InsightMetric label="Bases" value={mediaInsight.baseValue} />
+                <InsightMetric label="Outlier" value={mediaInsight.outlierValue} />
               </View>
             </View>
           </View>
