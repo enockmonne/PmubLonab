@@ -193,15 +193,8 @@ export default function RaceDetail() {
                     },
                   ]}
                 >
-                  <View style={[styles.arrivalRank, idx === 0 && styles.arrivalRankWinner]}>
-                    <Text
-                      style={[
-                        styles.arrivalRankText,
-                        idx === 0 && styles.arrivalRankTextWinner,
-                      ]}
-                    >
-                      {idx + 1}
-                    </Text>
+                  <View style={styles.arrivalRank}>
+                    <Text style={styles.arrivalRankText}>{idx + 1}</Text>
                   </View>
                   <Text style={styles.arrivalLabel}>{arrivalLabel(idx)}</Text>
                   <View style={styles.arrivalHorse}>
@@ -334,18 +327,18 @@ const styles = StyleSheet.create({
   statCellSub: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
   section: { marginTop: 18, paddingHorizontal: 16 },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 14,
     letterSpacing: 2,
-    color: theme.colors.gold,
-    fontWeight: "700",
+    color: theme.colors.brand,
+    fontWeight: "900",
     textTransform: "uppercase",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   payGroupLabel: {
-    fontSize: 10,
+    fontSize: 13,
     letterSpacing: 1.5,
-    color: theme.colors.textSecondary,
-    fontWeight: "700",
+    color: theme.colors.brand,
+    fontWeight: "900",
     textTransform: "uppercase",
   },
   payGroup: {
@@ -405,17 +398,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  arrivalRankWinner: {
-    backgroundColor: theme.colors.brand,
-    borderColor: theme.colors.brand,
-  },
   arrivalRankText: {
     fontSize: 12,
     fontWeight: "800",
     color: theme.colors.textPrimary,
-  },
-  arrivalRankTextWinner: {
-    color: "#fff",
   },
   arrivalLabel: {
     width: 34,
