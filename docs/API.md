@@ -7,6 +7,7 @@ Base path: `/api`.
 - `GET /race`: current race summary for legacy/current app flow.
 - `GET /races`: race library summaries.
   - Includes programme/result link counts when documents have been matched.
+  - Includes linked programme/result summaries for admin review.
 - `GET /races/current`: full current race.
 - `GET /races/{race_id}`: full race by id.
 - `GET /horses`: current race horses.
@@ -20,7 +21,7 @@ Base path: `/api`.
 - `GET /stats/horses/{name}`: historical horse appearances and rates.
 - `GET /stats/horses/leaderboard`: top horses by win/top-3 rate.
 - `GET /stats/tipsters`: prediction source accuracy.
-  - Uses embedded results or linked official result documents when available.
+  - For programme documents, linked official result PDFs are preferred over embedded previous results.
 - `GET /stats/people`: jockey and trainer leaderboards.
   - Uses linked official result documents when programme/result links exist.
 

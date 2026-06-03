@@ -333,6 +333,19 @@ async def rebuild_programme_result_links() -> Dict[str, int]:
 
 def official_results_for_race(race: Dict[str, Any], races_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     """Return official results from the race itself or a linked result document."""
+    if race.get("doc_type") == "programme":
+        for linked_id in race.get("linked_result_ids", []) or []:
+            linked = races_by_id.get(linked_id)
+            if not linked:
+                continue
+            linked_results = linked.get("previous_results") or {}
+            if linked_results.get("finishing_order"):
+                return {
+                    "results": linked_results,
+                    "source": "linked_result",
+                    "result_race_id": linked.get("race_id"),
+                }
+
     own_results = race.get("previous_results") or {}
     if own_results.get("finishing_order"):
         return {
@@ -340,18 +353,6 @@ def official_results_for_race(race: Dict[str, Any], races_by_id: Dict[str, Dict[
             "source": "embedded",
             "result_race_id": race.get("race_id"),
         }
-
-    for linked_id in race.get("linked_result_ids", []) or []:
-        linked = races_by_id.get(linked_id)
-        if not linked:
-            continue
-        linked_results = linked.get("previous_results") or {}
-        if linked_results.get("finishing_order"):
-            return {
-                "results": linked_results,
-                "source": "linked_result",
-                "result_race_id": linked.get("race_id"),
-            }
 
     return {"results": {}, "source": "none", "result_race_id": None}
 
@@ -821,6 +822,31 @@ async def list_races(
     total = await db.races.count_documents(query)
     cursor = db.races.find(query, {"_id": 0}).sort("date_iso", -1).skip(skip).limit(limit)
     races = await cursor.to_list(length=limit)
+    linked_ids = sorted({
+        linked_id
+        for r in races
+        for linked_id in ((r.get("linked_programme_ids", []) or []) + (r.get("linked_result_ids", []) or []))
+    })
+    linked_docs = await db.races.find(
+        {"race_id": {"$in": linked_ids}},
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_text": 1, "date_iso": 1, "location": 1},
+    ).to_list(length=len(linked_ids)) if linked_ids else []
+    linked_lookup = {doc["race_id"]: doc for doc in linked_docs}
+
+    def linked_summary(ids: List[str]) -> List[Dict[str, Any]]:
+        return [
+            {
+                "race_id": linked.get("race_id"),
+                "doc_type": linked.get("doc_type"),
+                "name": linked.get("name"),
+                "date_text": linked.get("date_text"),
+                "date_iso": linked.get("date_iso"),
+                "location": linked.get("location"),
+            }
+            for linked_id in ids
+            if (linked := linked_lookup.get(linked_id))
+        ]
+
     summary = [
         {
             "race_id": r["race_id"],
@@ -837,6 +863,8 @@ async def list_races(
             "linked_result_ids": r.get("linked_result_ids", []),
             "linked_programmes_count": len(r.get("linked_programme_ids", []) or []),
             "linked_results_count": len(r.get("linked_result_ids", []) or []),
+            "linked_programmes": linked_summary(r.get("linked_programme_ids", []) or []),
+            "linked_results": linked_summary(r.get("linked_result_ids", []) or []),
             "has_results": bool((r.get("previous_results") or {}).get("finishing_order")),
             "finishing_order": (r.get("previous_results") or {}).get("finishing_order", [])[:5],
             "top_payout": next(

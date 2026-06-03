@@ -42,37 +42,55 @@ def test_programme_result_match_rejects_different_date():
     assert score_programme_result_match(programme, result) < 5
 
 
-def test_official_results_prefers_embedded_results():
+def test_official_results_prefers_linked_result_for_programme():
     race = {
         "race_id": "programme-1",
+        "doc_type": "programme",
         "previous_results": {"finishing_order": [1, 2, 3]},
         "linked_result_ids": ["result-1"],
     }
     result = {
         "race_id": "result-1",
-        "previous_results": {"finishing_order": [9, 8, 7]},
-    }
-
-    context = official_results_for_race(race, {"programme-1": race, "result-1": result})
-
-    assert context["source"] == "embedded"
-    assert context["result_race_id"] == "programme-1"
-    assert context["results"]["finishing_order"] == [1, 2, 3]
-
-
-def test_official_results_uses_linked_result_when_programme_has_no_results():
-    race = {
-        "race_id": "programme-1",
-        "previous_results": {},
-        "linked_result_ids": ["result-1"],
-    }
-    result = {
-        "race_id": "result-1",
+        "doc_type": "result",
         "previous_results": {"finishing_order": [9, 8, 7]},
     }
 
     context = official_results_for_race(race, {"programme-1": race, "result-1": result})
 
     assert context["source"] == "linked_result"
+    assert context["result_race_id"] == "result-1"
+    assert context["results"]["finishing_order"] == [9, 8, 7]
+
+
+def test_official_results_uses_linked_result_when_programme_has_no_results():
+    race = {
+        "race_id": "programme-1",
+        "doc_type": "programme",
+        "previous_results": {},
+        "linked_result_ids": ["result-1"],
+    }
+    result = {
+        "race_id": "result-1",
+        "doc_type": "result",
+        "previous_results": {"finishing_order": [9, 8, 7]},
+    }
+
+    context = official_results_for_race(race, {"programme-1": race, "result-1": result})
+
+    assert context["source"] == "linked_result"
+    assert context["result_race_id"] == "result-1"
+    assert context["results"]["finishing_order"] == [9, 8, 7]
+
+
+def test_official_results_uses_embedded_results_for_result_document():
+    result = {
+        "race_id": "result-1",
+        "doc_type": "result",
+        "previous_results": {"finishing_order": [9, 8, 7]},
+    }
+
+    context = official_results_for_race(result, {"result-1": result})
+
+    assert context["source"] == "embedded"
     assert context["result_race_id"] == "result-1"
     assert context["results"]["finishing_order"] == [9, 8, 7]

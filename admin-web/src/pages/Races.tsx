@@ -88,6 +88,11 @@ export default function Races() {
 
   if (loading) return <CenteredSpinner label="Chargement des courses…" />;
 
+  const linkedTargets = (race: Race) => [
+    ...(race.linked_programmes || []),
+    ...(race.linked_results || []),
+  ];
+
   return (
     <div>
       <PageHeader
@@ -162,11 +167,17 @@ export default function Races() {
                       <div>
                         <p className="font-medium text-fg">{r.name}</p>
                         <p className="text-xs text-fg-subtle font-mono">{r.race_id}</p>
-                        {((r.linked_programmes_count || 0) + (r.linked_results_count || 0)) > 0 && (
-                          <span className="badge bg-bg-elevated text-fg-muted mt-1" title="Programme/resultat lie">
-                            <Link size={12} />
-                            Lie
-                          </span>
+                        {linkedTargets(r).length > 0 && (
+                          <div className="mt-1 space-y-1">
+                            {linkedTargets(r).map((linked) => (
+                              <div key={linked.race_id} className="text-xs text-fg-subtle flex items-center gap-1">
+                                <Link size={12} className="text-accent" />
+                                <span>
+                                  Lie a {linked.doc_type === 'result' ? 'resultat' : 'programme'}: {linked.name || linked.race_id}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>

@@ -26,7 +26,7 @@
 - Selected import caps requests at 5 PDFs.
 - Duplicate PDF import is skipped by hash.
 - Imported document appears in admin race list.
-- Courses admin can rebuild programme/result links and shows linked records.
+- Courses admin can rebuild programme/result links and shows which programme/result records are linked.
 - Parse quality is visible after import.
 
 ## LONAB Staging Import Procedure
