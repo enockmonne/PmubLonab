@@ -212,6 +212,7 @@ export default function RaceScreen() {
   }
 
   const { race, betting, top_picks } = data;
+  const selectedProgramme = programmes.find((p) => p.race_id === selectedId);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -234,65 +235,37 @@ export default function RaceScreen() {
           <Text style={styles.mastheadDate}>{race.date}</Text>
         </View>
 
-        {/* Date picker — scroll horizontal + calendar modal */}
+        {/* Date picker */}
         {programmes.length > 0 && (
           <View style={datePicker.wrap}>
-            <View style={datePicker.headerRow}>
-              <Text style={datePicker.label}>Choisir une date</Text>
-              <TouchableOpacity
-                testID="open-calendar"
-                onPress={() => {
-                  haptics.selection();
-                  setCalendarOpen(true);
-                }}
-                style={datePicker.calBtn}
-              >
-                <Ionicons name="calendar-outline" size={14} color={theme.colors.brand} />
-                <Text style={datePicker.calBtnText}>Calendrier</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={datePicker.scroll}
-              testID="date-picker-scroll"
+            <Text style={datePicker.label}>Choisir une date</Text>
+            <TouchableOpacity
+              testID="open-calendar"
+              onPress={() => {
+                haptics.selection();
+                setCalendarOpen(true);
+              }}
+              style={datePicker.calBtn}
+              activeOpacity={0.85}
             >
-              {programmes.map((p) => {
-                const active = p.race_id === selectedId;
-                const dateParts = (p.date_iso || "").split("-");
-                const day = dateParts[2] || "--";
-                const month = dateParts[1]
-                  ? new Date(p.date_iso).toLocaleString("fr-FR", { month: "short" }).toUpperCase()
-                  : "";
-                const year = dateParts[0] || "";
-                return (
-                  <TouchableOpacity
-                    key={p.race_id}
-                    testID={`date-chip-${p.race_id}`}
-                    activeOpacity={0.75}
-                    style={[datePicker.chip, active && datePicker.chipActive]}
-                    onPress={() => {
-                      haptics.selection();
-                      setSelectedId(p.race_id);
-                    }}
-                  >
-                    <Text style={[datePicker.chipDay, active && datePicker.chipDayActive]}>
-                      {day}
-                    </Text>
-                    <Text style={[datePicker.chipMonth, active && datePicker.chipMonthActive]}>
-                      {month} {year.slice(-2)}
-                    </Text>
-                    <Text
-                      style={[datePicker.chipLoc, active && datePicker.chipLocActive]}
-                      numberOfLines={1}
-                    >
-                      {p.location || "—"}
-                    </Text>
-                    {p.is_current && <View style={datePicker.dot} />}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+              <View style={datePicker.iconBox}>
+                <Ionicons name="calendar-outline" size={18} color={theme.colors.brand} />
+              </View>
+              <View style={datePicker.selectedTextWrap}>
+                <Text style={datePicker.selectedDate} numberOfLines={1}>
+                  {race.date}
+                </Text>
+                <Text style={datePicker.selectedMeta} numberOfLines={1}>
+                  {race.location}
+                </Text>
+              </View>
+              {selectedProgramme?.is_current && (
+                <View style={datePicker.currentBadge}>
+                  <Text style={datePicker.currentBadgeText}>Actuel</Text>
+                </View>
+              )}
+              <Ionicons name="chevron-down" size={16} color={theme.colors.brand} />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -795,89 +768,59 @@ const datePicker = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 16,
   },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 8,
-  },
-  calBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: theme.colors.brand,
-    backgroundColor: theme.colors.surface,
-  },
-  calBtnText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: theme.colors.brand,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
   label: {
     fontSize: 10,
     letterSpacing: 2,
     color: theme.colors.gold,
     fontWeight: "700",
     textTransform: "uppercase",
-    marginBottom: 0,
+    marginBottom: 8,
   },
-  scroll: {
-    paddingRight: 16,
-    gap: 8,
-  },
-  chip: {
-    width: 76,
+  calBtn: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.surface,
+  },
+  iconBox: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    alignItems: "center",
-    marginRight: 8,
-    position: "relative",
   },
-  chipActive: {
-    backgroundColor: theme.colors.brand,
-    borderColor: theme.colors.brand,
+  selectedTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
-  chipDay: {
-    fontSize: 22,
+  selectedDate: {
+    fontSize: 14,
     fontWeight: "800",
     color: theme.colors.textPrimary,
-    letterSpacing: -0.5,
-    lineHeight: 24,
   },
-  chipDayActive: { color: "#fff" },
-  chipMonth: {
-    fontSize: 9,
-    fontWeight: "700",
-    letterSpacing: 1.5,
+  selectedMeta: {
+    fontSize: 12,
     color: theme.colors.textSecondary,
     marginTop: 2,
   },
-  chipMonthActive: { color: theme.colors.gold },
-  chipLoc: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
-    fontWeight: "600",
-    marginTop: 4,
-    maxWidth: 64,
-    textAlign: "center",
+  currentBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: theme.colors.brand,
   },
-  chipLocActive: { color: "rgba(255,255,255,0.8)" },
-  dot: {
-    position: "absolute",
-    top: 6,
-    right: 6,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: theme.colors.gold,
+  currentBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    color: "#fff",
+    textTransform: "uppercase",
   },
 });
 
