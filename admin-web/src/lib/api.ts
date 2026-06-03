@@ -66,6 +66,17 @@ export interface Race {
   linked_result_ids?: string[];
   linked_programmes_count?: number;
   linked_results_count?: number;
+  linked_programmes?: LinkedRaceSummary[];
+  linked_results?: LinkedRaceSummary[];
+}
+
+export interface LinkedRaceSummary {
+  race_id: string;
+  name?: string;
+  date_text?: string;
+  date_iso?: string;
+  location?: string;
+  doc_type?: string;
 }
 
 export interface Announcement {
