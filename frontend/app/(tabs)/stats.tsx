@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL, ADMIN_WEB_URL } from "../../src/theme";
+import { buildRaceInsight, type RaceInsightData } from "../../src/raceInsight";
 
 type Tipster = {
   source: string;
@@ -37,6 +38,7 @@ export default function StatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
   const [jockeys, setJockeys] = useState<Person[]>([]);
   const [trainers, setTrainers] = useState<Person[]>([]);
+  const [currentRace, setCurrentRace] = useState<RaceInsightData | null>(null);
   const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
   const [evaluatedRaces, setEvaluatedRaces] = useState(0);
   const [peopleTab, setPeopleTab] = useState<"jockeys" | "trainers">("jockeys");
@@ -50,11 +52,27 @@ export default function StatsScreen() {
         fetch(`${API_URL}/api/stats/tipsters`).then((r) => r.json()),
         fetch(`${API_URL}/api/stats/people`).then((r) => r.json()),
       ]);
+      const current = await fetch(`${API_URL}/api/races/current`)
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
       setLeaderboard(tip.leaderboard || []);
       setLinkedResultsUsed(tip.linked_results_used || 0);
       setEvaluatedRaces(tip.evaluated_races || 0);
       setJockeys(ppl.jockeys || []);
       setTrainers(ppl.trainers || []);
+      setCurrentRace(
+        current
+          ? {
+              race: {
+                name: current.name || "Course actuelle",
+                runners: current.runners || (current.horses || []).length,
+              },
+              consensus: current.consensus || [],
+              horses: current.horses || [],
+              predictions_count: (current.predictions || []).length,
+            }
+          : null,
+      );
     } catch (e) {
       console.error(e);
     } finally {
@@ -71,6 +89,7 @@ export default function StatsScreen() {
   const activePeople = peopleTab === "jockeys" ? jockeys : trainers;
   const bestPerson = activePeople[0];
   const sourcesCount = leaderboard.length;
+  const raceInsight = currentRace ? buildRaceInsight(currentRace) : null;
 
   const insightText = useMemo(() => {
     if (!bestTipster) return "Les signaux se renforceront avec plus de resultats officiels.";
@@ -149,6 +168,36 @@ export default function StatsScreen() {
             </View>
           )}
         </View>
+
+        {raceInsight && (
+          <View style={styles.section} testID="race-insight-summary">
+            <Text style={styles.sectionOverline}>Intelligence course</Text>
+            <Text style={styles.sectionTitle}>Resume de la course</Text>
+            <Text style={styles.sectionLead}>
+              Lecture enrichie de la course actuelle: {currentRace?.race.name}.
+            </Text>
+            <View style={styles.raceInsightCard}>
+              <View style={styles.raceInsightHeader}>
+                <Ionicons name="analytics-outline" size={18} color={theme.colors.gold} />
+                <Text style={styles.raceInsightHeaderText}>{raceInsight.title}</Text>
+              </View>
+              <Text style={styles.raceInsightBody}>{raceInsight.summary}</Text>
+              <View style={styles.raceInsightSignalRow}>
+                {raceInsight.signals.map((signal) => (
+                  <View key={signal} style={styles.raceInsightPill}>
+                    <Text style={styles.raceInsightPillText}>{signal}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.raceInsightMetricGrid}>
+                <InsightMetric label="Consensus" value={raceInsight.consensusValue} />
+                <InsightMetric label="Medias" value={raceInsight.mediaValue} />
+                <InsightMetric label="Profil regulier" value={raceInsight.formValue} />
+                <InsightMetric label="Donnees" value={raceInsight.dataValue} />
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Tipsters leaderboard */}
         <View style={styles.section}>
@@ -352,6 +401,15 @@ export default function StatsScreen() {
   );
 }
 
+function InsightMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.raceInsightMetricCell}>
+      <Text style={styles.raceInsightMetricLabel}>{label}</Text>
+      <Text style={styles.raceInsightMetricValue}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
   header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
@@ -462,6 +520,80 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     textTransform: "uppercase",
     letterSpacing: 1,
+  },
+  raceInsightCard: {
+    marginTop: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  raceInsightHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  raceInsightHeaderText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  raceInsightBody: {
+    marginTop: 10,
+    fontSize: 14,
+    lineHeight: 21,
+    color: theme.colors.textPrimary,
+  },
+  raceInsightSignalRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 12,
+  },
+  raceInsightPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  raceInsightPillText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: theme.colors.brand,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+  },
+  raceInsightMetricGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  raceInsightMetricCell: {
+    width: "50%",
+    padding: 10,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  raceInsightMetricLabel: {
+    fontSize: 9,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  raceInsightMetricValue: {
+    marginTop: 3,
+    fontSize: 17,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
   },
   section: { marginTop: 24, paddingHorizontal: 16 },
   sectionOverline: {
