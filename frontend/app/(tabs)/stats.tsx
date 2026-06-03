@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -38,6 +38,7 @@ export default function StatsScreen() {
   const [jockeys, setJockeys] = useState<Person[]>([]);
   const [trainers, setTrainers] = useState<Person[]>([]);
   const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
+  const [evaluatedRaces, setEvaluatedRaces] = useState(0);
   const [peopleTab, setPeopleTab] = useState<"jockeys" | "trainers">("jockeys");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -51,6 +52,7 @@ export default function StatsScreen() {
       ]);
       setLeaderboard(tip.leaderboard || []);
       setLinkedResultsUsed(tip.linked_results_used || 0);
+      setEvaluatedRaces(tip.evaluated_races || 0);
       setJockeys(ppl.jockeys || []);
       setTrainers(ppl.trainers || []);
     } catch (e) {
@@ -64,6 +66,22 @@ export default function StatsScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const bestTipster = leaderboard[0];
+  const activePeople = peopleTab === "jockeys" ? jockeys : trainers;
+  const bestPerson = activePeople[0];
+  const sourcesCount = leaderboard.length;
+
+  const insightText = useMemo(() => {
+    if (!bestTipster) return "Les signaux se renforceront avec plus de resultats officiels.";
+    if (bestTipster.evaluated_races < 3) {
+      return "Lecture prudente: l'echantillon reste encore limite.";
+    }
+    if (bestTipster.top3_rate >= 60) {
+      return `${bestTipster.source} ressort avec un signal top 3 regulier.`;
+    }
+    return "Les ecarts entre sources restent moderes pour le moment.";
+  }, [bestTipster]);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -86,6 +104,24 @@ export default function StatsScreen() {
           <Text style={styles.title}>Stats & Classements</Text>
         </View>
 
+        <View style={styles.snapshotGrid}>
+          <View style={styles.snapshotTile}>
+            <Ionicons name="flag-outline" size={18} color={theme.colors.gold} />
+            <Text style={styles.snapshotValue}>{evaluatedRaces}</Text>
+            <Text style={styles.snapshotLabel}>courses evaluees</Text>
+          </View>
+          <View style={styles.snapshotTile}>
+            <Ionicons name="link-outline" size={18} color={theme.colors.gold} />
+            <Text style={styles.snapshotValue}>{linkedResultsUsed}</Text>
+            <Text style={styles.snapshotLabel}>resultats lies</Text>
+          </View>
+          <View style={styles.snapshotTile}>
+            <Ionicons name="newspaper-outline" size={18} color={theme.colors.gold} />
+            <Text style={styles.snapshotValue}>{sourcesCount}</Text>
+            <Text style={styles.snapshotLabel}>sources suivies</Text>
+          </View>
+        </View>
+
         {/* Info card */}
         <View style={styles.infoCard}>
           <Ionicons name="information-circle-outline" size={18} color={theme.colors.brand} />
@@ -93,6 +129,25 @@ export default function StatsScreen() {
             Les taux sont calculés sur les courses archivées disposant d&apos;un
             résultat confirmé.
           </Text>
+        </View>
+
+        <View style={styles.signalCard}>
+          <View style={styles.signalIcon}>
+            <Ionicons name="analytics-outline" size={20} color={theme.colors.brand} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.signalLabel}>Signal du moment</Text>
+            <Text style={styles.signalTitle}>
+              {bestTipster ? bestTipster.source : "Donnees limitees"}
+            </Text>
+            <Text style={styles.signalText}>{insightText}</Text>
+          </View>
+          {bestTipster && (
+            <View style={styles.signalScore}>
+              <Text style={styles.signalScoreValue}>{bestTipster.top3_rate}%</Text>
+              <Text style={styles.signalScoreLabel}>top 3</Text>
+            </View>
+          )}
         </View>
 
         {/* Tipsters leaderboard */}
@@ -202,7 +257,17 @@ export default function StatsScreen() {
             </TouchableOpacity>
           </View>
 
-          {(peopleTab === "jockeys" ? jockeys : trainers).length === 0 ? (
+          {bestPerson && (
+            <View style={styles.miniHighlight}>
+              <Ionicons name="ribbon-outline" size={18} color={theme.colors.gold} />
+              <Text style={styles.miniHighlightText}>
+                En tete: {bestPerson.name} avec {bestPerson.wins} victoire
+                {bestPerson.wins > 1 ? "s" : ""} et {bestPerson.top3} top 3.
+              </Text>
+            </View>
+          )}
+
+          {activePeople.length === 0 ? (
             <View style={styles.empty}>
               <Ionicons
                 name="hourglass-outline"
@@ -215,7 +280,7 @@ export default function StatsScreen() {
             </View>
           ) : (
             <View style={styles.lbList}>
-              {(peopleTab === "jockeys" ? jockeys : trainers)
+              {activePeople
                 .slice(0, 8)
                 .map((p, idx) => (
                   <View
@@ -305,6 +370,33 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginTop: 2,
   },
+  snapshotGrid: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  snapshotTile: {
+    flex: 1,
+    minHeight: 94,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    justifyContent: "space-between",
+  },
+  snapshotValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+  },
+  snapshotLabel: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    lineHeight: 13,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   infoCard: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -317,6 +409,60 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceAlt,
   },
   infoText: { fontSize: 12, color: theme.colors.textSecondary, flex: 1, lineHeight: 17 },
+  signalCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  signalIcon: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  signalLabel: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  signalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    marginTop: 2,
+  },
+  signalText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    lineHeight: 17,
+    marginTop: 3,
+  },
+  signalScore: {
+    alignItems: "flex-end",
+    minWidth: 58,
+  },
+  signalScoreValue: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: theme.colors.brand,
+  },
+  signalScoreLabel: {
+    fontSize: 9,
+    color: theme.colors.textSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
   section: { marginTop: 24, paddingHorizontal: 16 },
   sectionOverline: {
     fontSize: 10,
@@ -407,6 +553,22 @@ const styles = StyleSheet.create({
   peopleTabTextActive: { color: theme.colors.brand },
   peopleTabUnderline: { height: 2, backgroundColor: "transparent" },
   peopleTabUnderlineActive: { backgroundColor: theme.colors.brand },
+  miniHighlight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  miniHighlightText: {
+    flex: 1,
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    lineHeight: 17,
+  },
   linkCard: {
     flexDirection: "row",
     alignItems: "center",
