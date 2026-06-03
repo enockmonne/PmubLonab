@@ -4,17 +4,62 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  ScrollView,
   Linking,
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, ADMIN_WEB_URL } from "../src/theme";
 import { readCache, writeCache } from "../src/storageCache";
+
+LocaleConfig.locales["fr"] = {
+  monthNames: [
+    "Janvier",
+    "Fevrier",
+    "Mars",
+    "Avril",
+    "Mai",
+    "Juin",
+    "Juillet",
+    "Aout",
+    "Septembre",
+    "Octobre",
+    "Novembre",
+    "Decembre",
+  ],
+  monthNamesShort: [
+    "Janv.",
+    "Fevr.",
+    "Mars",
+    "Avril",
+    "Mai",
+    "Juin",
+    "Juil.",
+    "Aout",
+    "Sept.",
+    "Oct.",
+    "Nov.",
+    "Dec.",
+  ],
+  dayNames: [
+    "Dimanche",
+    "Lundi",
+    "Mardi",
+    "Mercredi",
+    "Jeudi",
+    "Vendredi",
+    "Samedi",
+  ],
+  dayNamesShort: ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."],
+  today: "Aujourd'hui",
+};
+LocaleConfig.defaultLocale = "fr";
 
 type ResultRace = {
   race_id: string;
@@ -36,6 +81,7 @@ export default function ResultatsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const router = useRouter();
 
   const load = useCallback(async () => {
@@ -85,6 +131,27 @@ export default function ResultatsScreen() {
     return races.filter((race) => race.date_iso === selectedDate);
   }, [races, selectedDate]);
 
+  const selectedDateLabel = useMemo(() => {
+    if (!selectedDate) return "Calendrier";
+    return (
+      dateOptions.find((date) => date.date_iso === selectedDate)?.date_text ||
+      selectedDate
+    );
+  }, [dateOptions, selectedDate]);
+
+  const markedDates = useMemo(() => {
+    const marks: Record<string, any> = {};
+    dateOptions.forEach((date) => {
+      marks[date.date_iso] = {
+        marked: true,
+        dotColor: theme.colors.gold,
+        selected: date.date_iso === selectedDate,
+        selectedColor: theme.colors.brand,
+      };
+    });
+    return marks;
+  }, [dateOptions, selectedDate]);
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.headerBar}>
@@ -131,51 +198,37 @@ export default function ResultatsScreen() {
             dateOptions.length > 0 ? (
               <View style={styles.dateFilterWrap}>
                 <Text style={styles.dateFilterLabel}>Choisir une date</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.dateFilterScroll}
-                  testID="results-date-filter"
-                >
+                <View style={styles.dateFilterActions} testID="results-date-filter">
                   <TouchableOpacity
                     testID="results-date-all"
                     onPress={() => setSelectedDate(null)}
                     style={[
-                      styles.dateChip,
-                      !selectedDate && styles.dateChipActive,
+                      styles.dateResetBtn,
+                      !selectedDate && styles.dateResetBtnActive,
                     ]}
                   >
                     <Text
                       style={[
-                        styles.dateChipText,
-                        !selectedDate && styles.dateChipTextActive,
+                        styles.dateResetText,
+                        !selectedDate && styles.dateResetTextActive,
                       ]}
                     >
                       Toutes
                     </Text>
                   </TouchableOpacity>
-                  {dateOptions.map((date) => {
-                    const active = selectedDate === date.date_iso;
-                    return (
-                      <TouchableOpacity
-                        key={date.date_iso}
-                        testID={`results-date-${date.date_iso}`}
-                        onPress={() => setSelectedDate(date.date_iso)}
-                        style={[styles.dateChip, active && styles.dateChipActive]}
-                      >
-                        <Text
-                          style={[
-                            styles.dateChipText,
-                            active && styles.dateChipTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {date.date_text || date.date_iso}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
+                  <TouchableOpacity
+                    testID="open-results-calendar"
+                    onPress={() => setCalendarOpen(true)}
+                    style={styles.calendarBtn}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="calendar-outline" size={18} color={theme.colors.brand} />
+                    <Text style={styles.calendarBtnText} numberOfLines={1}>
+                      {selectedDateLabel}
+                    </Text>
+                    <Ionicons name="chevron-down" size={16} color={theme.colors.brand} />
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : null
           }
@@ -238,14 +291,72 @@ export default function ResultatsScreen() {
                     params: { race_id: item.race_id, from: "resultats" },
                   })
                 }
+                activeOpacity={0.85}
               >
-                <Text style={styles.ctaText}>Voir tous les rapports</Text>
-                <Ionicons name="arrow-forward" size={14} color={theme.colors.brand} />
+                <View style={styles.ctaLabelRow}>
+                  <Ionicons name="document-text-outline" size={16} color={theme.colors.brand} />
+                  <Text style={styles.ctaText}>Voir tous les rapports</Text>
+                </View>
+                <Ionicons name="arrow-forward" size={16} color={theme.colors.brand} />
               </TouchableOpacity>
             </View>
           )}
         />
       )}
+      <Modal
+        visible={calendarOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCalendarOpen(false)}
+      >
+        <Pressable
+          style={calendarStyles.backdrop}
+          onPress={() => setCalendarOpen(false)}
+        >
+          <Pressable
+            style={calendarStyles.card}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <View style={calendarStyles.header}>
+              <Text style={calendarStyles.title}>Choisir une date</Text>
+              <TouchableOpacity
+                testID="close-results-calendar"
+                onPress={() => setCalendarOpen(false)}
+                hitSlop={10}
+              >
+                <Ionicons name="close" size={20} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <Calendar
+              current={selectedDate || dateOptions[0]?.date_iso}
+              firstDay={1}
+              markedDates={markedDates}
+              onDayPress={(day) => {
+                const hasResults = dateOptions.some(
+                  (date) => date.date_iso === day.dateString
+                );
+                if (!hasResults) return;
+                setSelectedDate(day.dateString);
+                setCalendarOpen(false);
+              }}
+              theme={{
+                backgroundColor: theme.colors.surface,
+                calendarBackground: theme.colors.surface,
+                selectedDayBackgroundColor: theme.colors.brand,
+                todayTextColor: theme.colors.brand,
+                arrowColor: theme.colors.brand,
+                dotColor: theme.colors.gold,
+                textDayFontWeight: "600",
+                textMonthFontWeight: "800",
+                textDayHeaderFontWeight: "700",
+              }}
+            />
+            <Text style={calendarStyles.legend}>
+              Les dates marquees ont des resultats disponibles.
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -279,7 +390,7 @@ const styles = StyleSheet.create({
   lead: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 8, lineHeight: 17 },
   dateFilterWrap: {
     paddingTop: 4,
-    paddingBottom: 4,
+    paddingBottom: 8,
   },
   dateFilterLabel: {
     fontSize: 10,
@@ -289,30 +400,50 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: 8,
   },
-  dateFilterScroll: {
+  dateFilterActions: {
+    flexDirection: "row",
     gap: 8,
-    paddingRight: 16,
   },
-  dateChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  dateResetBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
-    minWidth: 82,
+    minWidth: 74,
     alignItems: "center",
+    justifyContent: "center",
   },
-  dateChipActive: {
+  dateResetBtnActive: {
     backgroundColor: theme.colors.brand,
     borderColor: theme.colors.brand,
   },
-  dateChipText: {
+  dateResetText: {
     fontSize: 11,
-    fontWeight: "700",
+    fontWeight: "800",
     color: theme.colors.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
-  dateChipTextActive: {
+  dateResetTextActive: {
     color: "#fff",
+  },
+  calendarBtn: {
+    flex: 1,
+    minHeight: 42,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.surface,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  calendarBtnText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
   },
   empty: { alignItems: "center", padding: 40, marginTop: 20 },
   emptyTitle: {
@@ -401,14 +532,62 @@ const styles = StyleSheet.create({
   ctaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 10,
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  ctaLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 1,
   },
   ctaText: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "800",
     color: theme.colors.brand,
-    letterSpacing: 1.5,
+    letterSpacing: 1,
     textTransform: "uppercase",
+    flexShrink: 1,
+  },
+});
+
+const calendarStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(17, 24, 39, 0.42)",
+    justifyContent: "center",
+    padding: 18,
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 14,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 4,
+    paddingBottom: 8,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  legend: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    lineHeight: 17,
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
 });
