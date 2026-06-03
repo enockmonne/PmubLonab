@@ -57,7 +57,8 @@ This is the living project control document for PmubLonab. Use it to track what 
 4. Improve Admin import UX with filters for imported/skipped/error files and a retry action for failed PDFs.
 5. Add admin manual correction tools for programme/result links and extracted race metadata.
 6. Continue Race Intelligence/Stats value work: horse leaderboards, source accuracy explanations, and clearer limited-data states.
-7. Keep updating docs and handoff notes before switching computers or opening a long new implementation thread.
+7. Run a focused UI consistency and polish pass across the main app screens.
+8. Keep updating docs and handoff notes before switching computers or opening a long new implementation thread.
 
 ## Documentation Roadmap
 
@@ -140,6 +141,14 @@ Phase 5: Premium Analytics Later
 
 ## UI/UX To Do
 
+- Run a focused UI consistency and polish pass, not a full redesign:
+  - standardize card spacing, section headings, badges, actions, and empty states
+  - make hierarchy clearer on Programme, Partants, Pronos, Resultats, Archives, and Stats
+  - keep raw-data tabs calm and direct
+  - make Stats feel like the premium/value-added insight area
+  - reduce visual clutter and unnecessary taps without making screens too dense
+  - review mobile-first scanning: race name, date, runners, official arrival, gains, and primary action should be easy to find
+  - align button/action styling, especially secondary links versus important actions such as "Voir tous les rapports"
 - Improve perceived loading speed:
   - cache last loaded programme/results locally
   - show cached data immediately on app open
