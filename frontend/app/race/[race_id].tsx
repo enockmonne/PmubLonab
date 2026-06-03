@@ -64,11 +64,15 @@ export default function RaceDetail() {
   const hasResults = prev && prev.finishing_order && prev.finishing_order.length > 0;
   const payoutGroups = (() => {
     if (!hasResults) return {} as Record<string, any[]>;
-    const groups: Record<string, any[]> = { Principaux: [], "Couplés Placés": [], Autres: [] };
+    const groups: Record<string, any[]> = {
+      "Rapports principaux": [],
+      "Couples places": [],
+      "Autres rapports": [],
+    };
     (prev.payouts || []).forEach((p: any) => {
       const type = (p.type || "").toLowerCase();
       if (type.startsWith("couplé placé") || type.startsWith("couple placé") || type.includes("placé")) {
-        groups["Couplés Placés"].push(p);
+        groups["Couples places"].push(p);
       } else if (
         type.includes("ordre") ||
         type.includes("désordre") ||
@@ -78,9 +82,9 @@ export default function RaceDetail() {
         type.includes("bonus") ||
         type.includes("couplé gagnant")
       ) {
-        groups["Principaux"].push(p);
+        groups["Rapports principaux"].push(p);
       } else {
-        groups["Autres"].push(p);
+        groups["Autres rapports"].push(p);
       }
     });
     return groups;
@@ -171,29 +175,52 @@ export default function RaceDetail() {
         {hasResults && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>
-              {isResultsView ? "Rapports officiels" : "Résultats précédents"}
+              {isResultsView ? "Arrivee officielle" : "Resultats precedents"}
             </Text>
             {!isResultsView && (
               <Text style={styles.prevSub}>
                 {prev.race_name} — {prev.date}
               </Text>
             )}
-            <View style={styles.podium}>
+            <View style={styles.arrivalList} testID="official-arrival">
               {prev.finishing_order.slice(0, 5).map((n: number, idx: number) => (
-                <View key={idx} style={[styles.podiumItem, idx === 0 && styles.podiumGold]}>
-                  <Text style={styles.podiumRank}>{idx + 1}</Text>
-                  <Text style={[styles.podiumNum, idx === 0 && { color: "#fff" }]}>{n}</Text>
+                <View
+                  key={idx}
+                  style={[
+                    styles.arrivalRow,
+                    idx === prev.finishing_order.slice(0, 5).length - 1 && {
+                      borderBottomWidth: 0,
+                    },
+                  ]}
+                >
+                  <View style={[styles.arrivalRank, idx === 0 && styles.arrivalRankWinner]}>
+                    <Text
+                      style={[
+                        styles.arrivalRankText,
+                        idx === 0 && styles.arrivalRankTextWinner,
+                      ]}
+                    >
+                      {idx + 1}
+                    </Text>
+                  </View>
+                  <Text style={styles.arrivalLabel}>{arrivalLabel(idx)}</Text>
+                  <View style={styles.arrivalHorse}>
+                    <Text style={styles.arrivalHorseText}>{n}</Text>
+                  </View>
                 </View>
               ))}
             </View>
 
             {/* Grouped payouts */}
-            {["Principaux", "Couplés Placés", "Autres"].map((grp) => {
+            {["Rapports principaux", "Couples places", "Autres rapports"].map((grp) => {
               const list = payoutGroups[grp] || [];
               if (list.length === 0) return null;
               return (
-                <View key={grp} style={{ marginTop: 14 }}>
-                  <Text style={styles.payGroupLabel}>{grp}</Text>
+                <View key={grp} style={styles.payGroup}>
+                  <View style={styles.payGroupHeader}>
+                    <Text style={styles.payGroupLabel}>{grp}</Text>
+                    <Text style={styles.payGroupCount}>{list.length}</Text>
+                  </View>
                   <View style={styles.list}>
                     {list.map((p: any, idx: number) => (
                       <View
@@ -245,6 +272,11 @@ export default function RaceDetail() {
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function arrivalLabel(index: number) {
+  if (index === 0) return "1er";
+  return `${index + 1}e`;
 }
 
 function Stat({ label, value, subValue }: { label: string; value: string; subValue?: string }) {
@@ -315,7 +347,27 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontWeight: "700",
     textTransform: "uppercase",
+  },
+  payGroup: {
+    marginTop: 16,
+  },
+  payGroupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 6,
+  },
+  payGroupCount: {
+    minWidth: 22,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    textAlign: "center",
+    fontSize: 10,
+    fontWeight: "800",
+    color: theme.colors.brand,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
   },
   podium: { flexDirection: "row", gap: 8 },
   podiumItem: {
@@ -330,6 +382,58 @@ const styles = StyleSheet.create({
   podiumRank: { fontSize: 9, letterSpacing: 1, color: theme.colors.textSecondary, fontWeight: "700", textTransform: "uppercase" },
   podiumNum: { fontSize: 20, fontWeight: "800", color: theme.colors.textPrimary, marginTop: 4 },
   podiumScore: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
+  arrivalList: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  arrivalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  arrivalRank: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  arrivalRankWinner: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  arrivalRankText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+  },
+  arrivalRankTextWinner: {
+    color: "#fff",
+  },
+  arrivalLabel: {
+    width: 34,
+    fontSize: 11,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  arrivalHorse: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  arrivalHorseText: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+  },
   list: { borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
   horseRow: {
     flexDirection: "row",
