@@ -26,7 +26,10 @@
 - Selected import caps requests at 5 PDFs.
 - Duplicate PDF import is skipped by hash.
 - Imported document appears in admin race list.
-- Courses admin can rebuild programme/result links and shows which programme/result records are linked.
+- Courses admin can rebuild programme/result links.
+- Courses admin shows the linked programme/result target names, not only a generic linked badge.
+- Stats linked-result count is greater than 0 when linked result documents exist.
+- Stats uses linked official result PDFs before falling back to embedded programme results.
 - Parse quality is visible after import.
 
 ## LONAB Staging Import Procedure
