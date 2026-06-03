@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Last updated: 2026-05-27
+Last updated: 2026-06-03
 
 This is the living project control document for PmubLonab. Use it to track what is live, what is in progress, what should be done next, and which decisions have already been made.
 
@@ -28,23 +28,36 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Stats tab UI now surfaces summary metrics, a top signal card, and linked-result coverage context.
 - Admin now has a LONAB archive preview screen for discovering PDF links before bulk import.
 - LONAB archive imports can now download selected PDFs, hash them for deduplication, parse them, and report per-file results.
+- LONAB import source selection supports Programmes, Resultats/Gains, and guarded custom LONAB URLs.
+- Gemini parsing now retries transient 503/timeouts; a 5-PDF retry batch was validated successfully in staging.
+- Duplicate detection for imported PDFs was validated by re-importing the same PDF and confirming it is skipped.
+- Recent LONAB imports are visible in admin after import.
 - Programme and result documents are linked after upload/import when a likely same-date counterpart exists.
 - Stats endpoints use linked official result documents to evaluate pronostics, horses, jockeys, and trainers.
+- Stats now prefers linked official result PDFs for programme analytics, falling back to embedded programme results only when no linked result exists.
+- Admin Courses can rebuild programme/result links and show the linked target programme/result names.
 - Formal project docs package exists under `docs/`.
+- Custom Codex workflow skills exist for repeated project work:
+  - `pmublonab-staging-qa`
+  - `pmublonab-pr-check`
+  - `pmublonab-handoff`
 
 ## Active PRs
 
-- Docs Package v1
-  - Status: in progress on branch `codex-docs-package-v1`.
-  - Purpose: add PRD, architecture, system design, data model, API, parsing, QA, deployment, and launch references.
+- No current mainline implementation PR is expected at this checkpoint.
+- Older open PRs still visible on GitHub and likely stale/superseded:
+  - PR #9 `Add project documentation package`
+  - PR #14 `Add Stats tab horse leaderboards`
 
 ## Immediate Next Steps
 
-1. Open PR for Docs Package v1.
-2. Verify CI.
-3. Merge and let Render redeploy.
-4. Keep docs updated as importer and production readiness work evolves.
-5. Test selected LONAB imports in staging with a small batch.
+1. Continue small-batch LONAB ingestion in staging, importing both programme PDFs and result/gain PDFs.
+2. Normalize duplicate pronostic/source names so variants such as casing, accents, and apostrophes roll up cleanly in Stats.
+3. Improve Results detail UX so official arrivals and payout groups are easier to scan.
+4. Improve Admin import UX with filters for imported/skipped/error files and a retry action for failed PDFs.
+5. Add admin manual correction tools for programme/result links and extracted race metadata.
+6. Continue Race Intelligence/Stats value work: horse leaderboards, source accuracy explanations, and clearer limited-data states.
+7. Keep updating docs and handoff notes before switching computers or opening a long new implementation thread.
 
 ## Documentation Roadmap
 
@@ -142,7 +155,7 @@ Phase 5: Premium Analytics Later
   - clearer labels
   - clearer navigation
   - less mental overlap between programme data and official reports
-- Add admin post-upload validation summary:
+- Continue polishing admin post-upload/import validation summary:
   - horses parsed
   - expected runners
   - predictions found
@@ -155,6 +168,10 @@ Phase 5: Premium Analytics Later
   - A des rapports
   - Course active
 - Improve empty/error states for Gemini parsing failures and incomplete PDF extraction.
+- Improve Stats explainability:
+  - show which linked result documents are being used
+  - explain why a race/source is excluded from a metric
+  - normalize duplicate source labels before ranking
 
 ## Backend To Do
 
@@ -188,7 +205,7 @@ Phase 5: Premium Analytics Later
   - file hash
   - filename/date detection
   - prevent duplicate race records from repeated upload
-- Add Gemini retry/fallback strategy:
+- Continue Gemini resilience improvements:
   - retry temporary 503 responses
   - optional fallback model
   - clearer admin-facing parsing errors
@@ -268,6 +285,10 @@ After each staging deploy:
 - Verify "Arret des jeux".
 - Verify Resultats page.
 - Verify "Voir tous les rapports".
+- Verify Admin > Courses > `Lier` can rebuild programme/result links.
+- Verify linked programme/result target names are visible in admin.
+- Verify Stats linked-result count is greater than 0 when linked result documents exist.
+- Verify Stats uses linked official result PDFs before falling back to embedded programme results.
 - Verify mobile layout.
 - Verify admin set-current/delete behavior.
 
@@ -292,6 +313,10 @@ After each staging deploy:
 - Avoid direct betting recommendations.
 - Keep UX mostly French.
 - Build insights progressively so the app does not become busy or cumbersome.
+- Use custom PmubLonab Codex skills for repeated workflows:
+  - staging QA after Render deploys
+  - PR/CI status checks
+  - project handoff before switching computers or long context changes
 
 ## Open Questions
 
