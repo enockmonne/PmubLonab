@@ -70,96 +70,104 @@ export default function PartantsScreen() {
       if (sortKey === "gains") return b.gains_fcfa - a.gains_fcfa;
       return a.number - b.number;
     });
+  const countLabel = query.trim()
+    ? `${filtered.length}/${horses.length} partants`
+    : `${horses.length || "—"} partants`;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.overline}>16 Partants</Text>
+        <Text style={styles.overline}>{countLabel}</Text>
         <Text style={styles.title}>Les Concurrents</Text>
       </View>
 
-      <View style={styles.searchWrap}>
-        <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
-        <TextInput
-          testID="search-horses"
-          style={styles.search}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Rechercher un cheval, jockey, entraîneur..."
-          placeholderTextColor={theme.colors.textSecondary}
-        />
-      </View>
+      <View style={styles.controls}>
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
+          <TextInput
+            testID="search-horses"
+            style={styles.search}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Rechercher un cheval, jockey, entraîneur..."
+            placeholderTextColor={theme.colors.textSecondary}
+          />
+        </View>
 
-      <View style={styles.sortRow}>
-        {(
-          [
-            { k: "number", label: "No" },
-            { k: "name", label: "Cheval" },
-            { k: "gains", label: "Gains" },
-          ] as { k: SortKey; label: string }[]
-        ).map((opt) => (
+        <View style={styles.sortRow}>
+          <Text style={styles.controlLabel}>Trier</Text>
+          {(
+            [
+              { k: "number", label: "No" },
+              { k: "name", label: "Cheval" },
+              { k: "gains", label: "Gains" },
+            ] as { k: SortKey; label: string }[]
+          ).map((opt) => (
+            <TouchableOpacity
+              key={opt.k}
+              testID={`sort-${opt.k}`}
+              onPress={() => setSortKey(opt.k)}
+              style={[styles.sortPill, sortKey === opt.k && styles.sortPillActive]}
+            >
+              <Text
+                style={[
+                  styles.sortPillText,
+                  sortKey === opt.k && styles.sortPillTextActive,
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.actionsRow}>
           <TouchableOpacity
-            key={opt.k}
-            testID={`sort-${opt.k}`}
-            onPress={() => setSortKey(opt.k)}
-            style={[styles.sortPill, sortKey === opt.k && styles.sortPillActive]}
+            testID="toggle-all-details"
+            onPress={() => {
+              haptics.selection();
+              setShowAllDetails((v) => !v);
+            }}
+            style={[styles.detailsBtn, showAllDetails && styles.detailsBtnActive]}
           >
+            <Ionicons
+              name={showAllDetails ? "contract-outline" : "expand-outline"}
+              size={14}
+              color={showAllDetails ? "#fff" : theme.colors.brand}
+            />
             <Text
               style={[
-                styles.sortPillText,
-                sortKey === opt.k && styles.sortPillTextActive,
+                styles.detailsBtnText,
+                showAllDetails && styles.detailsBtnTextActive,
               ]}
             >
-              {opt.label}
+              {showAllDetails ? "Reduire" : "Tout afficher"}
             </Text>
           </TouchableOpacity>
-        ))}
-        <View style={{ flex: 1 }} />
-        <TouchableOpacity
-          testID="toggle-all-details"
-          onPress={() => {
-            haptics.selection();
-            setShowAllDetails((v) => !v);
-          }}
-          style={[styles.detailsBtn, showAllDetails && styles.detailsBtnActive]}
-        >
-          <Ionicons
-            name={showAllDetails ? "contract-outline" : "expand-outline"}
-            size={14}
-            color={showAllDetails ? "#fff" : theme.colors.brand}
-          />
-          <Text
-            style={[
-              styles.detailsBtnText,
-              showAllDetails && styles.detailsBtnTextActive,
-            ]}
+          <TouchableOpacity
+            testID="toggle-compare"
+            onPress={() => {
+              haptics.medium();
+              setCompareMode((v) => !v);
+              setSelected([]);
+            }}
+            style={[styles.compareBtn, compareMode && styles.compareBtnActive]}
           >
-            {showAllDetails ? "Reduire" : "Tout afficher"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          testID="toggle-compare"
-          onPress={() => {
-            haptics.medium();
-            setCompareMode((v) => !v);
-            setSelected([]);
-          }}
-          style={[styles.compareBtn, compareMode && styles.compareBtnActive]}
-        >
-          <Ionicons
-            name={compareMode ? "close" : "git-compare-outline"}
-            size={14}
-            color={compareMode ? "#fff" : theme.colors.brand}
-          />
-          <Text
-            style={[
-              styles.compareBtnText,
-              compareMode && styles.compareBtnTextActive,
-            ]}
-          >
-            {compareMode ? "Quitter" : "Comparer"}
-          </Text>
-        </TouchableOpacity>
+            <Ionicons
+              name={compareMode ? "close" : "git-compare-outline"}
+              size={14}
+              color={compareMode ? "#fff" : theme.colors.brand}
+            />
+            <Text
+              style={[
+                styles.compareBtnText,
+                compareMode && styles.compareBtnTextActive,
+              ]}
+            >
+              {compareMode ? "Quitter" : "Comparer"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
@@ -182,7 +190,7 @@ export default function PartantsScreen() {
             />
           }
           ItemSeparatorComponent={() => <View style={styles.sep} />}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
           renderItem={({ item }) => {
             const isSelected = selected.includes(item.number);
             return (
@@ -339,17 +347,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: -0.5,
   },
+  controls: {
+    marginHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    marginHorizontal: 16,
+    backgroundColor: theme.colors.bg,
     paddingHorizontal: 12,
     height: 42,
     gap: 8,
-    marginTop: 6,
   },
   search: {
     flex: 1,
@@ -360,10 +375,17 @@ const styles = StyleSheet.create({
   sortRow: {
     flexDirection: "row",
     gap: 8,
-    paddingHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 4,
+    alignItems: "center",
+    marginTop: 12,
     flexWrap: "wrap",
+  },
+  controlLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: theme.colors.gold,
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginRight: 2,
   },
   sortPill: {
     paddingHorizontal: 14,
@@ -383,12 +405,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   sortPillTextActive: { color: "#fff" },
+  actionsRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
   detailsBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: theme.colors.brand,
     backgroundColor: theme.colors.surface,
@@ -411,11 +440,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     gap: 12,
   },
-  sep: { height: 1, backgroundColor: theme.colors.border, marginHorizontal: 16 },
+  sep: { height: 10 },
   numBox: {
     width: 38,
     height: 38,
@@ -480,11 +511,13 @@ const styles = StyleSheet.create({
   },
   // ---- Compare mode ----
   compareBtn: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: theme.colors.brand,
     backgroundColor: theme.colors.surface,
