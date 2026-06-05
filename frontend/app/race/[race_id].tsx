@@ -119,6 +119,16 @@ export default function RaceDetail() {
           </View>
         </View>
 
+        <View style={styles.contextCard}>
+          <Text style={styles.contextOverline}>
+            {isResultsView ? "Rapports officiels" : "Fiche course"}
+          </Text>
+          <Text style={styles.contextTitle}>{race.name}</Text>
+          <Text style={styles.contextMeta}>
+            {race.date_text} - {race.location}
+          </Text>
+        </View>
+
         <View style={styles.statsGrid}>
           <Stat label="Discipline" value={race.discipline || "—"} />
           <Stat label="Distance" value={`${race.distance_m} m`} />
@@ -174,9 +184,21 @@ export default function RaceDetail() {
         {/* Previous results if any */}
         {hasResults && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>
-              {isResultsView ? "Arrivee officielle" : "Resultats precedents"}
-            </Text>
+            <View style={styles.sectionHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionOverline}>
+                  {isResultsView ? "Resultats" : "Historique"}
+                </Text>
+                <Text style={styles.sectionTitle}>
+                  {isResultsView ? "Arrivee officielle" : "Resultats precedents"}
+                </Text>
+              </View>
+              <View style={styles.resultCountBadge}>
+                <Text style={styles.resultCountText}>
+                  {prev.finishing_order.slice(0, 5).length}
+                </Text>
+              </View>
+            </View>
             {!isResultsView && (
               <Text style={styles.prevSub}>
                 {prev.race_name} — {prev.date}
@@ -237,7 +259,12 @@ export default function RaceDetail() {
 
             {prev.stats && (
               <View style={{ marginTop: 14 }}>
-                <Text style={[styles.sectionLabel, { marginBottom: 8 }]}>Montants des paris (MAP)</Text>
+                <View style={[styles.sectionHeader, { marginBottom: 8 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionOverline}>Paris</Text>
+                    <Text style={styles.sectionTitle}>Montants des paris (MAP)</Text>
+                  </View>
+                </View>
                 <View style={styles.list}>
                   {prev.stats.map_quarte_fcfa ? (
                     <View style={styles.payRow}>
@@ -301,6 +328,34 @@ const styles = StyleSheet.create({
   },
   heroTitle: { color: "#fff", fontFamily: theme.fonts.serifBlack, fontSize: 26, marginTop: 4, letterSpacing: -0.6 },
   heroMeta: { color: "#fff", fontSize: 12, marginTop: 4 },
+  contextCard: {
+    marginHorizontal: 16,
+    marginTop: -4,
+    marginBottom: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  contextOverline: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  contextTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    marginTop: 4,
+    letterSpacing: -0.3,
+  },
+  contextMeta: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
+  },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -326,6 +381,41 @@ const styles = StyleSheet.create({
   statCellValue: { fontSize: 17, fontWeight: "700", color: theme.colors.textPrimary, marginTop: 4 },
   statCellSub: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
   section: { marginTop: 18, paddingHorizontal: 16 },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
+  },
+  sectionOverline: {
+    fontSize: 10,
+    letterSpacing: 2,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  sectionTitle: {
+    fontSize: 20,
+    color: theme.colors.textPrimary,
+    fontWeight: "900",
+    letterSpacing: -0.4,
+    marginTop: 2,
+  },
+  resultCountBadge: {
+    minWidth: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  resultCountText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: theme.colors.brand,
+  },
   sectionLabel: {
     fontSize: 14,
     letterSpacing: 2,
