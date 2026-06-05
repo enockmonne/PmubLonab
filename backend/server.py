@@ -200,11 +200,45 @@ def normalize_betting(raw: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     }
 
 
+def normalize_odds(raw: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
+    """Normalize extracted odds tables such as Paris Turf / Tierce Magazine."""
+    source_aliases = {
+        "paristurf": "Paris Turf",
+        "paris turf": "Paris Turf",
+        "paris-turf": "Paris Turf",
+        "tiercemagazine": "Tierce Magazine",
+        "tierce magazine": "Tierce Magazine",
+        "tierce-magazine": "Tierce Magazine",
+        "tiercé magazine": "Tierce Magazine",
+    }
+    normalized = []
+    for table in raw or []:
+        source = str(table.get("source") or "").strip()
+        values = table.get("values") or []
+        if not source or not isinstance(values, list):
+            continue
+        key = normalize_match_text(source)
+        label = source_aliases.get(key, source)
+        clean_values = []
+        for item in values:
+            try:
+                number = int(item.get("number") or 0)
+            except (TypeError, ValueError):
+                number = 0
+            odds = str(item.get("odds") or "").strip()
+            if number > 0 and odds:
+                clean_values.append({"number": number, "odds": odds})
+        if clean_values:
+            normalized.append({"source": label, "values": clean_values})
+    return normalized
+
+
 def build_parse_quality(parsed: Dict[str, Any], doc_type: str) -> Dict[str, Any]:
     race = parsed.get("race") or {}
     horses = parsed.get("horses", []) or []
     predictions = parsed.get("predictions", []) or []
     classifications = parsed.get("classifications", {}) or {}
+    odds = normalize_odds(parsed.get("odds") or [])
     prev = parsed.get("previous_results", {}) or {}
     betting = parsed.get("betting", {}) or {}
     expected_runners = int(race.get("runners") or 0)
@@ -229,8 +263,10 @@ def build_parse_quality(parsed: Dict[str, Any], doc_type: str) -> Dict[str, Any]
         "horses_count": horses_count,
         "predictions_count": len(predictions),
         "classifications_count": len(classifications),
+        "odds_count": len(odds),
         "has_predictions": bool(predictions),
         "has_classifications": bool(classifications),
+        "has_odds": bool(odds),
         "has_previous_results": bool(prev.get("finishing_order")),
         "has_betting_info": any(str(v or "").strip() for v in betting.values()),
         "warnings": warnings,
@@ -252,6 +288,7 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     # doc_type: 'programme' if full programme (horses present), else 'result' (result-only PDF)
     doc_type = "programme" if len(horses) > 0 else ("result" if has_finishing else "programme")
     parse_quality = build_parse_quality(parsed, doc_type)
+    odds = normalize_odds(parsed.get("odds") or [])
 
     doc = {
         "race_id": race_id,
@@ -274,6 +311,7 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "editorial_synthesis": parsed.get("editorial_synthesis", "") or "",
         "horses": horses,
         "predictions": parsed.get("predictions", []) or [],
+        "odds": odds,
         "classifications": parsed.get("classifications", {}) or {},
         "classement": parsed.get("classement", {}) or {},
         "betting": normalize_betting(parsed.get("betting") or {}),
@@ -461,6 +499,7 @@ async def seed_initial_race():
         "hero_image": RACE_INFO["hero_image"],
         "horses": HORSES,
         "predictions": EXPERT_PREDICTIONS,
+        "odds": [],
         "classifications": CLASSIFICATIONS,
         "betting": normalize_betting(BETTING_INFO),
         "previous_results": PREVIOUS_RESULTS,
@@ -733,10 +772,11 @@ async def get_horse(horse_number: int):
 async def get_predictions():
     doc = await _get_current_race_doc()
     if not doc:
-        return {"experts": [], "consensus": [], "classifications": {}, "classement": {}}
+        return {"experts": [], "odds": [], "consensus": [], "classifications": {}, "classement": {}}
     enriched = enrich_race(doc)
     return {
         "experts": doc.get("predictions", []),
+        "odds": doc.get("odds", []),
         "consensus": enriched["consensus"],
         "classifications": doc.get("classifications", {}),
         "classement": doc.get("classement", {}),

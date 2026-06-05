@@ -20,6 +20,8 @@ import { haptics } from "../../src/haptics";
 
 type ExpertPred = { source: string; picks: number[] };
 type Consensus = { number: number; score: number; appearances: number };
+type OddsValue = { number: number; odds: string };
+type OddsTable = { source: string; values: OddsValue[] };
 type Horse = {
   number: number;
   name: string;
@@ -30,12 +32,13 @@ type PersonItem = { name: string; stat?: string };
 type ClassificationItem = number | string | PersonItem;
 type Data = {
   experts: ExpertPred[];
+  odds: OddsTable[];
   consensus: Consensus[];
   classifications: Record<string, ClassificationItem[]>;
   classement: Record<string, number[]>;
 };
 
-type Tab = "consensus" | "experts" | "aptitudes" | "classement";
+type Tab = "consensus" | "experts" | "cotes" | "aptitudes" | "classement";
 
 type PersonSheet = {
   role: "trainer" | "jockey";
@@ -101,7 +104,9 @@ export default function PronosticsScreen() {
   }
 
   const maxScore = Math.max(1, ...data.consensus.map((c) => c.score));
-  const TAB_ORDER: Tab[] = ["consensus", "experts", "aptitudes", "classement"];
+  const TAB_ORDER: Tab[] = ["consensus", "experts", "cotes", "aptitudes", "classement"];
+  const expertsWithPicks = data.experts.filter((e) => (e.picks || []).length > 0);
+  const oddsTables = data.odds || [];
 
   const goToTabByDelta = (delta: number) => {
     const idx = TAB_ORDER.indexOf(tab);
@@ -140,6 +145,7 @@ export default function PronosticsScreen() {
           [
             { k: "consensus", label: "Consensus" },
             { k: "experts", label: "Médias" },
+            { k: "cotes", label: "Cotes" },
             { k: "aptitudes", label: "Aptitudes" },
             { k: "classement", label: "Classement" },
           ] as { k: Tab; label: string }[]
@@ -248,7 +254,7 @@ export default function PronosticsScreen() {
             <Text style={styles.lead}>
               Les bases de chaque média, classées par ordre de priorité.
             </Text>
-            {data.experts.map((e, i) => (
+            {expertsWithPicks.map((e, i) => (
               <Animated.View
                 key={e.source}
                 entering={FadeInDown.duration(300).delay(i * 40)}
@@ -278,6 +284,45 @@ export default function PronosticsScreen() {
                 </View>
               </Animated.View>
             ))}
+            {expertsWithPicks.length === 0 && (
+              <View style={styles.emptyCat}>
+                <Text style={styles.emptyText}>
+                  Aucun pronostic media exploitable pour cette course.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {tab === "cotes" && (
+          <View testID="odds-view" key="odds-wrapper">
+            <Text style={styles.lead}>
+              Cotes extraites des tableaux Paris Turf et Tierce Magazine du PDF.
+            </Text>
+            {oddsTables.map((table, i) => (
+              <Animated.View
+                key={table.source}
+                entering={FadeInDown.duration(300).delay(i * 40)}
+                style={styles.oddsCard}
+              >
+                <Text style={styles.expertSource}>{table.source}</Text>
+                <View style={styles.oddsGrid}>
+                  {table.values.map((item) => (
+                    <View key={`${table.source}-${item.number}`} style={styles.oddsCell}>
+                      <Text style={styles.oddsNumber}>N° {item.number}</Text>
+                      <Text style={styles.oddsValue}>{item.odds}</Text>
+                    </View>
+                  ))}
+                </View>
+              </Animated.View>
+            ))}
+            {oddsTables.length === 0 && (
+              <View style={styles.emptyCat}>
+                <Text style={styles.emptyText}>
+                  Aucune cote Paris Turf ou Tierce Magazine extraite pour cette course.
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -642,6 +687,40 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     marginBottom: 10,
     letterSpacing: 0.3,
+  },
+  oddsCard: {
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    marginBottom: 12,
+  },
+  oddsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  oddsCell: {
+    width: 62,
+    minHeight: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+    paddingVertical: 6,
+  },
+  oddsNumber: {
+    fontSize: 9,
+    color: theme.colors.textSecondary,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  oddsValue: {
+    fontSize: 14,
+    color: theme.colors.textPrimary,
+    fontWeight: "900",
+    marginTop: 2,
   },
   picksRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   pickChip: {
