@@ -102,6 +102,9 @@ export default function StatsScreen() {
   const sourcesCount = leaderboard.length;
   const raceInsight = currentRace ? buildRaceInsight(currentRace) : null;
   const mediaInsight = currentMedia ? buildMediaInsight(currentMedia) : null;
+  const topConsensus = (currentMedia?.consensus || [])
+    .filter((entry) => entry.score > 0)
+    .slice(0, 3);
 
   const insightText = useMemo(() => {
     if (!bestTipster) return "Les signaux se renforceront avec plus de resultats officiels.";
@@ -252,6 +255,53 @@ export default function StatsScreen() {
                 <InsightMetric label="Bases" value={mediaInsight.baseValue} />
                 <InsightMetric label="Outlier" value={mediaInsight.outlierValue} />
               </View>
+            </View>
+          </View>
+        )}
+
+        {topConsensus.length > 0 && (
+          <View style={styles.section} testID="stats-consensus-summary">
+            <Text style={styles.sectionOverline}>Synthese pronostics</Text>
+            <Text style={styles.sectionTitle}>Consensus de la course</Text>
+            <Text style={styles.sectionLead}>
+              Classement derive des pronostics extraits pour la course actuelle.
+            </Text>
+            <View style={styles.consensusPodium}>
+              {topConsensus.map((pick, idx) => {
+                const isFirst = idx === 0;
+                return (
+                  <TouchableOpacity
+                    key={pick.number}
+                    testID={`stats-consensus-${pick.number}`}
+                    style={[styles.consensusCard, isFirst && styles.consensusCardFirst]}
+                    onPress={() => router.push(`/horse/${pick.number}`)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.consensusRank, isFirst && styles.consensusRankFirst]}>
+                      {idx === 0 ? "1er" : idx === 1 ? "2e" : "3e"}
+                    </Text>
+                    <View
+                      style={[
+                        styles.consensusNumber,
+                        isFirst && { backgroundColor: theme.colors.gold },
+                      ]}
+                    >
+                      <Text style={styles.consensusNumberText}>{pick.number}</Text>
+                    </View>
+                    <Text style={[styles.consensusScore, isFirst && { color: "#fff" }]}>
+                      {pick.score} pts
+                    </Text>
+                    <Text
+                      style={[
+                        styles.consensusMentions,
+                        isFirst && { color: "rgba(255,255,255,0.75)" },
+                      ]}
+                    >
+                      {pick.appearances} media{pick.appearances > 1 ? "s" : ""}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         )}
@@ -663,6 +713,52 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "900",
     color: theme.colors.textPrimary,
+  },
+  consensusPodium: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 14,
+  },
+  consensusCard: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  consensusCardFirst: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  consensusRank: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  consensusRankFirst: { color: theme.colors.gold },
+  consensusNumber: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 8,
+  },
+  consensusNumberText: { color: "#fff", fontSize: 18, fontWeight: "900" },
+  consensusScore: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+  },
+  consensusMentions: {
+    fontSize: 10,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   section: { marginTop: 24, paddingHorizontal: 16 },
   sectionOverline: {
