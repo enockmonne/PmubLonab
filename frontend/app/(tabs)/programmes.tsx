@@ -92,7 +92,7 @@ type ProgrammesCache = {
   selectedId: string;
 };
 
-const PROGRAMMES_CACHE_KEY = "pmub.programmes.v2";
+const PROGRAMMES_CACHE_KEY = "pmub.programmes.v3";
 
 export default function RaceScreen() {
   const [data, setData] = useState<RaceData | null>(null);
@@ -139,7 +139,8 @@ export default function RaceScreen() {
       const j = await r.json();
       const list: ProgrammeSummary[] = j.races || [];
       setProgrammes(list);
-      if (!selectedId) {
+      const selectedStillExists = selectedId && list.some((p) => p.race_id === selectedId);
+      if (!selectedStillExists) {
         const current = list.find((p) => p.is_current) || list[0];
         if (current) setSelectedId(current.race_id);
       }

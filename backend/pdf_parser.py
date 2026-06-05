@@ -26,7 +26,7 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
 
 {
   "race": {
-    "name": "string (ex: 'Prix du Pavillon Royal' ou 'QUARTE DU LUNDI')",
+    "name": "string (PROGRAMME: nom officiel du prix, ex: 'Prix Gaston Branere', 'Prix Ville de Nogent sur Marne (Adalberta)'; RÉSULTATS uniquement: nom du pari si aucun prix n'est présent, ex: 'QUARTE DU LUNDI')",
     "event_type": "string (ex: '4+1 du Dimanche', 'QUARTE+', 'TIERCE', 'QUINTE+')",
     "meeting_label": "string (ex: 'Paris - Vincennes Nocturne', 'Auteuil', laisse '' si absent)",
     "course_label": "string (ex: '1ere Course', '4ème Course', laisse '' si absent)",
@@ -100,6 +100,7 @@ Règles strictes :
 - Retourne UNIQUEMENT le JSON, sans ```json``` ni texte.
 - Pour un PDF DE TYPE RÉSULTATS : laisse "horses": [], "predictions": [], "classifications": {}, et remplis "previous_results" avec l'ordre d'arrivée officiel et tous les rapports (chaque couplé placé est un payout séparé). Le champ "race.name" prend le nom du pari (ex: 'QUARTE DU LUNDI').
 - Pour un PDF DE TYPE PROGRAMME : remplis tout. "previous_results" contient les résultats de la course précédente mentionnée.
+- IMPORTANT : pour un PDF PROGRAMME, "race.name" doit être le nom officiel du prix/de la course (ex: "PRIX GASTON BRANERE", "PX VILLE DE NOGENT SUR MARNE (ADALBERTA)"), PAS le nom du pari ou de la rubrique (ex: "QUARTE DU LUNDI", "4+1 du Vendredi"). Mets le nom du pari dans "event_type".
 - IMPORTANT : conserve les informations d'en-tête de course séparément. Ne mélange pas "event_type" (ex: '4+1', 'QUARTE+') avec "course_label" (ex: '1ere Course', '4ème Course'), "meeting_label" (ex: 'Paris - Vincennes Nocturne'), "race_type" (ex: 'Attelé') ou "start_mode" (ex: 'Autostart').
 - Si le PDF contient une ligne comme "ATTELE - 4ème COURSE - AUTOSTART", remplis "race_type": "Attelé", "course_label": "4ème Course", "start_mode": "Autostart". Le champ "discipline" peut rester la famille large (ex: "Trot").
 - Si une donnée manque, utilise 0 pour les int, "" pour les string, [] pour les listes.
