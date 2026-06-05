@@ -62,6 +62,11 @@ export default function RaceDetail() {
   const isResultDoc = race.doc_type === "result";
   const isResultsView = from === "resultats" || isResultDoc;
   const hasResults = prev && prev.finishing_order && prev.finishing_order.length > 0;
+  const meetingLabel = race.meeting_label || race.location;
+  const raceContext = [race.race_type || race.discipline, race.course_label, race.start_mode]
+    .filter(Boolean)
+    .join(" • ");
+  const eventLine = [race.event_type, meetingLabel].filter(Boolean).join(" • ");
   const payoutGroups = (() => {
     if (!hasResults) return {} as Record<string, any[]>;
     const groups: Record<string, any[]> = {
@@ -111,11 +116,12 @@ export default function RaceDetail() {
           />
           <View style={styles.heroOverlay} />
           <View style={styles.heroContent}>
-            <Text style={styles.heroEvent}>{race.event_type}</Text>
+            <Text style={styles.heroEvent}>{eventLine}</Text>
             <Text style={styles.heroTitle}>{race.name}</Text>
             <Text style={styles.heroMeta}>
-              {race.date_text} • {race.location}
+              {race.date_text} • {meetingLabel}
             </Text>
+            {raceContext ? <Text style={styles.heroContext}>{raceContext}</Text> : null}
           </View>
         </View>
 
@@ -125,18 +131,19 @@ export default function RaceDetail() {
           </Text>
           <Text style={styles.contextTitle}>{race.name}</Text>
           <Text style={styles.contextMeta}>
-            {race.date_text} - {race.location}
+            {race.date_text} - {meetingLabel}
           </Text>
+          {raceContext ? <Text style={styles.contextMetaStrong}>{raceContext}</Text> : null}
         </View>
 
         <View style={styles.statsGrid}>
-          <Stat label="Discipline" value={race.discipline || "—"} />
+          <Stat label="Type" value={race.race_type || race.discipline || "—"} />
           <Stat label="Distance" value={`${race.distance_m} m`} />
           <Stat label="Partants" value={`${race.runners}`} />
           <Stat
             label="Allocation"
             value={formatEuro(race.prize_euros)}
-            subValue={formatFCFA(race.prize_fcfa)}
+            subValue={`Env. ${formatFCFA(race.prize_fcfa)}`}
           />
         </View>
 
@@ -328,6 +335,13 @@ const styles = StyleSheet.create({
   },
   heroTitle: { color: "#fff", fontFamily: theme.fonts.serifBlack, fontSize: 26, marginTop: 4, letterSpacing: -0.6 },
   heroMeta: { color: "#fff", fontSize: 12, marginTop: 4 },
+  heroContext: {
+    color: "rgba(255,255,255,0.86)",
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 6,
+    textTransform: "uppercase",
+  },
   contextCard: {
     marginHorizontal: 16,
     marginTop: -4,
@@ -355,6 +369,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textSecondary,
     marginTop: 4,
+  },
+  contextMetaStrong: {
+    fontSize: 11,
+    color: theme.colors.brand,
+    fontWeight: "800",
+    marginTop: 6,
+    textTransform: "uppercase",
   },
   statsGrid: {
     flexDirection: "row",
