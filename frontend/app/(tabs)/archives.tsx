@@ -12,16 +12,21 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL, formatFCFA } from "../../src/theme";
+import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 
 type RaceSummary = {
   race_id: string;
   name: string;
   event_type: string;
+  meeting_label?: string;
+  course_label?: string;
+  race_type?: string;
+  start_mode?: string;
   date_text: string;
   date_iso: string;
   location: string;
   runners: number;
+  prize_euros?: number;
   prize_fcfa: number;
   is_current: boolean;
   has_results: boolean;
@@ -152,7 +157,7 @@ export default function ArchivesScreen() {
             >
               <View style={{ flex: 1 }}>
                 <View style={styles.raceHeaderRow}>
-                  <Text style={styles.raceName} numberOfLines={1}>
+                  <Text style={styles.raceName} numberOfLines={2}>
                     {item.name}
                   </Text>
                   {item.is_current && (
@@ -162,14 +167,22 @@ export default function ArchivesScreen() {
                   )}
                 </View>
                 <Text style={styles.raceMeta}>
-                  {item.date_text} • {item.location}
+                  {item.date_text} • {item.meeting_label || item.location}
+                </Text>
+                <Text style={styles.raceContext} numberOfLines={2}>
+                  {[item.event_type, item.meeting_label, item.race_type, item.course_label, item.start_mode].filter(Boolean).join(" • ")}
                 </Text>
                 <View style={styles.raceChips}>
                   <View style={styles.chip}>
                     <Text style={styles.chipText}>{item.runners} partants</Text>
                   </View>
+                  {item.prize_euros ? (
+                    <View style={styles.chip}>
+                      <Text style={styles.chipText}>{formatEuro(item.prize_euros)}</Text>
+                    </View>
+                  ) : null}
                   <View style={styles.chip}>
-                    <Text style={styles.chipText}>{formatFCFA(item.prize_fcfa)}</Text>
+                    <Text style={styles.chipText}>Env. {formatFCFA(item.prize_fcfa)}</Text>
                   </View>
                   {item.has_results && (
                     <View style={[styles.chip, styles.chipGold]}>
@@ -402,6 +415,13 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   raceMeta: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 3 },
+  raceContext: {
+    fontSize: 11,
+    color: theme.colors.brand,
+    fontWeight: "700",
+    marginTop: 5,
+    textTransform: "uppercase",
+  },
   raceChips: { flexDirection: "row", gap: 6, marginTop: 8, flexWrap: "wrap" },
   chip: {
     paddingHorizontal: 8,

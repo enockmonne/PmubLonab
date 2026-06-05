@@ -28,6 +28,10 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
   "race": {
     "name": "string (ex: 'Prix du Pavillon Royal' ou 'QUARTE DU LUNDI')",
     "event_type": "string (ex: '4+1 du Dimanche', 'QUARTE+', 'TIERCE', 'QUINTE+')",
+    "meeting_label": "string (ex: 'Paris - Vincennes Nocturne', 'Auteuil', laisse '' si absent)",
+    "course_label": "string (ex: '1ere Course', '4ème Course', laisse '' si absent)",
+    "race_type": "string (ex: 'Attelé', 'Haies', 'Steeple-chase', 'Plat', laisse '' si absent)",
+    "start_mode": "string (ex: 'Autostart', laisse '' si absent)",
     "date_text": "string (ex: 'Lundi 20 Avril 2026' ou '20/04/2026')",
     "date_iso": "YYYY-MM-DD",
     "location": "string (ex: 'ParisLongchamp', 'Lonab', 'Vincennes')",
@@ -96,6 +100,8 @@ Règles strictes :
 - Retourne UNIQUEMENT le JSON, sans ```json``` ni texte.
 - Pour un PDF DE TYPE RÉSULTATS : laisse "horses": [], "predictions": [], "classifications": {}, et remplis "previous_results" avec l'ordre d'arrivée officiel et tous les rapports (chaque couplé placé est un payout séparé). Le champ "race.name" prend le nom du pari (ex: 'QUARTE DU LUNDI').
 - Pour un PDF DE TYPE PROGRAMME : remplis tout. "previous_results" contient les résultats de la course précédente mentionnée.
+- IMPORTANT : conserve les informations d'en-tête de course séparément. Ne mélange pas "event_type" (ex: '4+1', 'QUARTE+') avec "course_label" (ex: '1ere Course', '4ème Course'), "meeting_label" (ex: 'Paris - Vincennes Nocturne'), "race_type" (ex: 'Attelé') ou "start_mode" (ex: 'Autostart').
+- Si le PDF contient une ligne comme "ATTELE - 4ème COURSE - AUTOSTART", remplis "race_type": "Attelé", "course_label": "4ème Course", "start_mode": "Autostart". Le champ "discipline" peut rester la famille large (ex: "Trot").
 - Si une donnée manque, utilise 0 pour les int, "" pour les string, [] pour les listes.
 - Les "picks" et les classifications "Forme", "Classe", "Progrès", "Régularité", "Favoris" ne contiennent QUE des numéros de cheval présents dans horses (entiers).
 - ATTENTION : "Entraîneurs en forme" et "Jockeys en forme" contiennent des OBJETS {"name": string, "stat": string}, PAS de numéros de chevaux. Extrait le nom tel qu'affiché dans la rubrique (ex. "A. Fabre") et les statistiques associées si présentes (ex. "12 vict. / 60 part. (20%)", ou "8 vict. / 40 mtes (20%)" pour les jockeys). Si aucune stat n'est disponible, mets "stat": "". Nettoie la casse des noms (ex. "A.FABRE" → "A. Fabre").

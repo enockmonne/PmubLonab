@@ -42,6 +42,10 @@ type RaceData = {
     id: string;
     name: string;
     event_type: string;
+    meeting_label?: string;
+    course_label?: string;
+    race_type?: string;
+    start_mode?: string;
     date: string;
     location: string;
     discipline: string;
@@ -71,6 +75,11 @@ type ConsensusPick = {
 type ProgrammeSummary = {
   race_id: string;
   name: string;
+  event_type?: string;
+  meeting_label?: string;
+  course_label?: string;
+  race_type?: string;
+  start_mode?: string;
   date_text: string;
   date_iso: string;
   location: string;
@@ -150,6 +159,10 @@ export default function RaceScreen() {
           id: full.race_id,
           name: full.name,
           event_type: full.event_type,
+          meeting_label: full.meeting_label || "",
+          course_label: full.course_label || "",
+          race_type: full.race_type || "",
+          start_mode: full.start_mode || "",
           date: full.date_text,
           location: full.location,
           discipline: full.discipline,
@@ -213,6 +226,11 @@ export default function RaceScreen() {
 
   const { race, betting, top_picks } = data;
   const selectedProgramme = programmes.find((p) => p.race_id === selectedId);
+  const meetingLabel = race.meeting_label || race.location;
+  const raceContext = [race.race_type || race.discipline, race.course_label, race.start_mode]
+    .filter(Boolean)
+    .join(" • ");
+  const eventLine = [race.event_type, meetingLabel].filter(Boolean).join(" • ");
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -256,7 +274,7 @@ export default function RaceScreen() {
                   {race.date}
                 </Text>
                 <Text style={datePicker.selectedMeta} numberOfLines={1}>
-                  {race.location}
+                  {meetingLabel}
                 </Text>
               </View>
               {selectedProgramme?.is_current && (
@@ -274,26 +292,27 @@ export default function RaceScreen() {
           <Image source={{ uri: race.hero_image }} style={styles.heroImg} />
           <View style={styles.heroOverlay} />
           <View style={styles.heroContent}>
-            <Text style={styles.heroEvent}>{race.event_type}</Text>
-            <Text style={styles.heroTitle} numberOfLines={2}>
+            <Text style={styles.heroEvent}>{eventLine}</Text>
+            <Text style={styles.heroTitle} numberOfLines={3}>
               {race.name}
             </Text>
             <View style={styles.heroMetaRow}>
               <Ionicons name="location-outline" size={14} color="#fff" />
-              <Text style={styles.heroMeta}>{race.location}</Text>
+              <Text style={styles.heroMeta}>{meetingLabel}</Text>
             </View>
+            {raceContext ? <Text style={styles.heroContext}>{raceContext}</Text> : null}
           </View>
         </View>
 
         {/* Stats grid */}
         <View style={styles.statsGrid}>
-          <Stat label="Discipline" value={race.discipline} />
+          <Stat label="Type" value={race.race_type || race.discipline} />
           <Stat label="Distance" value={`${race.distance_m} m`} />
           <Stat label="Partants" value={`${race.runners}`} />
           <Stat
             label="Allocation"
             value={formatEuro(race.prize_euros)}
-            subValue={formatFCFA(race.prize_fcfa)}
+            subValue={`Env. ${formatFCFA(race.prize_fcfa)}`}
           />
         </View>
 
@@ -592,6 +611,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   heroMeta: { color: "#fff", fontSize: 13, marginLeft: 4 },
+  heroContext: {
+    color: "rgba(255,255,255,0.86)",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 6,
+    textTransform: "uppercase",
+  },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
