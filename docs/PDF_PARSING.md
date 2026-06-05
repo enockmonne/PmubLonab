@@ -27,13 +27,14 @@
 ## Known Limitations
 
 - Some historical PDFs have different formats.
-- Gemini can still fail under sustained high demand after retries are exhausted.
+- Gemini can still fail under sustained high demand or quota exhaustion after retries are exhausted.
 - Programme/result linking is still basic and should be improved.
 - Bulk importing should remain capped until duplicate detection and review workflows are trusted.
 
 ## Next Improvements
 
-- Optional fallback model.
+- Provider fallback chain: Gemini primary -> Mistral OCR/OpenAI/Claude fallback.
+- Queue/retry quota-limited 429 failures and show provider diagnostics in admin.
 - Admin correction endpoints.
 - Stronger programme/result linking by date, location, and race name.
 - Background import queue for larger LONAB batches.
