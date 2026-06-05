@@ -7,6 +7,8 @@ os.environ.setdefault("JWT_SECRET", "test-secret")
 
 from server import (
     canonical_pronostic_source,
+    normalize_odds,
+    normalize_weekly_best,
     official_results_for_race,
     score_programme_result_match,
 )
@@ -113,3 +115,49 @@ def test_canonical_pronostic_source_preserves_unknown_display_name():
         "mon journal turf",
         "Mon Journal Turf",
     )
+
+
+def test_normalize_odds_keeps_known_tables_and_values():
+    odds = normalize_odds([
+        {
+            "source": "PARIS TURF",
+            "values": [
+                {"number": "1", "odds": "7/1"},
+                {"number": 2, "odds": "8/1"},
+                {"number": 0, "odds": "bad"},
+            ],
+        },
+        {
+            "source": "Tiercé Magazine",
+            "values": [{"number": 1, "odds": "5/1"}],
+        },
+    ])
+
+    assert odds == [
+        {
+            "source": "Paris Turf",
+            "values": [
+                {"number": 1, "odds": "7/1"},
+                {"number": 2, "odds": "8/1"},
+            ],
+        },
+        {"source": "Tierce Magazine", "values": [{"number": 1, "odds": "5/1"}]},
+    ]
+
+
+def test_normalize_weekly_best_keeps_ranked_people():
+    weekly = normalize_weekly_best({
+        "trainers": [{"rank": "1", "name": "TH. DUVALDESTIN"}, "M. SASSIER"],
+        "drivers": [{"rank": 1, "name": "E. RAFFIN"}, {"rank": "", "name": "B. ROCHARD"}],
+    })
+
+    assert weekly == {
+        "trainers": [
+            {"rank": 1, "name": "TH. DUVALDESTIN"},
+            {"rank": 2, "name": "M. SASSIER"},
+        ],
+        "drivers": [
+            {"rank": 1, "name": "E. RAFFIN"},
+            {"rank": 2, "name": "B. ROCHARD"},
+        ],
+    }
