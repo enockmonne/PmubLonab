@@ -133,23 +133,38 @@ export default function StatsScreen() {
         <View style={styles.header}>
           <Text style={styles.overline}>Performance</Text>
           <Text style={styles.title}>Stats & Classements</Text>
+          <Text style={styles.headerLead}>
+            Insights construits avec les programmes et resultats officiels lies.
+          </Text>
         </View>
 
         <View style={styles.snapshotGrid}>
           <View style={styles.snapshotTile}>
-            <Ionicons name="flag-outline" size={18} color={theme.colors.gold} />
-            <Text style={styles.snapshotValue}>{evaluatedRaces}</Text>
-            <Text style={styles.snapshotLabel}>courses evaluees</Text>
+            <View style={styles.snapshotIcon}>
+              <Ionicons name="flag-outline" size={17} color={theme.colors.brand} />
+            </View>
+            <View>
+              <Text style={styles.snapshotValue}>{evaluatedRaces}</Text>
+              <Text style={styles.snapshotLabel}>courses evaluees</Text>
+            </View>
           </View>
           <View style={styles.snapshotTile}>
-            <Ionicons name="link-outline" size={18} color={theme.colors.gold} />
-            <Text style={styles.snapshotValue}>{linkedResultsUsed}</Text>
-            <Text style={styles.snapshotLabel}>resultats lies</Text>
+            <View style={styles.snapshotIcon}>
+              <Ionicons name="link-outline" size={17} color={theme.colors.brand} />
+            </View>
+            <View>
+              <Text style={styles.snapshotValue}>{linkedResultsUsed}</Text>
+              <Text style={styles.snapshotLabel}>resultats lies</Text>
+            </View>
           </View>
           <View style={styles.snapshotTile}>
-            <Ionicons name="newspaper-outline" size={18} color={theme.colors.gold} />
-            <Text style={styles.snapshotValue}>{sourcesCount}</Text>
-            <Text style={styles.snapshotLabel}>sources suivies</Text>
+            <View style={styles.snapshotIcon}>
+              <Ionicons name="newspaper-outline" size={17} color={theme.colors.brand} />
+            </View>
+            <View>
+              <Text style={styles.snapshotValue}>{sourcesCount}</Text>
+              <Text style={styles.snapshotLabel}>sources suivies</Text>
+            </View>
           </View>
         </View>
 
@@ -308,8 +323,12 @@ export default function StatsScreen() {
           <View style={styles.peopleTabs}>
             <TouchableOpacity
               testID="people-tab-jockeys"
-              style={styles.peopleTabBtn}
+              style={[
+                styles.peopleTabBtn,
+                peopleTab === "jockeys" && styles.peopleTabBtnActive,
+              ]}
               onPress={() => setPeopleTab("jockeys")}
+              activeOpacity={0.85}
             >
               <Text
                 style={[
@@ -319,17 +338,15 @@ export default function StatsScreen() {
               >
                 Jockeys
               </Text>
-              <View
-                style={[
-                  styles.peopleTabUnderline,
-                  peopleTab === "jockeys" && styles.peopleTabUnderlineActive,
-                ]}
-              />
             </TouchableOpacity>
             <TouchableOpacity
               testID="people-tab-trainers"
-              style={styles.peopleTabBtn}
+              style={[
+                styles.peopleTabBtn,
+                peopleTab === "trainers" && styles.peopleTabBtnActive,
+              ]}
               onPress={() => setPeopleTab("trainers")}
+              activeOpacity={0.85}
             >
               <Text
                 style={[
@@ -339,12 +356,6 @@ export default function StatsScreen() {
               >
                 Entraîneurs
               </Text>
-              <View
-                style={[
-                  styles.peopleTabUnderline,
-                  peopleTab === "trainers" && styles.peopleTabUnderlineActive,
-                ]}
-              />
             </TouchableOpacity>
           </View>
 
@@ -470,6 +481,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginTop: 2,
   },
+  headerLead: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 6,
+  },
   snapshotGrid: {
     flexDirection: "row",
     gap: 8,
@@ -478,12 +495,22 @@ const styles = StyleSheet.create({
   },
   snapshotTile: {
     flex: 1,
-    minHeight: 94,
+    minHeight: 102,
     padding: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
     justifyContent: "space-between",
+  },
+  snapshotIcon: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 10,
   },
   snapshotValue: {
     fontSize: 22,
@@ -711,22 +738,31 @@ const styles = StyleSheet.create({
   barFill: { height: "100%", backgroundColor: theme.colors.gold },
   peopleTabs: {
     flexDirection: "row",
-    gap: 24,
+    gap: 8,
     marginTop: 14,
-    marginBottom: 4,
+    marginBottom: 6,
   },
-  peopleTabBtn: {},
+  peopleTabBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  peopleTabBtnActive: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
   peopleTabText: {
-    fontSize: 12,
-    fontWeight: "700",
-    letterSpacing: 1,
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.8,
     textTransform: "uppercase",
     color: theme.colors.textSecondary,
-    paddingBottom: 8,
   },
-  peopleTabTextActive: { color: theme.colors.brand },
-  peopleTabUnderline: { height: 2, backgroundColor: "transparent" },
-  peopleTabUnderlineActive: { backgroundColor: theme.colors.brand },
+  peopleTabTextActive: { color: "#fff" },
   miniHighlight: {
     flexDirection: "row",
     alignItems: "center",
