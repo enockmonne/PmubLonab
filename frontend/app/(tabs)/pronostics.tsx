@@ -130,7 +130,12 @@ export default function PronosticsScreen() {
         <Text style={styles.title}>Pronostics</Text>
       </View>
 
-      <View style={styles.tabs}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabs}
+        contentContainerStyle={styles.tabsContent}
+      >
         {(
           [
             { k: "consensus", label: "Consensus" },
@@ -142,36 +147,34 @@ export default function PronosticsScreen() {
           <TouchableOpacity
             key={t.k}
             testID={`tab-${t.k}`}
-            style={styles.tabBtn}
+            style={[styles.tabBtn, tab === t.k && styles.tabBtnActive]}
             onPress={() => {
               haptics.selection();
               setTab(t.k);
             }}
+            activeOpacity={0.85}
           >
             <Text style={[styles.tabText, tab === t.k && styles.tabTextActive]}>
               {t.label}
             </Text>
-            <View
-              style={[styles.tabUnderline, tab === t.k && styles.tabUnderlineActive]}
-            />
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       <GestureDetector gesture={swipeGesture}>
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              load();
-            }}
-            tintColor={theme.colors.brand}
-          />
-        }
-      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                setRefreshing(true);
+                load();
+              }}
+              tintColor={theme.colors.brand}
+            />
+          }
+        >
         {tab === "consensus" && (
           <View testID="consensus-view" key="consensus-wrapper">
             <Text style={styles.lead}>
@@ -192,6 +195,7 @@ export default function PronosticsScreen() {
                       c.number === topConsensusNumber && styles.consensusRowFavori,
                     ]}
                     onPress={() => router.push(`/horse/${c.number}`)}
+                    activeOpacity={0.85}
                   >
                     <View style={styles.consensusRankWrap}>
                       {c.number === topConsensusNumber && (
@@ -419,7 +423,7 @@ export default function PronosticsScreen() {
             )}
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
       </GestureDetector>
 
       {/* ---- Modal : Chevaux de l'entraîneur / jockey ---- */}
@@ -525,26 +529,40 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tabs: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
+    backgroundColor: theme.colors.bg,
   },
-  tabBtn: { marginRight: 20, paddingVertical: 10 },
+  tabsContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 8,
+  },
+  tabBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    minWidth: 94,
+    alignItems: "center",
+  },
+  tabBtnActive: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
   tabText: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 11,
+    fontWeight: "800",
     color: theme.colors.textSecondary,
     letterSpacing: 0.5,
     textTransform: "uppercase",
   },
-  tabTextActive: { color: theme.colors.brand },
-  tabUnderline: {
-    height: 2,
-    marginTop: 8,
-    backgroundColor: "transparent",
+  tabTextActive: { color: "#fff" },
+  content: {
+    padding: 16,
+    paddingBottom: 40,
   },
-  tabUnderlineActive: { backgroundColor: theme.colors.brand },
   lead: {
     fontSize: 13,
     color: theme.colors.textSecondary,
@@ -554,16 +572,16 @@ const styles = StyleSheet.create({
   consensusRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    marginBottom: 10,
     gap: 10,
   },
   consensusRowFavori: {
-    backgroundColor: "rgba(198, 162, 98, 0.06)",
-    paddingHorizontal: 8,
-    marginHorizontal: -8,
-    borderRadius: 4,
+    backgroundColor: "#FFFCF5",
+    borderColor: theme.colors.gold,
   },
   consensusRankWrap: {
     flexDirection: "row",
