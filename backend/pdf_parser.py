@@ -71,6 +71,10 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
       ]
     }
   ],
+  "weekly_best": {
+    "trainers": [ { "rank": int, "name": "string" } ],
+    "drivers": [ { "rank": int, "name": "string" } ]
+  },
   "classifications": {
     "Forme": [int, ...],
     "Classe": [int, ...],
@@ -113,6 +117,7 @@ Règles strictes :
 - Si le PDF contient une ligne comme "ATTELE - 4ème COURSE - AUTOSTART", remplis "race_type": "Attelé", "course_label": "4ème Course", "start_mode": "Autostart". Le champ "discipline" peut rester la famille large (ex: "Trot").
 - IMPORTANT : les tableaux "PARIS TURF" et "TIERCE MAGAZINE" avec les numéros de chevaux en colonnes et des valeurs comme "7/1", "57/1", "99/1" sont des cotes. Mets-les dans "odds", PAS dans "predictions". Exemple: {"source":"Paris Turf","values":[{"number":1,"odds":"7/1"},{"number":2,"odds":"8/1"}]}.
 - "predictions" contient uniquement des pronostics/rangs de chevaux (listes de numéros), jamais des cotes fractionnaires.
+- IMPORTANT : la section "LES MEILLEURS DE LA SEMAINE" avec deux colonnes "ENTRAINEURS" et "DRIVERS" doit aller dans "weekly_best". Conserve le rang et le nom affiché. N'ajoute pas ces noms dans "predictions" ni dans les cotes.
 - Si une donnée manque, utilise 0 pour les int, "" pour les string, [] pour les listes.
 - Les "picks" et les classifications "Forme", "Classe", "Progrès", "Régularité", "Favoris" ne contiennent QUE des numéros de cheval présents dans horses (entiers).
 - ATTENTION : "Entraîneurs en forme" et "Jockeys en forme" contiennent des OBJETS {"name": string, "stat": string}, PAS de numéros de chevaux. Extrait le nom tel qu'affiché dans la rubrique (ex. "A. Fabre") et les statistiques associées si présentes (ex. "12 vict. / 60 part. (20%)", ou "8 vict. / 40 mtes (20%)" pour les jockeys). Si aucune stat n'est disponible, mets "stat": "". Nettoie la casse des noms (ex. "A.FABRE" → "A. Fabre").

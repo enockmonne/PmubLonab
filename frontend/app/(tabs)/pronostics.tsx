@@ -22,6 +22,8 @@ type ExpertPred = { source: string; picks: number[] };
 type Consensus = { number: number; score: number; appearances: number };
 type OddsValue = { number: number; odds: string };
 type OddsTable = { source: string; values: OddsValue[] };
+type RankedPerson = { rank: number; name: string };
+type WeeklyBest = { trainers: RankedPerson[]; drivers: RankedPerson[] };
 type Horse = {
   number: number;
   name: string;
@@ -33,12 +35,13 @@ type ClassificationItem = number | string | PersonItem;
 type Data = {
   experts: ExpertPred[];
   odds: OddsTable[];
+  weekly_best: WeeklyBest;
   consensus: Consensus[];
   classifications: Record<string, ClassificationItem[]>;
   classement: Record<string, number[]>;
 };
 
-type Tab = "consensus" | "experts" | "cotes" | "aptitudes" | "classement";
+type Tab = "consensus" | "experts" | "cotes" | "semaine" | "aptitudes" | "classement";
 
 type PersonSheet = {
   role: "trainer" | "jockey";
@@ -104,9 +107,10 @@ export default function PronosticsScreen() {
   }
 
   const maxScore = Math.max(1, ...data.consensus.map((c) => c.score));
-  const TAB_ORDER: Tab[] = ["consensus", "experts", "cotes", "aptitudes", "classement"];
+  const TAB_ORDER: Tab[] = ["consensus", "experts", "cotes", "semaine", "aptitudes", "classement"];
   const expertsWithPicks = data.experts.filter((e) => (e.picks || []).length > 0);
   const oddsTables = data.odds || [];
+  const weeklyBest = data.weekly_best || { trainers: [], drivers: [] };
 
   const goToTabByDelta = (delta: number) => {
     const idx = TAB_ORDER.indexOf(tab);
@@ -146,6 +150,7 @@ export default function PronosticsScreen() {
             { k: "consensus", label: "Consensus" },
             { k: "experts", label: "Médias" },
             { k: "cotes", label: "Cotes" },
+            { k: "semaine", label: "Semaine" },
             { k: "aptitudes", label: "Aptitudes" },
             { k: "classement", label: "Classement" },
           ] as { k: Tab; label: string }[]
@@ -320,6 +325,26 @@ export default function PronosticsScreen() {
               <View style={styles.emptyCat}>
                 <Text style={styles.emptyText}>
                   Aucune cote Paris Turf ou Tierce Magazine extraite pour cette course.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {tab === "semaine" && (
+          <View testID="weekly-best-view" key="weekly-best-wrapper">
+            <Text style={styles.lead}>
+              Classements extraits de la section Les meilleurs de la semaine du PDF.
+            </Text>
+            {weeklyBest.trainers.length + weeklyBest.drivers.length > 0 ? (
+              <View style={styles.weeklyGrid}>
+                <WeeklyBestColumn title="Entraineurs" people={weeklyBest.trainers} />
+                <WeeklyBestColumn title="Drivers" people={weeklyBest.drivers} />
+              </View>
+            ) : (
+              <View style={styles.emptyCat}>
+                <Text style={styles.emptyText}>
+                  Aucun classement hebdomadaire extrait pour cette course.
                 </Text>
               </View>
             )}
@@ -550,6 +575,24 @@ export default function PronosticsScreen() {
   );
 }
 
+function WeeklyBestColumn({ title, people }: { title: string; people: RankedPerson[] }) {
+  return (
+    <View style={styles.weeklyColumn}>
+      <Text style={styles.weeklyTitle}>{title}</Text>
+      {people.length === 0 ? (
+        <Text style={styles.weeklyEmpty}>Non extrait</Text>
+      ) : (
+        people.map((person) => (
+          <View key={`${title}-${person.rank}-${person.name}`} style={styles.weeklyRow}>
+            <Text style={styles.weeklyRank}>{person.rank}</Text>
+            <Text style={styles.weeklyName}>{person.name}</Text>
+          </View>
+        ))
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
   loader: {
@@ -721,6 +764,52 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontWeight: "900",
     marginTop: 2,
+  },
+  weeklyGrid: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  weeklyColumn: {
+    flex: 1,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  weeklyTitle: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    textTransform: "uppercase",
+    textAlign: "center",
+    marginBottom: 10,
+    letterSpacing: 0.8,
+  },
+  weeklyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 5,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  weeklyRank: {
+    width: 20,
+    fontSize: 12,
+    fontWeight: "900",
+    color: theme.colors.gold,
+  },
+  weeklyName: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+  },
+  weeklyEmpty: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    textAlign: "center",
+    paddingVertical: 16,
   },
   picksRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   pickChip: {

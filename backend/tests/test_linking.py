@@ -8,6 +8,7 @@ os.environ.setdefault("JWT_SECRET", "test-secret")
 from server import (
     canonical_pronostic_source,
     normalize_odds,
+    normalize_weekly_best,
     official_results_for_race,
     score_programme_result_match,
 )
@@ -142,3 +143,21 @@ def test_normalize_odds_keeps_known_tables_and_values():
         },
         {"source": "Tierce Magazine", "values": [{"number": 1, "odds": "5/1"}]},
     ]
+
+
+def test_normalize_weekly_best_keeps_ranked_people():
+    weekly = normalize_weekly_best({
+        "trainers": [{"rank": "1", "name": "TH. DUVALDESTIN"}, "M. SASSIER"],
+        "drivers": [{"rank": 1, "name": "E. RAFFIN"}, {"rank": "", "name": "B. ROCHARD"}],
+    })
+
+    assert weekly == {
+        "trainers": [
+            {"rank": 1, "name": "TH. DUVALDESTIN"},
+            {"rank": 2, "name": "M. SASSIER"},
+        ],
+        "drivers": [
+            {"rank": 1, "name": "E. RAFFIN"},
+            {"rank": 2, "name": "B. ROCHARD"},
+        ],
+    }

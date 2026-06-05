@@ -233,12 +233,43 @@ def normalize_odds(raw: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str,
     return normalized
 
 
+def normalize_ranked_people(raw: Any) -> List[Dict[str, Any]]:
+    """Normalize ranked people lists such as weekly trainers/drivers."""
+    normalized = []
+    if not isinstance(raw, list):
+        return normalized
+    for idx, item in enumerate(raw, start=1):
+        if isinstance(item, str):
+            rank = idx
+            name = item
+        elif isinstance(item, dict):
+            try:
+                rank = int(item.get("rank") or idx)
+            except (TypeError, ValueError):
+                rank = idx
+            name = str(item.get("name") or "").strip()
+        else:
+            continue
+        if name:
+            normalized.append({"rank": rank, "name": name})
+    return normalized
+
+
+def normalize_weekly_best(raw: Optional[Dict[str, Any]] = None) -> Dict[str, List[Dict[str, Any]]]:
+    raw = raw or {}
+    return {
+        "trainers": normalize_ranked_people(raw.get("trainers")),
+        "drivers": normalize_ranked_people(raw.get("drivers")),
+    }
+
+
 def build_parse_quality(parsed: Dict[str, Any], doc_type: str) -> Dict[str, Any]:
     race = parsed.get("race") or {}
     horses = parsed.get("horses", []) or []
     predictions = parsed.get("predictions", []) or []
     classifications = parsed.get("classifications", {}) or {}
     odds = normalize_odds(parsed.get("odds") or [])
+    weekly_best = normalize_weekly_best(parsed.get("weekly_best") or {})
     prev = parsed.get("previous_results", {}) or {}
     betting = parsed.get("betting", {}) or {}
     expected_runners = int(race.get("runners") or 0)
@@ -264,9 +295,11 @@ def build_parse_quality(parsed: Dict[str, Any], doc_type: str) -> Dict[str, Any]
         "predictions_count": len(predictions),
         "classifications_count": len(classifications),
         "odds_count": len(odds),
+        "weekly_best_count": len(weekly_best["trainers"]) + len(weekly_best["drivers"]),
         "has_predictions": bool(predictions),
         "has_classifications": bool(classifications),
         "has_odds": bool(odds),
+        "has_weekly_best": bool(weekly_best["trainers"] or weekly_best["drivers"]),
         "has_previous_results": bool(prev.get("finishing_order")),
         "has_betting_info": any(str(v or "").strip() for v in betting.values()),
         "warnings": warnings,
@@ -289,6 +322,7 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     doc_type = "programme" if len(horses) > 0 else ("result" if has_finishing else "programme")
     parse_quality = build_parse_quality(parsed, doc_type)
     odds = normalize_odds(parsed.get("odds") or [])
+    weekly_best = normalize_weekly_best(parsed.get("weekly_best") or {})
 
     doc = {
         "race_id": race_id,
@@ -312,6 +346,7 @@ def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
         "horses": horses,
         "predictions": parsed.get("predictions", []) or [],
         "odds": odds,
+        "weekly_best": weekly_best,
         "classifications": parsed.get("classifications", {}) or {},
         "classement": parsed.get("classement", {}) or {},
         "betting": normalize_betting(parsed.get("betting") or {}),
@@ -500,6 +535,7 @@ async def seed_initial_race():
         "horses": HORSES,
         "predictions": EXPERT_PREDICTIONS,
         "odds": [],
+        "weekly_best": {"trainers": [], "drivers": []},
         "classifications": CLASSIFICATIONS,
         "betting": normalize_betting(BETTING_INFO),
         "previous_results": PREVIOUS_RESULTS,
@@ -772,11 +808,12 @@ async def get_horse(horse_number: int):
 async def get_predictions():
     doc = await _get_current_race_doc()
     if not doc:
-        return {"experts": [], "odds": [], "consensus": [], "classifications": {}, "classement": {}}
+        return {"experts": [], "odds": [], "weekly_best": {"trainers": [], "drivers": []}, "consensus": [], "classifications": {}, "classement": {}}
     enriched = enrich_race(doc)
     return {
         "experts": doc.get("predictions", []),
         "odds": doc.get("odds", []),
+        "weekly_best": normalize_weekly_best(doc.get("weekly_best") or {}),
         "consensus": enriched["consensus"],
         "classifications": doc.get("classifications", {}),
         "classement": doc.get("classement", {}),
