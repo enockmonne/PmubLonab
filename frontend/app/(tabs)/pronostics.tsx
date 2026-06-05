@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#fff" },
   content: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
   lead: {
     fontSize: 13,

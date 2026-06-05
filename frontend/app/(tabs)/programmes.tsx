@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 import { haptics } from "../../src/haptics";
@@ -63,13 +62,6 @@ type RaceData = {
     daylight_saving_note: string;
     customer_service?: string;
   };
-  top_picks: ConsensusPick[];
-};
-
-type ConsensusPick = {
-  number: number;
-  score: number;
-  appearances: number;
 };
 
 type ProgrammeSummary = {
@@ -116,8 +108,6 @@ export default function RaceScreen() {
     });
     return m;
   }, [programmes, selectedId]);
-  const router = useRouter();
-
   useEffect(() => {
     let mounted = true;
     readCache<ProgrammesCache>(PROGRAMMES_CACHE_KEY).then((cached) => {
@@ -154,7 +144,6 @@ export default function RaceScreen() {
     try {
       const r = await fetch(`${API_URL}/api/races/${raceId}`);
       const full = await r.json();
-      const top = (full.consensus || []).slice(0, 3);
       const adapted: RaceData = {
         race: {
           id: full.race_id,
@@ -181,7 +170,6 @@ export default function RaceScreen() {
           daylight_saving_note: full.betting?.daylight_saving_note || "",
           customer_service: full.betting?.customer_service || "",
         },
-        top_picks: top,
       };
       setData(adapted);
     } catch (e) {
@@ -225,7 +213,7 @@ export default function RaceScreen() {
     );
   }
 
-  const { race, betting, top_picks } = data;
+  const { race, betting } = data;
   const selectedProgramme = programmes.find((p) => p.race_id === selectedId);
   const meetingLabel = race.meeting_label || race.location;
   const raceContext = [race.race_type || race.discipline, race.course_label, race.start_mode]
@@ -336,47 +324,6 @@ export default function RaceScreen() {
             </View>
           </View>
         )}
-
-        {/* Top picks */}
-        <View style={styles.section}>
-          <Text style={styles.sectionOverline}>Consensus Expert</Text>
-          <Text style={styles.sectionTitle}>Le Trio de Tête</Text>
-          <Text style={styles.sectionLead}>
-            Synthèse de 7 pronostiqueurs — ParisTurf, Voix du Nord, Turf-fr.com,
-            Turfomania, Le Parisien, L&apos;Alsace, Zone-Turf.fr.
-          </Text>
-          <View style={styles.podium}>
-            {top_picks.map((p, idx) => {
-              const isFirst = idx === 0;
-              return (
-                <TouchableOpacity
-                  key={p.number}
-                  testID={`top-pick-${p.number}`}
-                  style={[styles.podiumCard, isFirst && styles.podiumCardFirst]}
-                  onPress={() => router.push(`/horse/${p.number}`)}
-                >
-                  <Text style={[styles.podiumRank, isFirst && { color: theme.colors.gold }]}>
-                    {idx === 0 ? "1er" : idx === 1 ? "2e" : "3e"}
-                  </Text>
-                  <View
-                    style={[
-                      styles.podiumNum,
-                      isFirst && { backgroundColor: theme.colors.gold },
-                    ]}
-                  >
-                    <Text style={styles.podiumNumText}>{p.number}</Text>
-                  </View>
-                  <Text style={[styles.podiumScore, isFirst && { color: "#fff" }]}>
-                    {p.score} pts
-                  </Text>
-                  <Text style={[styles.podiumMentions, isFirst && { color: "rgba(255,255,255,0.7)" }]}>
-                    {p.appearances}/7 médias
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
 
         {/* Betting info */}
         <View style={styles.section}>
@@ -670,42 +617,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 19,
   },
-  podium: {
-    flexDirection: "row",
-    marginTop: 16,
-    gap: 10,
-  },
-  podiumCard: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 18,
-    paddingHorizontal: 8,
-    backgroundColor: theme.colors.surface,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  podiumCardFirst: {
-    backgroundColor: theme.colors.brand,
-    borderColor: theme.colors.brand,
-  },
-  podiumRank: {
-    fontSize: 10,
-    letterSpacing: 2,
-    color: theme.colors.textSecondary,
-    fontWeight: "700",
-  },
-  podiumNum: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: theme.colors.brand,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 8,
-  },
-  podiumNumText: { color: "#fff", fontSize: 20, fontWeight: "800" },
-  podiumScore: { fontSize: 14, fontWeight: "700", color: theme.colors.textPrimary },
-  podiumMentions: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
   infoCard: {
     flexDirection: "row",
     alignItems: "center",
