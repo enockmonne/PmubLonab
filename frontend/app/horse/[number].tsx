@@ -125,13 +125,18 @@ export default function HorseDetail() {
       >
         {/* Hero */}
         <View style={styles.hero}>
-          <View style={styles.heroNum}>
-            <Text style={styles.heroNumText}>{horse.number}</Text>
+          <View style={styles.heroNumWrap}>
+            <View style={styles.heroNum}>
+              <Text style={styles.heroNumText}>{horse.number}</Text>
+            </View>
+            <Text style={styles.heroOverline}>Fiche cheval</Text>
           </View>
-          <Text style={styles.heroName}>{horse.name}</Text>
-          <Text style={styles.heroMeta}>
-            {horse.age} ans • {horse.sex === "F" ? "Femelle" : horse.sex === "H" ? "Hongre" : "Mâle"} • {horse.weight}
-          </Text>
+          <View style={styles.heroTextWrap}>
+            <Text style={styles.heroName}>{horse.name}</Text>
+            <Text style={styles.heroMeta}>
+              {horse.age} ans • {horse.sex === "F" ? "Femelle" : horse.sex === "H" ? "Hongre" : "Mâle"} • {horse.weight}
+            </Text>
+          </View>
         </View>
 
         {/* Jockey / Trainer / Owner */}
@@ -232,9 +237,13 @@ export default function HorseDetail() {
             testID="view-horse-history"
             style={styles.historyBtn}
             onPress={() => router.push(`/horse-history/${encodeURIComponent(horse.name)}`)}
+            activeOpacity={0.85}
           >
-            <Ionicons name="stats-chart-outline" size={18} color="#fff" />
-            <Text style={styles.historyBtnText}>Voir l&apos;historique complet</Text>
+            <View style={styles.historyBtnLabel}>
+              <Ionicons name="stats-chart-outline" size={18} color={theme.colors.brand} />
+              <Text style={styles.historyBtnText}>Voir l&apos;historique complet</Text>
+            </View>
+            <Ionicons name="arrow-forward" size={16} color={theme.colors.brand} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -338,29 +347,45 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   hero: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 22,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    gap: 14,
+    margin: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  heroNumWrap: {
+    alignItems: "center",
+    gap: 6,
   },
   heroNum: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     backgroundColor: theme.colors.brand,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
   },
   heroNumText: { color: "#fff", fontSize: 30, fontWeight: "900" },
+  heroOverline: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: theme.colors.gold,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  heroTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
   heroName: {
     fontFamily: theme.fonts.serifBlack,
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "800",
     color: theme.colors.textPrimary,
     letterSpacing: -0.5,
-    textAlign: "center",
   },
   heroMeta: {
     fontSize: 13,
@@ -372,7 +397,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 0,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
@@ -560,16 +585,26 @@ const styles = StyleSheet.create({
   historyBtn: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.brand,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  historyBtnLabel: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-    backgroundColor: theme.colors.brand,
-    paddingVertical: 14,
+    flexShrink: 1,
   },
   historyBtnText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
+    color: theme.colors.brand,
+    fontSize: 12,
+    fontWeight: "800",
     letterSpacing: 0.5,
     textTransform: "uppercase",
+    flexShrink: 1,
   },
 });
