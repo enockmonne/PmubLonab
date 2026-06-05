@@ -12,6 +12,7 @@ import {
 import Animated, { FadeInDown, FadeIn, runOnJS } from "react-native-reanimated";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { theme, API_URL } from "../../src/theme";
@@ -51,6 +52,7 @@ export default function PronosticsScreen() {
   const [tab, setTab] = useState<Tab>("consensus");
   const [sheet, setSheet] = useState<PersonSheet | null>(null);
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
 
   const load = useCallback(async () => {
     try {
@@ -163,7 +165,11 @@ export default function PronosticsScreen() {
 
       <GestureDetector gesture={swipeGesture}>
         <ScrollView
-          contentContainerStyle={styles.content}
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: tabBarHeight + 48 },
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -532,6 +538,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
     backgroundColor: theme.colors.bg,
+    flexGrow: 0,
+    maxHeight: 54,
   },
   tabsContent: {
     paddingHorizontal: 16,
@@ -559,9 +567,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   tabTextActive: { color: "#fff" },
+  scroll: { flex: 1 },
   content: {
     padding: 16,
-    paddingBottom: 120,
   },
   lead: {
     fontSize: 13,
