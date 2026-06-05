@@ -85,9 +85,14 @@ export default function ArchivesScreen() {
       <View style={styles.header}>
         <Text style={styles.overline}>Archives & Recherche</Text>
         <Text style={styles.title}>Toutes les courses</Text>
+        <Text style={styles.headerLead}>
+          Retrouvez les programmes, resultats lies, chevaux, jockeys et entraineurs.
+        </Text>
       </View>
 
-      <View style={styles.searchWrap}>
+      <View style={styles.searchPanel}>
+        <Text style={styles.searchLabel}>Recherche</Text>
+        <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
         <TextInput
           testID="global-search"
@@ -102,6 +107,7 @@ export default function ArchivesScreen() {
             <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         )}
+        </View>
       </View>
 
       {loading ? (
@@ -129,7 +135,7 @@ export default function ArchivesScreen() {
             />
           }
           ItemSeparatorComponent={() => <View style={styles.sep} />}
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="newspaper-outline" size={32} color={theme.colors.textSecondary} />
@@ -323,21 +329,41 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginTop: 2,
   },
+  headerLead: {
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  searchPanel: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  searchLabel: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    marginHorizontal: 16,
-    marginTop: 10,
+    backgroundColor: theme.colors.bg,
     paddingHorizontal: 12,
     height: 44,
     gap: 8,
-    marginBottom: 10,
   },
   search: { flex: 1, fontSize: 14, color: theme.colors.textPrimary, marginLeft: 6 },
-  sep: { height: 1, backgroundColor: theme.colors.border, marginHorizontal: 16 },
+  sep: { height: 10 },
   empty: { alignItems: "center", padding: 32, gap: 8 },
   emptyText: {
     fontSize: 13,
@@ -349,8 +375,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     gap: 10,
   },
   raceHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
