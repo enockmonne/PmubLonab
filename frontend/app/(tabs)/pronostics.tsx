@@ -15,9 +15,27 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL } from "../../src/theme";
 import HorseLoader from "../../src/HorseLoader";
 import { haptics } from "../../src/haptics";
+
+LocaleConfig.locales["fr"] = {
+  monthNames: [
+    "Janvier", "Fevrier", "Mars", "Avril", "Mai", "Juin",
+    "Juillet", "Aout", "Septembre", "Octobre", "Novembre", "Decembre",
+  ],
+  monthNamesShort: [
+    "Janv.", "Fevr.", "Mars", "Avril", "Mai", "Juin",
+    "Juil.", "Aout", "Sept.", "Oct.", "Nov.", "Dec.",
+  ],
+  dayNames: [
+    "Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi",
+  ],
+  dayNamesShort: ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."],
+  today: "Aujourd'hui",
+};
+LocaleConfig.defaultLocale = "fr";
 
 type ExpertPred = { source: string; picks: number[] };
 type Consensus = { number: number; score: number; appearances: number };
@@ -41,6 +59,22 @@ type Data = {
   classifications: Record<string, ClassificationItem[]>;
   classement: Record<string, number[]>;
 };
+type ProgrammeSummary = {
+  race_id: string;
+  name: string;
+  date_text: string;
+  date_iso: string;
+  location: string;
+  is_current: boolean;
+};
+type RaceMeta = {
+  race_id: string;
+  name: string;
+  date_text: string;
+  date_iso: string;
+  location: string;
+  is_current?: boolean;
+};
 
 type Tab = "consensus" | "experts" | "cotes" | "semaine" | "aptitudes" | "classement";
 
@@ -53,23 +87,74 @@ type PersonSheet = {
 export default function PronosticsScreen() {
   const [data, setData] = useState<Data | null>(null);
   const [horses, setHorses] = useState<Horse[]>([]);
+  const [programmes, setProgrammes] = useState<ProgrammeSummary[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedRace, setSelectedRace] = useState<RaceMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("consensus");
   const [sheet, setSheet] = useState<PersonSheet | null>(null);
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
 
-  const load = useCallback(async () => {
+  const markedDates = useMemo(() => {
+    const m: Record<string, any> = {};
+    programmes.forEach((p) => {
+      if (!p.date_iso) return;
+      m[p.date_iso] = {
+        marked: true,
+        dotColor: theme.colors.gold,
+        selected: p.race_id === selectedId,
+        selectedColor: theme.colors.brand,
+      };
+    });
+    return m;
+  }, [programmes, selectedId]);
+
+  const loadProgrammes = useCallback(async () => {
     try {
-      const [predRes, horsesRes] = await Promise.all([
-        fetch(`${API_URL}/api/predictions`),
-        fetch(`${API_URL}/api/horses`),
-      ]);
-      const pred = await predRes.json();
-      const horsesJson = await horsesRes.json();
-      setData(pred);
-      setHorses(horsesJson.horses || []);
+      const res = await fetch(`${API_URL}/api/races?doc_type=programme&limit=100`);
+      const json = await res.json();
+      const list: ProgrammeSummary[] = json.races || [];
+      setProgrammes(list);
+      const selectedStillExists = selectedId && list.some((p) => p.race_id === selectedId);
+      if (!selectedStillExists) {
+        const current = list.find((p) => p.is_current) || list[0];
+        setSelectedId(current?.race_id || null);
+      }
+      if (list.length === 0) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    } catch (e) {
+      console.error(e);
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [selectedId]);
+
+  const loadRace = useCallback(async (raceId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/races/${raceId}`);
+      const race = await res.json();
+      setSelectedRace({
+        race_id: race.race_id,
+        name: race.name || "Programme",
+        date_text: race.date_text || "",
+        date_iso: race.date_iso || "",
+        location: race.location || "",
+        is_current: race.is_current,
+      });
+      setData({
+        experts: race.predictions || [],
+        odds: race.odds || [],
+        weekly_best: race.weekly_best || { trainers: [], drivers: [] },
+        consensus: race.consensus || [],
+        classifications: race.classifications || {},
+        classement: race.classement || {},
+      });
+      setHorses(race.horses || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -79,8 +164,20 @@ export default function PronosticsScreen() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadProgrammes();
+  }, [loadProgrammes]);
+
+  useEffect(() => {
+    if (selectedId) {
+      loadRace(selectedId);
+    }
+  }, [selectedId, loadRace]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadProgrammes();
+    if (selectedId) loadRace(selectedId);
+  };
 
   const topConsensusNumber = useMemo(() => {
     if (!data) return null;
@@ -141,6 +238,38 @@ export default function PronosticsScreen() {
         <Text style={styles.title}>Pronostics</Text>
       </View>
 
+      {programmes.length > 0 && (
+        <View style={styles.programmePicker}>
+          <TouchableOpacity
+            testID="open-pronostics-calendar"
+            onPress={() => {
+              haptics.selection();
+              setCalendarOpen(true);
+            }}
+            style={styles.programmePickerButton}
+            activeOpacity={0.85}
+          >
+            <View style={styles.programmePickerIcon}>
+              <Ionicons name="calendar-outline" size={18} color={theme.colors.brand} />
+            </View>
+            <View style={styles.programmePickerText}>
+              <Text style={styles.programmePickerDate} numberOfLines={1}>
+                {selectedRace?.date_text || "Choisir une date"}
+              </Text>
+              <Text style={styles.programmePickerMeta} numberOfLines={1}>
+                {[selectedRace?.name, selectedRace?.location].filter(Boolean).join(" - ")}
+              </Text>
+            </View>
+            {selectedRace?.is_current && (
+              <View style={styles.currentBadge}>
+                <Text style={styles.currentBadgeText}>Actuel</Text>
+              </View>
+            )}
+            <Ionicons name="chevron-down" size={16} color={theme.colors.brand} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -184,10 +313,7 @@ export default function PronosticsScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                load();
-              }}
+              onRefresh={onRefresh}
               tintColor={theme.colors.brand}
             />
           }
@@ -502,6 +628,72 @@ export default function PronosticsScreen() {
         </ScrollView>
       </GestureDetector>
 
+      <Modal
+        animationType="fade"
+        transparent
+        visible={calendarOpen}
+        onRequestClose={() => setCalendarOpen(false)}
+      >
+        <Pressable
+          style={calendarStyles.backdrop}
+          onPress={() => setCalendarOpen(false)}
+        >
+          <Pressable
+            style={calendarStyles.card}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={calendarStyles.header}>
+              <View>
+                <Text style={calendarStyles.overline}>Calendrier</Text>
+                <Text style={calendarStyles.title}>Choisir une date</Text>
+              </View>
+              <TouchableOpacity
+                testID="close-pronostics-calendar"
+                onPress={() => setCalendarOpen(false)}
+                hitSlop={10}
+              >
+                <Ionicons name="close" size={22} color={theme.colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <Calendar
+              current={selectedRace?.date_iso || undefined}
+              markedDates={markedDates}
+              onDayPress={(day: { dateString: string }) => {
+                const programme = programmes.find((p) => p.date_iso === day.dateString);
+                if (programme) {
+                  haptics.success();
+                  setSelectedId(programme.race_id);
+                  setCalendarOpen(false);
+                } else {
+                  haptics.warning();
+                }
+              }}
+              theme={{
+                backgroundColor: theme.colors.surface,
+                calendarBackground: theme.colors.surface,
+                textSectionTitleColor: theme.colors.gold,
+                selectedDayBackgroundColor: theme.colors.brand,
+                selectedDayTextColor: "#fff",
+                todayTextColor: theme.colors.accent,
+                dayTextColor: theme.colors.textPrimary,
+                textDisabledColor: "#CCC",
+                arrowColor: theme.colors.brand,
+                monthTextColor: theme.colors.textPrimary,
+                textMonthFontWeight: "800",
+                textDayFontWeight: "600",
+                textDayHeaderFontWeight: "700",
+                dotColor: theme.colors.gold,
+                selectedDotColor: "#fff",
+              }}
+              firstDay={1}
+            />
+            <Text style={calendarStyles.legend}>
+              Les dates avec un point dore ont un programme disponible
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* ---- Modal : Chevaux de l'entraîneur / jockey ---- */}
       <Modal
         animationType="fade"
@@ -621,6 +813,57 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     letterSpacing: -0.8,
     marginTop: 2,
+  },
+  programmePicker: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    backgroundColor: theme.colors.bg,
+  },
+  programmePickerButton: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  programmePickerIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  programmePickerText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  programmePickerDate: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+  },
+  programmePickerMeta: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  currentBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    backgroundColor: theme.colors.gold,
+  },
+  currentBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
   tabs: {
     borderBottomWidth: 1,
@@ -969,6 +1212,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.textSecondary,
     padding: 24,
+    textAlign: "center",
+  },
+});
+
+const calendarStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(20, 30, 26, 0.52)",
+    justifyContent: "center",
+    padding: 18,
+  },
+  card: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: 16,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  overline: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: theme.colors.gold,
+    letterSpacing: 1.8,
+    textTransform: "uppercase",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    marginTop: 2,
+  },
+  legend: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 12,
     textAlign: "center",
   },
 });

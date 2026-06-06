@@ -214,10 +214,12 @@ Phase 5: Premium Analytics Later
   - file hash
   - filename/date detection
   - prevent duplicate race records from repeated upload
-- Continue Gemini resilience improvements:
+- Continue PDF parser resilience improvements:
   - retry temporary 503 responses
-  - optional fallback model
+  - add provider fallback chain: Gemini primary -> Mistral OCR/OpenAI/Claude fallback
+  - separate deterministic/OCR extraction from LLM normalization where practical
   - clearer admin-facing parsing errors
+  - preserve provider, quota, and retry details in admin parse feedback
 
 ## Historical Data Ingestion
 
