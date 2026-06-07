@@ -35,6 +35,8 @@ type Person = {
   top3_rate: number;
 };
 
+type StatsTab = "summary" | "sources" | "people";
+
 export default function StatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
   const [jockeys, setJockeys] = useState<Person[]>([]);
@@ -43,6 +45,7 @@ export default function StatsScreen() {
   const [currentMedia, setCurrentMedia] = useState<MediaInsightData | null>(null);
   const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
   const [evaluatedRaces, setEvaluatedRaces] = useState(0);
+  const [statsTab, setStatsTab] = useState<StatsTab>("summary");
   const [peopleTab, setPeopleTab] = useState<"jockeys" | "trainers">("jockeys");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -102,6 +105,8 @@ export default function StatsScreen() {
   const sourcesCount = leaderboard.length;
   const raceInsight = currentRace ? buildRaceInsight(currentRace) : null;
   const mediaInsight = currentMedia ? buildMediaInsight(currentMedia) : null;
+  const visibleLeaderboard = leaderboard.slice(0, 5);
+  const visiblePeople = activePeople.slice(0, 5);
   const topConsensus = (currentMedia?.consensus || [])
     .filter((entry) => entry.score > 0)
     .slice(0, 3);
@@ -135,9 +140,9 @@ export default function StatsScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.overline}>Performance</Text>
-          <Text style={styles.title}>Stats & Classements</Text>
+          <Text style={styles.title}>Stats</Text>
           <Text style={styles.headerLead}>
-            Insights construits avec les programmes et resultats officiels lies.
+            Synthese claire des signaux construits avec les resultats officiels.
           </Text>
         </View>
 
@@ -180,6 +185,30 @@ export default function StatsScreen() {
           </Text>
         </View>
 
+        <View style={styles.statsTabs}>
+          {(
+            [
+              { key: "summary", label: "Synthese" },
+              { key: "sources", label: "Sources" },
+              { key: "people", label: "Acteurs" },
+            ] as { key: StatsTab; label: string }[]
+          ).map((tab) => (
+            <TouchableOpacity
+              key={tab.key}
+              testID={`stats-tab-${tab.key}`}
+              style={[styles.statsTabBtn, statsTab === tab.key && styles.statsTabBtnActive]}
+              onPress={() => setStatsTab(tab.key)}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.statsTabText, statsTab === tab.key && styles.statsTabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {statsTab === "summary" && (
+          <>
         <View style={styles.signalCard}>
           <View style={styles.signalIcon}>
             <Ionicons name="analytics-outline" size={20} color={theme.colors.brand} />
@@ -305,8 +334,11 @@ export default function StatsScreen() {
             </View>
           </View>
         )}
+          </>
+        )}
 
         {/* Tipsters leaderboard */}
+        {statsTab === "sources" && (
         <View style={styles.section}>
           <Text style={styles.sectionOverline}>Leaderboard pronostiqueurs</Text>
           <Text style={styles.sectionTitle}>Qui tape juste ?</Text>
@@ -334,7 +366,7 @@ export default function StatsScreen() {
             </View>
           ) : (
             <View style={styles.lbList}>
-              {leaderboard.map((t, idx) => (
+              {visibleLeaderboard.map((t, idx) => (
                 <View key={t.source} style={styles.lbRow} testID={`tipster-${idx}`}>
                   <Text style={styles.lbRank}>#{idx + 1}</Text>
                   <View style={{ flex: 1 }}>
@@ -360,8 +392,10 @@ export default function StatsScreen() {
             </View>
           )}
         </View>
+        )}
 
         {/* People Leaderboard (jockeys / trainers) */}
+        {statsTab === "people" && (
         <View style={styles.section}>
           <Text style={styles.sectionOverline}>Top performers</Text>
           <Text style={styles.sectionTitle}>Jockeys & Entraîneurs</Text>
@@ -432,9 +466,7 @@ export default function StatsScreen() {
             </View>
           ) : (
             <View style={styles.lbList}>
-              {activePeople
-                .slice(0, 8)
-                .map((p, idx) => (
+              {visiblePeople.map((p, idx) => (
                   <View
                     key={p.name}
                     style={styles.lbRow}
@@ -464,8 +496,10 @@ export default function StatsScreen() {
             </View>
           )}
         </View>
+        )}
 
-        {/* Links */}
+        {statsTab === "people" && (
+        /* Links */
         <View style={styles.section}>
           <Text style={styles.sectionOverline}>Explorer</Text>
           <Text style={styles.sectionTitle}>Fiches détaillées</Text>
@@ -499,6 +533,7 @@ export default function StatsScreen() {
             <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -586,6 +621,35 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceAlt,
   },
   infoText: { fontSize: 12, color: theme.colors.textSecondary, flex: 1, lineHeight: 17 },
+  statsTabs: {
+    flexDirection: "row",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+  statsTabBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  statsTabBtnActive: {
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.brand,
+  },
+  statsTabText: {
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: theme.colors.textSecondary,
+  },
+  statsTabTextActive: {
+    color: "#fff",
+  },
   signalCard: {
     flexDirection: "row",
     alignItems: "center",
