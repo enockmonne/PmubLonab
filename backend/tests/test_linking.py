@@ -117,6 +117,23 @@ def test_canonical_pronostic_source_preserves_unknown_display_name():
     )
 
 
+def test_canonical_pronostic_source_rolls_up_brand_variants():
+    cases = {
+        "ParisTurf": ("paris turf", "ParisTurf"),
+        "PARIS TURF": ("paris turf", "ParisTurf"),
+        "paris-turf.com": ("paris turf", "ParisTurf"),
+        "Turf.fr": ("turf fr com", "Turf-fr.com"),
+        "TURF-FR.COM": ("turf fr com", "Turf-fr.com"),
+        "ZoneTurf": ("zone turf fr", "Zone-Turf.fr"),
+        "Zone-Turf.fr": ("zone turf fr", "Zone-Turf.fr"),
+        "LeParisien": ("le parisien", "Le Parisien"),
+        "VoixDuNord": ("voix du nord", "Voix du Nord"),
+    }
+
+    for raw, expected in cases.items():
+        assert canonical_pronostic_source(raw) == expected
+
+
 def test_normalize_odds_keeps_known_tables_and_values():
     odds = normalize_odds([
         {
