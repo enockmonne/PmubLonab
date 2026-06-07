@@ -36,7 +36,7 @@ export default function Dashboard() {
   if (loading) return <CenteredSpinner label="Chargement du tableau de bord…" />;
   if (!data) return <div className="text-fg-muted">Aucune donnée</div>;
 
-  const llmOk = data.llm.status === 'ok';
+  const llmOk = data.llm.status === 'ok' || data.llm.status === 'configured';
 
   return (
     <div>
@@ -113,7 +113,13 @@ export default function Dashboard() {
           >
             {llmOk ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
             <span className="font-medium">
-              {llmOk ? 'Opérationnel' : data.llm.status === 'error' ? 'Erreur' : 'Inconnu'}
+              {data.llm.status === 'configured'
+                ? 'Configuré'
+                : llmOk
+                  ? 'Opérationnel'
+                  : data.llm.status === 'error'
+                    ? 'Erreur'
+                    : 'Inconnu'}
             </span>
           </div>
           {data.llm.error && (
