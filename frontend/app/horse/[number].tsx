@@ -1,18 +1,16 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
   ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { theme, API_URL, formatFCFA } from "../../src/theme";
-import FormHeatmap from "../../src/FormHeatmap";
-import PerformanceChart from "../../src/PerformanceChart";
+import { API_URL, formatFCFA, theme } from "../../src/theme";
 
 type HorseDetailData = {
   horse: {
@@ -21,70 +19,34 @@ type HorseDetailData = {
     jockey: string;
     trainer: string;
     owner: string;
-    weight: string;
-    age: number;
-    sex: string;
-    perf: string;
-    gains_fcfa: number;
-    commentary: string;
+    weight?: string;
+    age?: number;
+    sex?: string;
+    distance?: string;
+    chrono?: string;
+    perf?: string;
+    gains_fcfa?: number;
+    commentary?: string;
+    odds?: { source: string; odds: string }[];
   };
   expert_mentions: { source: string; rank: number }[];
   classifications: string[];
-  consensus_score: number;
-};
-
-type HorseAppearance = {
-  race_id: string;
-  race_name: string;
-  date_text: string;
-  date_iso: string;
-  location: string;
-  number: number;
-  jockey: string;
-  trainer: string;
-  perf: string;
-  finishing_pos: number | null;
-};
-
-type HorseHistoryData = {
-  appearances: HorseAppearance[];
-  stats: {
-    total_appearances: number;
-    total_runs_with_result: number;
-    wins: number;
-    places_top3: number;
-    win_rate: number;
-    place_rate: number;
-  };
 };
 
 export default function HorseDetail() {
   const { number } = useLocalSearchParams<{ number: string }>();
   const router = useRouter();
   const [data, setData] = useState<HorseDetailData | null>(null);
-  const [history, setHistory] = useState<HorseHistoryData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/horses/${number}`);
-      const j = await r.json();
-      setData(j);
-
-      const historyRes = await fetch(
-        `${API_URL}/api/stats/horses/${encodeURIComponent(j.horse.name)}`
-      );
-      if (historyRes.ok) {
-        const historyJson = await historyRes.json();
-        setHistory({
-          appearances: historyJson.appearances || [],
-          stats: historyJson.stats,
-        });
-      } else {
-        setHistory(null);
+      const response = await fetch(`${API_URL}/api/horses/${number}`);
+      if (response.ok) {
+        setData(await response.json());
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -102,8 +64,12 @@ export default function HorseDetail() {
     );
   }
 
-  const { horse, expert_mentions, classifications, consensus_score } = data;
-  const intelligence = buildHorseIntelligence(data, history);
+  const { horse, expert_mentions, classifications } = data;
+  const odds = horse.odds || [];
+  const parisTurfOdds = odds.find((entry) => entry.source === "Paris Turf")?.odds || "-";
+  const tierceMagazineOdds =
+    odds.find((entry) => entry.source === "Tierce Magazine")?.odds || "-";
+  const sexeAge = `${horse.sex || "-"}${horse.age ? `.${horse.age}` : ""}`;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -119,191 +85,96 @@ export default function HorseDetail() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        testID="horse-detail-screen"
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
-        {/* Hero */}
+      <ScrollView testID="horse-detail-screen" contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={styles.hero}>
-          <View style={styles.heroNumWrap}>
-            <View style={styles.heroNum}>
-              <Text style={styles.heroNumText}>{horse.number}</Text>
-            </View>
-            <Text style={styles.heroOverline}>Fiche cheval</Text>
+          <View style={styles.heroNum}>
+            <Text style={styles.heroNumText}>{horse.number}</Text>
           </View>
           <View style={styles.heroTextWrap}>
+            <Text style={styles.heroOverline}>Fiche cheval</Text>
             <Text style={styles.heroName}>{horse.name}</Text>
             <Text style={styles.heroMeta}>
-              {horse.age} ans • {horse.sex === "F" ? "Femelle" : horse.sex === "H" ? "Hongre" : "Mâle"} • {horse.weight}
+              Donnees extraites du PDF programme.
             </Text>
           </View>
         </View>
 
-        {/* Jockey / Trainer / Owner */}
-        <View style={styles.infoGrid}>
-          <InfoCell label="Jockey" value={horse.jockey} />
-          <InfoCell label="Entraîneur" value={horse.trainer} />
-          <InfoCell label="Propriétaire" value={horse.owner} span />
-        </View>
-
         <View style={styles.section}>
-          <Text style={styles.label}>Intelligence cheval</Text>
-          <View style={styles.insightCard}>
-            <View style={styles.insightHeader}>
-              <Ionicons name="sparkles-outline" size={18} color={theme.colors.gold} />
-              <Text style={styles.insightTitle}>A retenir</Text>
-            </View>
-            <Text style={styles.insightBody}>{intelligence.summary}</Text>
-            <View style={styles.signalRow}>
-              {intelligence.signals.map((signal) => (
-                <View key={signal} style={styles.signalPill}>
-                  <Text style={styles.signalText}>{signal}</Text>
-                </View>
-              ))}
-            </View>
-            <View style={styles.metricGrid}>
-              <Metric label="Courses" value={intelligence.totalAppearances} />
-              <Metric label="Top 3" value={intelligence.top3Rate} />
-              <Metric label="Victoire" value={intelligence.winRate} />
-              <Metric label="Moy. arrivee" value={intelligence.avgFinish} />
-            </View>
+          <Text style={styles.label}>Profil PDF</Text>
+          <View style={styles.rawGrid}>
+            <RawCell label="N" value={`${horse.number}`} />
+            <RawCell label="Sexe / age" value={sexeAge} />
+            <RawCell label="Distance" value={horse.distance || "-"} />
+            <RawCell label="Chrono" value={horse.chrono || "-"} />
+            <RawCell label="Perf." value={horse.perf || "-"} mono />
+            <RawCell label="Gains" value={horse.gains_fcfa ? formatFCFA(horse.gains_fcfa) : "-"} />
+            <RawCell label="Paris Turf" value={parisTurfOdds} />
+            <RawCell label="Tierce Magazine" value={tierceMagazineOdds} />
           </View>
         </View>
 
-        {/* Stats row */}
         <View style={styles.section}>
-          <Text style={styles.label}>Performances</Text>
-          <FormHeatmap perf={horse.perf} size={36} />
-          <Text style={styles.perfHint}>
-            5 dernières courses (le plus récent à gauche) • Or = victoire, Vert = top 3, Ocre = 4-5
-          </Text>
-        </View>
-
-        {/* Trend chart */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Évolution</Text>
-          <PerformanceChart perf={horse.perf} />
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Gains totaux</Text>
-          <Text style={styles.gains}>{formatFCFA(horse.gains_fcfa)}</Text>
-        </View>
-
-        {/* Consensus */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Score consensus</Text>
-          <View style={styles.consensusBox}>
-            <Text style={styles.consensusScore}>{consensus_score}</Text>
-            <Text style={styles.consensusSub}>
-              points — cité par {expert_mentions.length}/7 médias
-            </Text>
+          <Text style={styles.label}>Entourage</Text>
+          <View style={styles.infoGrid}>
+            <InfoCell label="Driver / jockey" value={horse.jockey || "-"} />
+            <InfoCell label="Entraineur" value={horse.trainer || "-"} />
+            <InfoCell label="Proprietaire" value={horse.owner || "-"} span />
           </View>
-          {expert_mentions.length > 0 && (
-            <View style={styles.mentionsList}>
-              {expert_mentions.map((m) => (
-                <View key={m.source} style={styles.mentionRow}>
-                  <Text style={styles.mentionSource}>{m.source}</Text>
-                  <Text style={styles.mentionRank}>#{m.rank}</Text>
-                </View>
-              ))}
-            </View>
-          )}
         </View>
 
-        {/* Classifications */}
-        {classifications.length > 0 && (
+        {expert_mentions.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.label}>Catégories rédaction</Text>
-            <View style={styles.tagsRow}>
-              {classifications.map((c) => (
-                <View key={c} style={styles.tag}>
-                  <Text style={styles.tagText}>{c}</Text>
+            <Text style={styles.label}>Pronostics PDF</Text>
+            <View style={styles.list}>
+              {expert_mentions.map((mention) => (
+                <View key={mention.source} style={styles.row}>
+                  <Text style={styles.rowTitle}>{mention.source}</Text>
+                  <Text style={styles.rowValue}>#{mention.rank}</Text>
                 </View>
               ))}
             </View>
           </View>
         )}
 
-        {/* Commentary */}
-        <View style={styles.section}>
-          <Text style={styles.label}>L&apos;analyse</Text>
-          <Text style={styles.commentary}>{horse.commentary}</Text>
-        </View>
-
-        {/* History link */}
-        <View style={styles.section}>
-          <TouchableOpacity
-            testID="view-horse-history"
-            style={styles.historyBtn}
-            onPress={() => router.push(`/horse-history/${encodeURIComponent(horse.name)}`)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.historyBtnLabel}>
-              <Ionicons name="stats-chart-outline" size={18} color={theme.colors.brand} />
-              <Text style={styles.historyBtnText}>Voir l&apos;historique complet</Text>
+        {classifications.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.label}>Categories PDF</Text>
+            <View style={styles.tagsRow}>
+              {classifications.map((classification) => (
+                <View key={classification} style={styles.tag}>
+                  <Text style={styles.tagText}>{classification}</Text>
+                </View>
+              ))}
             </View>
-            <Ionicons name="arrow-forward" size={16} color={theme.colors.brand} />
-          </TouchableOpacity>
-        </View>
+          </View>
+        )}
+
+        {horse.commentary ? (
+          <View style={styles.section}>
+            <Text style={styles.label}>Commentaire PDF</Text>
+            <Text style={styles.commentary}>{horse.commentary}</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function buildHorseIntelligence(
-  data: HorseDetailData,
-  history: HorseHistoryData | null
-) {
-  const stats = history?.stats;
-  const runsWithResult = stats?.total_runs_with_result || 0;
-  const appearances = history?.appearances || [];
-  const finished = appearances.filter(
-    (a): a is HorseAppearance & { finishing_pos: number } =>
-      typeof a.finishing_pos === "number"
-  );
-  const avgFinish =
-    finished.length > 0
-      ? finished.reduce((sum, a) => sum + a.finishing_pos, 0) / finished.length
-      : null;
-
-  const signals: string[] = [];
-  if (runsWithResult < 2) signals.push("Donnees limitees");
-  if ((stats?.place_rate || 0) >= 50) signals.push("Profil regulier");
-  if ((stats?.win_rate || 0) >= 25) signals.push("Signal fort");
-  if (data.expert_mentions.length >= 3) signals.push("Consensus media");
-  if (signals.length === 0) signals.push("A surveiller");
-
-  const recent = finished.slice(0, 3);
-  const recentTop3 = recent.filter((a) => a.finishing_pos <= 3).length;
-  const formPhrase =
-    recent.length === 0
-      ? "Les donnees de resultats restent limitees pour evaluer sa forme recente."
-      : recentTop3 >= 2
-        ? "Sa forme recente montre une presence reguliere dans les premieres places."
-        : recentTop3 === 1
-          ? "Sa forme recente montre un signal modere, avec au moins une place notable."
-          : "Ses resultats recents invitent a rester prudent dans l'analyse.";
-  const mediaPhrase =
-    data.expert_mentions.length > 0
-      ? `Il est cite par ${data.expert_mentions.length} media(s), avec un score consensus de ${data.consensus_score}.`
-      : "Il n'est pas fortement cite par les pronostics disponibles.";
-
-  return {
-    summary: `${formPhrase} ${mediaPhrase}`,
-    signals: signals.slice(0, 3),
-    totalAppearances: `${stats?.total_appearances || 1}`,
-    top3Rate: runsWithResult ? `${stats?.place_rate || 0}%` : "-",
-    winRate: runsWithResult ? `${stats?.win_rate || 0}%` : "-",
-    avgFinish: avgFinish ? `${avgFinish.toFixed(1)}e` : "-",
-  };
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
+function RawCell({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
-    <View style={styles.metricCell}>
-      <Text style={styles.metricLabel}>{label}</Text>
-      <Text style={styles.metricValue}>{value}</Text>
+    <View style={styles.rawCell}>
+      <Text style={styles.rawLabel}>{label}</Text>
+      <Text style={[styles.rawValue, mono && styles.monoValue]} numberOfLines={2}>
+        {value || "-"}
+      </Text>
     </View>
   );
 }
@@ -320,7 +191,7 @@ function InfoCell({
   return (
     <View style={[styles.infoCell, span && { width: "100%" }]}>
       <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+      <Text style={styles.infoValue}>{value || "-"}</Text>
     </View>
   );
 }
@@ -356,10 +227,6 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
-  heroNumWrap: {
-    alignItems: "center",
-    gap: 6,
-  },
   heroNum: {
     width: 62,
     height: 62,
@@ -369,16 +236,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   heroNumText: { color: "#fff", fontSize: 30, fontWeight: "900" },
+  heroTextWrap: { flex: 1, minWidth: 0 },
   heroOverline: {
-    fontSize: 9,
-    fontWeight: "800",
+    fontSize: 10,
     color: theme.colors.gold,
-    letterSpacing: 1,
+    fontWeight: "800",
+    letterSpacing: 1.2,
     textTransform: "uppercase",
-  },
-  heroTextWrap: {
-    flex: 1,
-    minWidth: 0,
   },
   heroName: {
     fontFamily: theme.fonts.serifBlack,
@@ -386,32 +250,74 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: theme.colors.textPrimary,
     letterSpacing: -0.5,
+    marginTop: 2,
   },
   heroMeta: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textSecondary,
     marginTop: 6,
-    letterSpacing: 0.3,
+    lineHeight: 17,
+  },
+  section: { marginTop: 18, paddingHorizontal: 16 },
+  label: {
+    fontSize: 11,
+    letterSpacing: 2,
+    color: theme.colors.gold,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+  rawGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  rawCell: {
+    width: "50%",
+    minHeight: 66,
+    padding: 11,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  rawLabel: {
+    fontSize: 9,
+    color: theme.colors.gold,
+    fontWeight: "800",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  rawValue: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    marginTop: 5,
+  },
+  monoValue: {
+    fontFamily: "Courier",
+    letterSpacing: 0.5,
   },
   infoGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginHorizontal: 16,
-    marginTop: 0,
-    borderWidth: 1,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
   infoCell: {
     width: "50%",
     padding: 12,
-    borderColor: theme.colors.border,
     borderRightWidth: 1,
     borderBottomWidth: 1,
+    borderColor: theme.colors.border,
   },
   infoLabel: {
     fontSize: 10,
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     color: theme.colors.gold,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -422,158 +328,35 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 4,
   },
-  section: { marginTop: 20, paddingHorizontal: 16 },
-  label: {
-    fontSize: 11,
-    letterSpacing: 2,
-    color: theme.colors.gold,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    marginBottom: 8,
-  },
-  insightCard: {
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    padding: 14,
-  },
-  insightHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  insightTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: theme.colors.textPrimary,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  insightBody: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: theme.colors.textPrimary,
-    marginTop: 10,
-  },
-  signalRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 12,
-  },
-  signalPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  signalText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: theme.colors.brand,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  metricGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 12,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  metricCell: {
-    width: "50%",
-    padding: 10,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  metricLabel: {
-    fontSize: 9,
-    color: theme.colors.gold,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  metricValue: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: theme.colors.textPrimary,
-    marginTop: 3,
-  },
-  perfBox: {
-    padding: 14,
+  list: {
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
-  perfText: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: theme.colors.textPrimary,
-    fontFamily: "Courier",
-    letterSpacing: 2,
-  },
-  perfHint: {
-    fontSize: 11,
-    color: theme.colors.textSecondary,
-    marginTop: 6,
-  },
-  gains: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: theme.colors.brand,
-    letterSpacing: -0.5,
-  },
-  consensusBox: {
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 10,
-  },
-  consensusScore: {
-    fontFamily: theme.fonts.serifBlack,
-    fontSize: 32,
-    fontWeight: "900",
-    color: theme.colors.gold,
-  },
-  consensusSub: { fontSize: 12, color: theme.colors.textSecondary, flex: 1 },
-  mentionsList: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  mentionRow: {
+  row: {
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.border,
   },
-  mentionSource: { fontSize: 13, color: theme.colors.textPrimary },
-  mentionRank: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: theme.colors.brand,
-  },
+  rowTitle: { flex: 1, fontSize: 13, color: theme.colors.textPrimary },
+  rowValue: { fontSize: 13, fontWeight: "800", color: theme.colors.brand },
   tagsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   tag: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: theme.colors.brand,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   tagText: {
-    color: "#fff",
+    color: theme.colors.brand,
     fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 1,
+    fontWeight: "800",
+    letterSpacing: 0.8,
     textTransform: "uppercase",
   },
   commentary: {
@@ -581,30 +364,5 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     color: theme.colors.textPrimary,
     fontStyle: "italic",
-  },
-  historyBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.colors.brand,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  historyBtnLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    flexShrink: 1,
-  },
-  historyBtnText: {
-    color: theme.colors.brand,
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-    flexShrink: 1,
   },
 });

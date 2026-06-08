@@ -9,6 +9,7 @@ from server import (
     canonical_pronostic_source,
     normalize_odds,
     normalize_weekly_best,
+    odds_for_horse,
     official_results_for_race,
     score_programme_result_match,
 )
@@ -159,6 +160,22 @@ def test_normalize_odds_keeps_known_tables_and_values():
             ],
         },
         {"source": "Tierce Magazine", "values": [{"number": 1, "odds": "5/1"}]},
+    ]
+
+
+def test_odds_for_horse_returns_matching_sources():
+    odds = odds_for_horse(
+        [
+            {"source": "PARIS TURF", "values": [{"number": 1, "odds": "7/1"}]},
+            {"source": "Tierce Magazine", "values": [{"number": 1, "odds": "5/1"}]},
+            {"source": "Paris Turf", "values": [{"number": 2, "odds": "8/1"}]},
+        ],
+        1,
+    )
+
+    assert odds == [
+        {"source": "Paris Turf", "odds": "7/1"},
+        {"source": "Tierce Magazine", "odds": "5/1"},
     ]
 
 

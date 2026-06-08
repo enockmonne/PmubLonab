@@ -186,7 +186,7 @@ export default function ArchivesScreen() {
                   </View>
                   {item.has_results && (
                     <View style={[styles.chip, styles.chipGold]}>
-                      <Text style={[styles.chipText, { color: "#fff" }]}>Résultats</Text>
+                      <Text style={styles.chipText}>Résultats</Text>
                     </View>
                   )}
                 </View>
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  chipGold: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
+  chipGold: { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
   chipText: { fontSize: 10, color: theme.colors.textSecondary, fontWeight: "600" },
   searchSectionTitle: {
     fontSize: 11,

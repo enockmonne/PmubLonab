@@ -52,6 +52,8 @@ Dans les DEUX cas, tu dois retourner UN SEUL objet JSON strict (sans markdown, s
       "weight": "string",
       "age": int,
       "sex": "M | F | H",
+      "distance": "string (ex: '2700.M', '2700 m', laisse '' si absent)",
+      "chrono": "string (ex: '1.11.70', '1'11\"7', laisse '' si absent)",
       "perf": "string",
       "gains_fcfa": int,
       "commentary": "string",
