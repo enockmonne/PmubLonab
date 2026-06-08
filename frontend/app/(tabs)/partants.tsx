@@ -27,14 +27,11 @@ type Horse = {
   gains_fcfa: number;
 };
 
-type SortKey = "number" | "name" | "gains";
-
 export default function PartantsScreen() {
   const [horses, setHorses] = useState<Horse[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("number");
   const [showAllDetails, setShowAllDetails] = useState(false);
   const [compareMode, setCompareMode] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
@@ -65,11 +62,7 @@ export default function PartantsScreen() {
         h.trainer.toLowerCase().includes(query.toLowerCase()) ||
         String(h.number) === query
     )
-    .sort((a, b) => {
-      if (sortKey === "name") return a.name.localeCompare(b.name);
-      if (sortKey === "gains") return b.gains_fcfa - a.gains_fcfa;
-      return a.number - b.number;
-    });
+    .sort((a, b) => a.number - b.number);
   const countLabel = query.trim()
     ? `${filtered.length}/${horses.length} partants`
     : `${horses.length || "—"} partants`;
@@ -92,33 +85,6 @@ export default function PartantsScreen() {
             placeholder="Rechercher un cheval, jockey, entraîneur..."
             placeholderTextColor={theme.colors.textSecondary}
           />
-        </View>
-
-        <View style={styles.sortRow}>
-          <Text style={styles.controlLabel}>Trier</Text>
-          {(
-            [
-              { k: "number", label: "No" },
-              { k: "name", label: "Cheval" },
-              { k: "gains", label: "Gains" },
-            ] as { k: SortKey; label: string }[]
-          ).map((opt) => (
-            <TouchableOpacity
-              key={opt.k}
-              testID={`sort-${opt.k}`}
-              onPress={() => setSortKey(opt.k)}
-              style={[styles.sortPill, sortKey === opt.k && styles.sortPillActive]}
-            >
-              <Text
-                style={[
-                  styles.sortPillText,
-                  sortKey === opt.k && styles.sortPillTextActive,
-                ]}
-              >
-                {opt.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
         <View style={styles.actionsRow}>
@@ -372,39 +338,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     marginLeft: 6,
   },
-  sortRow: {
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
-    marginTop: 12,
-    flexWrap: "wrap",
-  },
-  controlLabel: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: theme.colors.gold,
-    letterSpacing: 1.5,
-    textTransform: "uppercase",
-    marginRight: 2,
-  },
-  sortPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  sortPillActive: {
-    borderColor: theme.colors.brand,
-    backgroundColor: theme.colors.brand,
-  },
-  sortPillText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: theme.colors.textSecondary,
-    letterSpacing: 0.5,
-  },
-  sortPillTextActive: { color: "#fff" },
   actionsRow: {
     flexDirection: "row",
     gap: 8,
