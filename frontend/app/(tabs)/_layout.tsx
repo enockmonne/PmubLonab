@@ -39,15 +39,20 @@ export default function TabsLayout() {
         headerShadowVisible: false,
         headerLeft: () => <HeaderHome />,
         headerLeftContainerStyle: { paddingLeft: 12 },
-        tabBarActiveTintColor: "#FFFFFF",
-        tabBarInactiveTintColor: "#8A8A8A",
+        tabBarActiveTintColor: "#0A2E1A",
+        tabBarInactiveTintColor: "#6F6F6F",
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
-          borderTopColor: "#E5E3D8",
-          borderTopWidth: 1,
-          paddingTop: 8,
-          height: 72,
-          paddingBottom: 10,
+          borderTopColor: "#D4CFBF",
+          borderTopWidth: 2,
+          paddingTop: 9,
+          height: 76,
+          paddingBottom: 11,
+          shadowColor: "#0A2E1A",
+          shadowOpacity: 0.12,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -4 },
+          elevation: 14,
         },
         tabBarItemStyle: {
           paddingHorizontal: 2,
@@ -71,7 +76,7 @@ export default function TabsLayout() {
               <Ionicons
                 name={focused ? "newspaper" : "newspaper-outline"}
                 size={20}
-                color={color}
+                color={focused ? "#FFFFFF" : color}
               />
             </ActiveIconWrap>
           ),
@@ -86,7 +91,7 @@ export default function TabsLayout() {
               <Ionicons
                 name={focused ? "list" : "list-outline"}
                 size={20}
-                color={color}
+                color={focused ? "#FFFFFF" : color}
               />
             </ActiveIconWrap>
           ),
@@ -101,7 +106,7 @@ export default function TabsLayout() {
               <Ionicons
                 name={focused ? "analytics" : "analytics-outline"}
                 size={20}
-                color={color}
+                color={focused ? "#FFFFFF" : color}
               />
             </ActiveIconWrap>
           ),
@@ -116,7 +121,7 @@ export default function TabsLayout() {
               <Ionicons
                 name={focused ? "albums" : "albums-outline"}
                 size={20}
-                color={color}
+                color={focused ? "#FFFFFF" : color}
               />
             </ActiveIconWrap>
           ),
@@ -131,7 +136,7 @@ export default function TabsLayout() {
               <Ionicons
                 name={focused ? "stats-chart" : "stats-chart-outline"}
                 size={20}
-                color={color}
+                color={focused ? "#FFFFFF" : color}
               />
             </ActiveIconWrap>
           ),
@@ -179,8 +184,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   iconWrapActive: {
     backgroundColor: "#0A2E1A",
+    borderColor: "#0A2E1A",
   },
 });
