@@ -275,6 +275,17 @@ def normalize_weekly_best(raw: Optional[Dict[str, Any]] = None) -> Dict[str, Lis
     }
 
 
+def odds_for_horse(odds_tables: Optional[List[Dict[str, Any]]], horse_number: int) -> List[Dict[str, str]]:
+    """Return race-level odds rows that belong to one horse."""
+    matches: List[Dict[str, str]] = []
+    for table in normalize_odds(odds_tables or []):
+        source = table.get("source") or ""
+        for item in table.get("values") or []:
+            if item.get("number") == horse_number and item.get("odds"):
+                matches.append({"source": source, "odds": str(item["odds"])})
+    return matches
+
+
 def build_parse_quality(parsed: Dict[str, Any], doc_type: str) -> Dict[str, Any]:
     race = parsed.get("race") or {}
     horses = parsed.get("horses", []) or []
@@ -808,6 +819,12 @@ async def get_horse(horse_number: int):
         if horse_number in picks:
             mentions.append({"source": p["source"], "rank": picks.index(horse_number) + 1})
     in_classifs = [c for c, nums in (doc.get("classifications", {}) or {}).items() if horse_number in nums]
+    horse = {
+        **horse,
+        "distance": horse.get("distance") or horse.get("dist") or "",
+        "chrono": horse.get("chrono") or "",
+        "odds": odds_for_horse(doc.get("odds", []), horse_number),
+    }
     return {
         "horse": horse,
         "expert_mentions": mentions,
