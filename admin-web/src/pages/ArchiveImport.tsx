@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Search, ExternalLink, AlertTriangle, FileText, DownloadCloud, CheckCircle2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Search, ExternalLink, AlertTriangle, FileText, DownloadCloud, CheckCircle2, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '@/components/PageHeader';
 import Spinner from '@/components/Spinner';
@@ -24,6 +24,7 @@ const LONAB_SOURCES = {
 } as const;
 
 type LonabSourceKey = keyof typeof LONAB_SOURCES;
+type ImportResultFilter = 'all' | LonabImportResult['status'];
 
 const DEFAULT_SOURCE_TYPE: LonabSourceKey = 'programmes';
 const DEFAULT_SOURCE = LONAB_SOURCES[DEFAULT_SOURCE_TYPE].url;
@@ -38,8 +39,32 @@ export default function ArchiveImport() {
   const [items, setItems] = useState<LonabImportPreviewItem[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [importResults, setImportResults] = useState<LonabImportResult[]>([]);
+  const [resultFilter, setResultFilter] = useState<ImportResultFilter>('all');
   const [recentImports, setRecentImports] = useState<LonabRecentImport[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+
+  const resultCounts = useMemo(
+    () => ({
+      all: importResults.length,
+      imported: importResults.filter((result) => result.status === 'imported').length,
+      skipped: importResults.filter((result) => result.status === 'skipped').length,
+      error: importResults.filter((result) => result.status === 'error').length,
+    }),
+    [importResults]
+  );
+
+  const filteredImportResults = useMemo(
+    () =>
+      resultFilter === 'all'
+        ? importResults
+        : importResults.filter((result) => result.status === resultFilter),
+    [importResults, resultFilter]
+  );
+
+  const failedImportUrls = useMemo(
+    () => importResults.filter((result) => result.status === 'error').map((result) => result.pdf_url),
+    [importResults]
+  );
 
   const loadRecent = async () => {
     try {
@@ -59,6 +84,7 @@ export default function ArchiveImport() {
     setItems([]);
     setSelected([]);
     setImportResults([]);
+    setResultFilter('all');
     setErrors([]);
     if (nextType !== 'custom') {
       setSourceUrl(LONAB_SOURCES[nextType].url);
@@ -78,6 +104,7 @@ export default function ArchiveImport() {
       setItems(data.items);
       setSelected(data.items.slice(0, 5).map((item) => item.pdf_url));
       setImportResults([]);
+      setResultFilter('all');
       setErrors(data.errors || []);
       toast.success(`${data.count} PDF detecte(s)`);
     } catch (err) {
@@ -106,6 +133,26 @@ export default function ArchiveImport() {
     try {
       const { data } = await Admin.importLonabPdfs(selected);
       setImportResults(data.results);
+      setResultFilter(data.errors > 0 ? 'error' : 'all');
+      loadRecent();
+      toast.success(`${data.imported} importe(s), ${data.skipped} ignore(s), ${data.errors} erreur(s)`);
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const retryFailedImports = async () => {
+    if (failedImportUrls.length === 0) {
+      toast.error('Aucun import en erreur a relancer');
+      return;
+    }
+    setImporting(true);
+    try {
+      const { data } = await Admin.importLonabPdfs(failedImportUrls.slice(0, 5));
+      setImportResults(data.results);
+      setResultFilter(data.errors > 0 ? 'error' : 'all');
       loadRecent();
       toast.success(`${data.imported} importe(s), ${data.skipped} ignore(s), ${data.errors} erreur(s)`);
     } catch (err) {
@@ -268,9 +315,52 @@ export default function ArchiveImport() {
 
       {importResults.length > 0 && (
         <div className="mt-6">
-          <h2 className="text-sm font-semibold text-fg mb-3">Resultat import</h2>
+          <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-fg">Resultat import</h2>
+              <p className="mt-1 text-xs text-fg-muted">
+                Filtrez le dernier lot pour verifier rapidement les imports, doublons et erreurs.
+              </p>
+            </div>
+            {failedImportUrls.length > 0 && (
+              <button
+                type="button"
+                onClick={retryFailedImports}
+                disabled={importing}
+                className="btn-secondary w-full justify-center lg:w-auto"
+              >
+                {importing ? <Spinner /> : <RotateCcw size={16} />}
+                Relancer erreurs ({failedImportUrls.length})
+              </button>
+            )}
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {([
+              ['all', 'Tous'],
+              ['imported', 'Importes'],
+              ['skipped', 'Ignores'],
+              ['error', 'Erreurs'],
+            ] as [ImportResultFilter, string][]).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setResultFilter(key)}
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  resultFilter === key
+                    ? 'border-accent bg-accent/15 text-accent'
+                    : 'border-border bg-bg-elevated text-fg-muted hover:text-fg'
+                }`}
+              >
+                {label} ({resultCounts[key]})
+              </button>
+            ))}
+          </div>
           <div className="card divide-y divide-border">
-            {importResults.map((result) => (
+            {filteredImportResults.length === 0 ? (
+              <div className="p-6 text-center text-sm text-fg-muted">
+                Aucun fichier dans ce filtre.
+              </div>
+            ) : filteredImportResults.map((result) => (
               <div key={result.pdf_url} className="p-4 flex items-start gap-3">
                 {result.status === 'imported' ? (
                   <CheckCircle2 size={18} className="text-success shrink-0 mt-0.5" />
