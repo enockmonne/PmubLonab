@@ -221,6 +221,31 @@ Phase 5: Premium Analytics Later
   - clearer admin-facing parsing errors
   - preserve provider, quota, and retry details in admin parse feedback
 
+### Robustness Improvement Plan
+
+Goal: make extraction more reliable for mechanical PDF tables and reduce dependence on Gemini for data that should be read deterministically.
+
+- Add deterministic extraction for Paris Turf / Tierce Magazine odds tables:
+  - identify source rows directly from PDF text/tables
+  - pair horse numbers with fraction odds such as `7/1`, `57/1`, `99/1`
+  - validate that extracted horse numbers exist in the programme
+  - store empty odds only when the PDF truly has no odds table
+- Keep Gemini/LLM parsing focused on harder interpretive sections:
+  - race metadata
+  - horse commentary and history
+  - pronostics and classifications
+  - narrative summaries
+- Add parser confidence and diagnostics:
+  - source found/not found
+  - number of odds values extracted
+  - mismatch warnings when table columns do not match runners
+  - admin-facing notes when fallback extraction was used
+- Add regression tests with representative PDF text/table fixtures:
+  - programme with Paris Turf and Tierce Magazine odds
+  - programme without odds
+  - malformed or partial odds table
+- Reparse or backfill affected staging records only after deterministic extraction is validated.
+
 ## Historical Data Ingestion
 
 The LONAB website has many historical PDF files. We do not need all of them immediately, but more history will make insights stronger.

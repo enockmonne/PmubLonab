@@ -31,3 +31,8 @@ PmubLonab is a French-first PMU'B companion for Burkina Faso users. The product 
 - Race, horse, pronostic, and stats screens provide useful context beyond raw PDF display.
 - Historical ingestion improves insight quality without creating duplicate or low-confidence data silently.
 
+## Robustness Requirement
+
+- Mechanical PDF tables such as Paris Turf / Tierce Magazine odds should be extracted deterministically where practical, with LLM parsing reserved for narrative or interpretive sections.
+- Admin validation should make parser confidence, missing sections, and fallback behavior visible before data is trusted for user-facing insights.
+
