@@ -236,6 +236,16 @@ function ValidationSummary({ summary }: { summary: NonNullable<FileItem['summary
       value: quality.has_previous_results ? 'Oui' : 'Non',
     },
     {
+      label: 'Cotes',
+      ok: quality.doc_type === 'result' || quality.has_odds,
+      value: quality.has_odds ? `${quality.odds_count || 0}` : 'Non',
+    },
+    {
+      label: 'Meilleurs',
+      ok: quality.doc_type === 'result' || quality.has_weekly_best,
+      value: quality.has_weekly_best ? `${quality.weekly_best_count || 0}` : 'Non',
+    },
+    {
       label: 'Arret des jeux',
       ok: quality.has_betting_info || quality.doc_type === 'result',
       value: quality.has_betting_info ? 'Oui' : 'Non',
@@ -252,7 +262,7 @@ function ValidationSummary({ summary }: { summary: NonNullable<FileItem['summary
           {quality.doc_type === 'result' ? 'Resultat' : 'Programme'}
         </span>
       </div>
-      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {checks.map((check) => (
           <div key={check.label} className="rounded border border-border bg-bg-surface px-2 py-1.5">
             <div className="flex items-center gap-1.5">

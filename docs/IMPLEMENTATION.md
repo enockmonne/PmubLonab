@@ -22,6 +22,7 @@ This is the living project control document for PmubLonab. Use it to track what 
 - The implementation tracker exists at `docs/IMPLEMENTATION.md`.
 - Cached Programmes and Resultats data can hydrate repeat app opens before background refresh.
 - Admin uploads now show a post-upload validation summary for extracted horses, pronostics, rapports, and Arret des jeux.
+- Admin upload validation now also surfaces odds tables and weekly-best extraction.
 - Horse detail pages now include a compact Horse Intelligence panel.
 - Programmes now include a Race Insight Summary built from structured consensus and form signals.
 - Pronostics now include media agreement, base spread, and outlier context.
@@ -168,6 +169,8 @@ Phase 5: Premium Analytics Later
   - horses parsed
   - expected runners
   - predictions found
+  - odds tables found
+  - weekly best trainers/drivers found
   - previous results found
   - betting info found
   - warnings/errors list
