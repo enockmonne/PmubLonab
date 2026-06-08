@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Calendar, LocaleConfig } from "react-native-calendars";
-import { theme, API_URL, ADMIN_WEB_URL } from "../src/theme";
+import { theme, API_URL, ADMIN_WEB_URL, formatFCFA } from "../src/theme";
 import { readCache, writeCache } from "../src/storageCache";
 
 LocaleConfig.locales["fr"] = {
@@ -75,6 +75,11 @@ type ResultRace = {
 };
 
 const RESULTS_CACHE_KEY = "pmub.resultats.v1";
+
+function placeLabel(index: number) {
+  if (index === 0) return "1er";
+  return `${index + 1}e`;
+}
 
 export default function ResultatsScreen() {
   const [races, setRaces] = useState<ResultRace[]>([]);
@@ -270,17 +275,44 @@ export default function ResultatsScreen() {
                 {item.location}
               </Text>
 
-              {/* Podium */}
+              <View style={styles.resultSectionHeader}>
+                <Text style={styles.resultSectionTitle}>Arrivee officielle</Text>
+                <Text style={styles.resultSectionHint}>
+                  {item.finishing_order.length} classe
+                  {item.finishing_order.length > 1 ? "s" : ""}
+                </Text>
+              </View>
               <View style={styles.podiumRow}>
                 {item.finishing_order.slice(0, 5).map((n, idx) => (
                   <View
                     key={`${item.race_id}-${idx}`}
-                    style={styles.podiumItem}
+                    style={[
+                      styles.podiumItem,
+                      idx === 0 && styles.podiumItemFirst,
+                      idx === 1 && styles.podiumItemSecond,
+                      idx === 2 && styles.podiumItemThird,
+                    ]}
                   >
+                    <Text style={styles.podiumPlace}>{placeLabel(idx)}</Text>
                     <Text style={styles.podiumNum}>{n}</Text>
                   </View>
                 ))}
               </View>
+
+              {item.top_payout && (
+                <View style={styles.payoutRow}>
+                  <View style={styles.payoutIcon}>
+                    <Ionicons name="cash-outline" size={15} color={theme.colors.brand} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.payoutLabel}>Rapport principal</Text>
+                    <Text style={styles.payoutText} numberOfLines={1}>
+                      {item.top_payout.label || item.top_payout.type} -{" "}
+                      {formatFCFA(item.top_payout.amount_fcfa)}
+                    </Text>
+                  </View>
+                </View>
+              )}
 
               <TouchableOpacity
                 testID={`result-reports-${item.race_id}`}
@@ -515,19 +547,90 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   location: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 3 },
-  podiumRow: { flexDirection: "row", gap: 6, marginTop: 14 },
+  resultSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  resultSectionTitle: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: theme.colors.gold,
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  },
+  resultSectionHint: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
+  },
+  podiumRow: { flexDirection: "row", gap: 6 },
   podiumItem: {
     flex: 1,
     alignItems: "center",
-    paddingVertical: 10,
+    minHeight: 58,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceAlt,
+  },
+  podiumItemFirst: {
+    borderColor: theme.colors.gold,
+    backgroundColor: "#FBF7EC",
+  },
+  podiumItemSecond: {
+    borderColor: "#C8C8C8",
+  },
+  podiumItemThird: {
+    borderColor: "#CBA47A",
+  },
+  podiumPlace: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 3,
   },
   podiumNum: {
     fontSize: 18,
     fontWeight: "800",
     color: theme.colors.textPrimary,
+  },
+  payoutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  payoutIcon: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  payoutLabel: {
+    fontSize: 9,
+    color: theme.colors.gold,
+    fontWeight: "900",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+  },
+  payoutText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    marginTop: 2,
   },
   ctaRow: {
     flexDirection: "row",
