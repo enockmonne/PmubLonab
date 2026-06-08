@@ -101,8 +101,12 @@ export interface ParseQuality {
   horses_count: number;
   predictions_count: number;
   classifications_count: number;
+  odds_count: number;
+  weekly_best_count: number;
   has_predictions: boolean;
   has_classifications: boolean;
+  has_odds: boolean;
+  has_weekly_best: boolean;
   has_previous_results: boolean;
   has_betting_info: boolean;
   warnings: string[];
