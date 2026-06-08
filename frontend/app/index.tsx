@@ -48,15 +48,8 @@ export default function Landing() {
   useEffect(() => {
     (async () => {
       try {
-        const [allRes, resOnly] = await Promise.all([
-          fetch(`${API_URL}/api/races?limit=100`).then((r) => r.json()),
-          fetch(`${API_URL}/api/races?doc_type=result&limit=100`).then((r) => r.json()),
-        ]);
-        setCounts({
-          programmes: (allRes.races || []).length,
-          resultats: (resOnly.races || []).length,
-          total: (allRes.races || []).length,
-        });
+        const bootstrap = await fetch(`${API_URL}/api/bootstrap`).then((r) => r.json());
+        setCounts(bootstrap.counts || { programmes: 0, resultats: 0, total: 0 });
       } catch (e) {
         console.error(e);
       } finally {

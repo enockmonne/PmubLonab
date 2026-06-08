@@ -922,6 +922,39 @@ async def admin_send_notification(
 
 # ---------- Races library ----------
 
+@api_router.get("/bootstrap")
+async def get_app_bootstrap():
+    """Compact initial payload for the app home screen."""
+    total_races, total_programmes, total_results, current = await asyncio.gather(
+        db.races.count_documents({}),
+        db.races.count_documents({"doc_type": "programme"}),
+        db.races.count_documents({"doc_type": "result"}),
+        _get_current_race_doc(),
+    )
+    current_summary = None
+    if current:
+        current_summary = {
+            "race_id": current.get("race_id"),
+            "name": current.get("name"),
+            "event_type": current.get("event_type"),
+            "meeting_label": current.get("meeting_label", ""),
+            "course_label": current.get("course_label", ""),
+            "date_text": current.get("date_text"),
+            "date_iso": current.get("date_iso"),
+            "location": current.get("location"),
+            "runners": current.get("runners"),
+            "doc_type": current.get("doc_type", "programme"),
+        }
+    return {
+        "counts": {
+            "programmes": total_programmes,
+            "resultats": total_results,
+            "total": total_races,
+        },
+        "current_race": current_summary,
+    }
+
+
 @api_router.get("/races")
 async def list_races(
     q: Optional[str] = None,

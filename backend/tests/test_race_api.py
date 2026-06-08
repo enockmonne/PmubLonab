@@ -15,6 +15,16 @@ def api():
 
 # ---- Race info ----
 class TestRace:
+    def test_bootstrap(self, api):
+        r = api.get(f"{BASE_URL}/api/bootstrap", timeout=30)
+        assert r.status_code == 200
+        data = r.json()
+        assert data["counts"]["programmes"] >= 1
+        assert data["counts"]["total"] >= data["counts"]["programmes"]
+        assert "resultats" in data["counts"]
+        assert data["current_race"]["race_id"]
+        assert data["current_race"]["name"]
+
     def test_get_race(self, api):
         r = api.get(f"{BASE_URL}/api/race", timeout=30)
         assert r.status_code == 200
