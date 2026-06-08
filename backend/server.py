@@ -75,7 +75,7 @@ def normalize_match_text(value: str) -> str:
 
 
 PRONOSTIC_SOURCE_LABELS = {
-    "paristurf": "ParisTurf",
+    "paris turf": "ParisTurf",
     "voix du nord": "Voix du Nord",
     "turf fr com": "Turf-fr.com",
     "turfomania": "Turfomania",
@@ -85,13 +85,25 @@ PRONOSTIC_SOURCE_LABELS = {
 }
 
 PRONOSTIC_SOURCE_ALIASES = {
+    "paristurf": "paris turf",
+    "paris turf com": "paris turf",
     "lalsace": "l alsace",
+    "alsace": "l alsace",
+    "turf fr": "turf fr com",
+    "turffr": "turf fr com",
+    "zone turf": "zone turf fr",
+    "zoneturf": "zone turf fr",
+    "zoneturf fr": "zone turf fr",
+    "leparisien": "le parisien",
+    "voixdunord": "voix du nord",
 }
 
 
 def canonical_pronostic_source(source: str) -> tuple[str, str]:
     key = normalize_match_text(source)
+    compact_key = key.replace(" ", "")
     key = PRONOSTIC_SOURCE_ALIASES.get(key, key)
+    key = PRONOSTIC_SOURCE_ALIASES.get(compact_key, key)
     if key in PRONOSTIC_SOURCE_LABELS:
         return key, PRONOSTIC_SOURCE_LABELS[key]
     return key or "source inconnue", (source or "Source inconnue").strip()
