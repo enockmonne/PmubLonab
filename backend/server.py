@@ -28,7 +28,7 @@ from race_data import (
     PREVIOUS_RESULTS,
     BETTING_INFO,
 )
-from pdf_parser import parse_pdf_to_race, check_llm_health
+from pdf_parser import parse_pdf_to_race
 from auth import (
     require_admin,
     create_access_token,
@@ -1568,8 +1568,12 @@ async def admin_status(
     current = await db.races.find_one({"is_current": True}, {"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "location": 1})
     last = await db.races.find_one({}, sort=[("created_at", -1)], projection={"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "created_at": 1, "doc_type": 1})
 
-    # LLM key health: try a tiny direct Gemini ping.
-    llm_health = await check_llm_health()
+    # Keep dashboard status fast: do not make a live Gemini network call on login.
+    gemini_configured = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+    llm_health = {
+        "status": "configured" if gemini_configured else "error",
+        "error": None if gemini_configured else "GEMINI_API_KEY non configuree.",
+    }
 
     # Admin user info
     admin_user = await db.admin_users.find_one(
