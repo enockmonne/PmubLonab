@@ -27,6 +27,7 @@ This is the living project control document for PmubLonab. Use it to track what 
 - Programmes now include a Race Insight Summary built from structured consensus and form signals.
 - Pronostics now include media agreement, base spread, and outlier context.
 - Stats tab UI now surfaces summary metrics, a top signal card, and linked-result coverage context.
+- Stats tabs now use a cleaner segmented control and a more compact top summary area.
 - Resultats cards now make official arrivals and the main payout easier to scan.
 - Horse detail now prioritizes raw PDF fields and keeps generated horse intelligence out of the Partants flow.
 - Admin now has a LONAB archive preview screen for discovering PDF links before bulk import.
