@@ -210,6 +210,7 @@ export default function PronosticsScreen() {
   const expertsWithPicks = data.experts.filter((e) => (e.picks || []).length > 0);
   const oddsTables = data.odds || [];
   const weeklyBest = data.weekly_best || { trainers: [], drivers: [] };
+  const horseNameByNumber = new Map(horses.map((horse) => [horse.number, horse.name]));
 
   const goToTabByDelta = (delta: number) => {
     const idx = TAB_ORDER.indexOf(tab);
@@ -281,7 +282,7 @@ export default function PronosticsScreen() {
             { k: "consensus", label: "Consensus" },
             { k: "experts", label: "Médias" },
             { k: "cotes", label: "Cotes" },
-            { k: "semaine", label: "Semaine" },
+            { k: "semaine", label: "LES MEILLEURS DE LA SEMAINE" },
             { k: "aptitudes", label: "Aptitudes" },
             { k: "classement", label: "Classement" },
           ] as { k: Tab; label: string }[]
@@ -289,7 +290,11 @@ export default function PronosticsScreen() {
           <TouchableOpacity
             key={t.k}
             testID={`tab-${t.k}`}
-            style={[styles.tabBtn, tab === t.k && styles.tabBtnActive]}
+            style={[
+              styles.tabBtn,
+              t.k === "semaine" && styles.tabBtnWide,
+              tab === t.k && styles.tabBtnActive,
+            ]}
             onPress={() => {
               haptics.selection();
               setTab(t.k);
@@ -465,6 +470,7 @@ export default function PronosticsScreen() {
 
         {tab === "semaine" && (
           <View testID="weekly-best-view" key="weekly-best-wrapper">
+            <Text style={styles.pdfSectionTitle}>LES MEILLEURS DE LA SEMAINE</Text>
             <Text style={styles.lead}>
               Classements extraits de la section Les meilleurs de la semaine du PDF.
             </Text>
@@ -602,14 +608,24 @@ export default function PronosticsScreen() {
                   style={styles.catCard}
                 >
                   <Text style={styles.catTitle}>{cat}</Text>
-                  <View style={styles.picksRow}>
+                  <View style={styles.classementList}>
                     {nums.map((n) => (
                       <TouchableOpacity
                         key={`${cat}-${n}`}
                         onPress={() => router.push(`/horse/${n}`)}
-                        style={styles.pickChip}
+                        style={styles.classementRow}
                       >
-                        <Text style={styles.pickChipText}>{n}</Text>
+                        <View style={styles.classementNumber}>
+                          <Text style={styles.classementNumberText}>{n}</Text>
+                        </View>
+                        <Text style={styles.classementHorseName} numberOfLines={1}>
+                          {horseNameByNumber.get(n) || "Cheval non renseigne"}
+                        </Text>
+                        <Ionicons
+                          name="chevron-forward"
+                          size={14}
+                          color={theme.colors.textSecondary}
+                        />
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -886,6 +902,9 @@ const styles = StyleSheet.create({
     minWidth: 94,
     alignItems: "center",
   },
+  tabBtnWide: {
+    minWidth: 210,
+  },
   tabBtnActive: {
     backgroundColor: theme.colors.brand,
     borderColor: theme.colors.brand,
@@ -907,6 +926,14 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginBottom: 14,
     lineHeight: 18,
+  },
+  pdfSectionTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 8,
   },
   consensusRow: {
     flexDirection: "row",
@@ -1122,6 +1149,38 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: "uppercase",
     marginBottom: 10,
+  },
+  classementList: {
+    gap: 8,
+  },
+  classementRow: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  classementNumber: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.brand,
+  },
+  classementNumberText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#fff",
+  },
+  classementHorseName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
   },
   emptyCat: {
     padding: 24,
