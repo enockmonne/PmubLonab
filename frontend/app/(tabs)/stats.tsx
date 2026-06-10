@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Linking,
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
@@ -12,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL, ADMIN_WEB_URL } from "../../src/theme";
+import { theme, API_URL } from "../../src/theme";
 import { buildRaceInsight, type RaceInsightData } from "../../src/raceInsight";
 import { buildMediaInsight, type MediaInsightData } from "../../src/mediaInsight";
 
@@ -177,15 +176,6 @@ export default function StatsScreen() {
           </View>
         </View>
 
-        {/* Info card */}
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle-outline" size={18} color={theme.colors.brand} />
-          <Text style={styles.infoText}>
-            Les taux sont calculés sur les courses archivées disposant d&apos;un
-            résultat confirmé.
-          </Text>
-        </View>
-
         <View style={styles.statsTabs}>
           {(
             [
@@ -296,200 +286,167 @@ export default function StatsScreen() {
 
         {/* Tipsters leaderboard */}
         {statsTab === "sources" && (
-        <View style={styles.section}>
-          <Text style={styles.sectionOverline}>Leaderboard pronostiqueurs</Text>
-          <Text style={styles.sectionTitle}>Qui tape juste ?</Text>
-          <Text style={styles.sectionLead}>
-            % de fois où le pick n°1 du média termine dans le top 3.
-          </Text>
-
-          {linkedResultsUsed > 0 && (
-            <Text style={styles.sectionNote}>
-              {linkedResultsUsed} resultat{linkedResultsUsed > 1 ? "s" : ""} lie
-              {linkedResultsUsed > 1 ? "s" : ""} utilise
-              {linkedResultsUsed > 1 ? "s" : ""} pour ces calculs.
+          <View style={styles.section}>
+            <Text style={styles.sectionOverline}>Sources</Text>
+            <Text style={styles.sectionTitle}>Performance des medias</Text>
+            <Text style={styles.sectionLead}>
+              Lecture du pick n1 de chaque source, compare aux resultats officiels.
             </Text>
-          )}
 
-          {loading ? (
-            <ActivityIndicator style={{ marginTop: 20 }} color={theme.colors.brand} />
-          ) : leaderboard.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons name="hourglass-outline" size={28} color={theme.colors.textSecondary} />
-              <Text style={styles.emptyText}>
-                Pas encore de courses avec résultats pour calculer le
-                classement.
-              </Text>
+            <View style={styles.contextRow}>
+              <ContextPill
+                icon="link-outline"
+                label="Resultats lies"
+                value={`${linkedResultsUsed}`}
+              />
+              <ContextPill
+                icon="flag-outline"
+                label="Courses"
+                value={`${evaluatedRaces}`}
+              />
             </View>
-          ) : (
-            <View style={styles.lbList}>
-              {visibleLeaderboard.map((t, idx) => (
-                <View key={t.source} style={styles.lbRow} testID={`tipster-${idx}`}>
-                  <Text style={styles.lbRank}>#{idx + 1}</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.lbSource}>{t.source}</Text>
-                    <Text style={styles.lbMeta}>
-                      sur {t.evaluated_races} course
-                      {t.evaluated_races > 1 ? "s" : ""} •{" "}
-                      {t.top_pick_wins} victoire
-                      {t.top_pick_wins > 1 ? "s" : ""}
-                    </Text>
-                    <View style={styles.barBg}>
-                      <View
-                        style={[styles.barFill, { width: `${Math.min(t.top3_rate, 100)}%` }]}
-                      />
-                    </View>
-                  </View>
-                  <View style={styles.lbScoreCol}>
-                    <Text style={styles.lbScore}>{t.top3_rate}%</Text>
-                    <Text style={styles.lbScoreLabel}>top 3</Text>
-                  </View>
+
+            {bestTipster && (
+              <View style={styles.focusCard}>
+                <View style={styles.focusIcon}>
+                  <Ionicons name="ribbon-outline" size={18} color={theme.colors.gold} />
                 </View>
-              ))}
-            </View>
-          )}
-        </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.focusLabel}>Source la plus reguliere</Text>
+                  <Text style={styles.focusTitle}>{bestTipster.source}</Text>
+                  <Text style={styles.focusText}>
+                    {bestTipster.top3_rate}% top 3 sur {bestTipster.evaluated_races} course
+                    {bestTipster.evaluated_races > 1 ? "s" : ""}.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {loading ? (
+              <ActivityIndicator style={{ marginTop: 20 }} color={theme.colors.brand} />
+            ) : leaderboard.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="hourglass-outline" size={28} color={theme.colors.textSecondary} />
+                <Text style={styles.emptyText}>
+                  Pas encore de courses avec resultats pour calculer le classement.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.rankingList}>
+                {visibleLeaderboard.map((t, idx) => (
+                  <RankingRow
+                    key={t.source}
+                    testID={`tipster-${idx}`}
+                    rank={idx + 1}
+                    title={t.source}
+                    meta={`${t.top_pick_wins} vict. - ${t.evaluated_races} course${
+                      t.evaluated_races > 1 ? "s" : ""
+                    }`}
+                    score={`${t.top3_rate}%`}
+                    scoreLabel="top 3"
+                    progress={t.top3_rate}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         {/* People Leaderboard (jockeys / trainers) */}
         {statsTab === "people" && (
-        <View style={styles.section}>
-          <Text style={styles.sectionOverline}>Top performers</Text>
-          <Text style={styles.sectionTitle}>Jockeys & Entraîneurs</Text>
-          <Text style={styles.sectionLead}>
-            Classement basé sur les arrivées des courses archivées (top 3 et
-            victoires).
-          </Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionOverline}>Acteurs</Text>
+            <Text style={styles.sectionTitle}>Jockeys & entraineurs</Text>
+            <Text style={styles.sectionLead}>
+              Classement base sur les arrivees archivees: victoires, top 3 et volume.
+            </Text>
 
-          <View style={styles.peopleTabs}>
-            <TouchableOpacity
-              testID="people-tab-jockeys"
-              style={[
-                styles.peopleTabBtn,
-                peopleTab === "jockeys" && styles.peopleTabBtnActive,
-              ]}
-              onPress={() => setPeopleTab("jockeys")}
-              activeOpacity={0.85}
-            >
-              <Text
+            <View style={styles.peopleTabs}>
+              <TouchableOpacity
+                testID="people-tab-jockeys"
                 style={[
-                  styles.peopleTabText,
-                  peopleTab === "jockeys" && styles.peopleTabTextActive,
+                  styles.peopleTabBtn,
+                  peopleTab === "jockeys" && styles.peopleTabBtnActive,
                 ]}
+                onPress={() => setPeopleTab("jockeys")}
+                activeOpacity={0.85}
               >
-                Jockeys
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              testID="people-tab-trainers"
-              style={[
-                styles.peopleTabBtn,
-                peopleTab === "trainers" && styles.peopleTabBtnActive,
-              ]}
-              onPress={() => setPeopleTab("trainers")}
-              activeOpacity={0.85}
-            >
-              <Text
+                <Text
+                  style={[
+                    styles.peopleTabText,
+                    peopleTab === "jockeys" && styles.peopleTabTextActive,
+                  ]}
+                >
+                  Jockeys
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="people-tab-trainers"
                 style={[
-                  styles.peopleTabText,
-                  peopleTab === "trainers" && styles.peopleTabTextActive,
+                  styles.peopleTabBtn,
+                  peopleTab === "trainers" && styles.peopleTabBtnActive,
                 ]}
+                onPress={() => setPeopleTab("trainers")}
+                activeOpacity={0.85}
               >
-                Entraîneurs
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {bestPerson && (
-            <View style={styles.miniHighlight}>
-              <Ionicons name="ribbon-outline" size={18} color={theme.colors.gold} />
-              <Text style={styles.miniHighlightText}>
-                En tete: {bestPerson.name} avec {bestPerson.wins} victoire
-                {bestPerson.wins > 1 ? "s" : ""} et {bestPerson.top3} top 3.
-              </Text>
+                <Text
+                  style={[
+                    styles.peopleTabText,
+                    peopleTab === "trainers" && styles.peopleTabTextActive,
+                  ]}
+                >
+                  Entraineurs
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
 
-          {activePeople.length === 0 ? (
-            <View style={styles.empty}>
-              <Ionicons
-                name="hourglass-outline"
-                size={28}
-                color={theme.colors.textSecondary}
-              />
-              <Text style={styles.emptyText}>
-                Aucune statistique disponible pour le moment.
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.lbList}>
-              {visiblePeople.map((p, idx) => (
-                  <View
+            {bestPerson && (
+              <View style={styles.focusCard}>
+                <View style={styles.focusIcon}>
+                  <Ionicons name="trophy-outline" size={18} color={theme.colors.gold} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.focusLabel}>En tete</Text>
+                  <Text style={styles.focusTitle}>{bestPerson.name}</Text>
+                  <Text style={styles.focusText}>
+                    {bestPerson.wins} victoire{bestPerson.wins > 1 ? "s" : ""} -{" "}
+                    {bestPerson.top3} top 3 sur {bestPerson.races} course
+                    {bestPerson.races > 1 ? "s" : ""}.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {activePeople.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons
+                  name="hourglass-outline"
+                  size={28}
+                  color={theme.colors.textSecondary}
+                />
+                <Text style={styles.emptyText}>
+                  Aucune statistique disponible pour le moment.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.rankingList}>
+                {visiblePeople.map((p, idx) => (
+                  <RankingRow
                     key={p.name}
-                    style={styles.lbRow}
                     testID={`person-${peopleTab}-${idx}`}
-                  >
-                    <Text style={styles.lbRank}>#{idx + 1}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.lbSource}>{p.name}</Text>
-                      <Text style={styles.lbMeta}>
-                        {p.wins} V • {p.top3} top 3 • {p.races} courses
-                      </Text>
-                      <View style={styles.barBg}>
-                        <View
-                          style={[
-                            styles.barFill,
-                            { width: `${Math.min(p.top3_rate, 100)}%` },
-                          ]}
-                        />
-                      </View>
-                    </View>
-                    <View style={styles.lbScoreCol}>
-                      <Text style={styles.lbScore}>{p.win_rate}%</Text>
-                      <Text style={styles.lbScoreLabel}>vict.</Text>
-                    </View>
-                  </View>
+                    rank={idx + 1}
+                    title={p.name}
+                    meta={`${p.wins} V - ${p.top3} top 3 - ${p.races} course${
+                      p.races > 1 ? "s" : ""
+                    }`}
+                    score={`${p.win_rate}%`}
+                    scoreLabel="vict."
+                    progress={p.top3_rate}
+                  />
                 ))}
-            </View>
-          )}
-        </View>
-        )}
-
-        {statsTab === "people" && (
-        /* Links */
-        <View style={styles.section}>
-          <Text style={styles.sectionOverline}>Explorer</Text>
-          <Text style={styles.sectionTitle}>Fiches détaillées</Text>
-          <TouchableOpacity
-            testID="go-archives"
-            style={styles.linkCard}
-            onPress={() => router.push("/(tabs)/archives")}
-          >
-            <Ionicons name="search" size={20} color={theme.colors.brand} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.linkTitle}>Rechercher un cheval</Text>
-              <Text style={styles.linkSub}>
-                Tapez un nom dans Archives → voir l&apos;historique complet
-                (taux victoire, toutes les courses).
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="go-admin"
-            style={styles.linkCard}
-            onPress={() => Linking.openURL(ADMIN_WEB_URL)}
-          >
-            <Ionicons name="lock-closed-outline" size={20} color={theme.colors.gold} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.linkTitle}>Espace admin</Text>
-              <Text style={styles.linkSub}>
-                Importer de nouveaux PDF • Définir la course du jour.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
+              </View>
+            )}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -527,6 +484,74 @@ function CompactInsightRow({
         <Text style={styles.compactInsightText} numberOfLines={2}>
           {text}
         </Text>
+      </View>
+    </View>
+  );
+}
+
+function ContextPill({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.contextPill}>
+      <Ionicons name={icon} size={14} color={theme.colors.brand} />
+      <View>
+        <Text style={styles.contextPillValue}>{value}</Text>
+        <Text style={styles.contextPillLabel}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
+function RankingRow({
+  rank,
+  title,
+  meta,
+  score,
+  scoreLabel,
+  progress,
+  testID,
+}: {
+  rank: number;
+  title: string;
+  meta: string;
+  score: string;
+  scoreLabel: string;
+  progress: number;
+  testID: string;
+}) {
+  return (
+    <View style={styles.rankingRow} testID={testID}>
+      <View style={styles.rankingRank}>
+        <Text style={styles.rankingRankText}>{rank}</Text>
+      </View>
+      <View style={styles.rankingBody}>
+        <View style={styles.rankingTop}>
+          <Text style={styles.rankingTitle} numberOfLines={1}>
+            {title}
+          </Text>
+          <View style={styles.rankingScore}>
+            <Text style={styles.rankingScoreValue}>{score}</Text>
+            <Text style={styles.rankingScoreLabel}>{scoreLabel}</Text>
+          </View>
+        </View>
+        <Text style={styles.rankingMeta} numberOfLines={1}>
+          {meta}
+        </Text>
+        <View style={styles.rankingBarBg}>
+          <View
+            style={[
+              styles.rankingBarFill,
+              { width: `${Math.min(Math.max(progress, 0), 100)}%` },
+            ]}
+          />
+        </View>
       </View>
     </View>
   );
@@ -597,19 +622,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 2,
   },
-  infoCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: "transparent",
-  },
-  infoText: { fontSize: 11, color: theme.colors.textSecondary, flex: 1, lineHeight: 15 },
   statsTabs: {
     flexDirection: "row",
     gap: 0,
@@ -759,6 +771,73 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 17,
   },
+  contextRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  contextPill: {
+    flex: 1,
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  contextPillValue: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+  },
+  contextPillLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  focusCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  focusIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  focusLabel: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: theme.colors.gold,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+  focusTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    marginTop: 2,
+  },
+  focusText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    lineHeight: 17,
+    marginTop: 2,
+  },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -814,6 +893,83 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.textSecondary,
     fontWeight: "700",
+  },
+  rankingList: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  rankingRow: {
+    minHeight: 70,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  rankingRank: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  rankingRankText: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: theme.colors.gold,
+  },
+  rankingBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rankingTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  rankingTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+  },
+  rankingScore: {
+    alignItems: "flex-end",
+    minWidth: 50,
+  },
+  rankingScoreValue: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: theme.colors.brand,
+  },
+  rankingScoreLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
+  rankingMeta: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  rankingBarBg: {
+    height: 5,
+    marginTop: 7,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  rankingBarFill: {
+    height: "100%",
+    backgroundColor: theme.colors.gold,
   },
   empty: { alignItems: "center", padding: 24 },
   emptyText: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 8, textAlign: "center" },
@@ -903,16 +1059,4 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 17,
   },
-  linkCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    marginTop: 10,
-  },
-  linkTitle: { fontSize: 15, fontWeight: "700", color: theme.colors.textPrimary },
-  linkSub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 3, lineHeight: 17 },
 });
