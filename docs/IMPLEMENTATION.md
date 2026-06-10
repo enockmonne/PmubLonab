@@ -169,6 +169,11 @@ Phase 5: Premium Analytics Later
   - clearer labels
   - clearer navigation
   - less mental overlap between programme data and official reports
+- Align the home "Arret des jeux" countdown with the current/today programme:
+  - use the current programme's parsed `betting` times instead of hard-coded defaults
+  - display today's date next to the "Arret des jeux" title
+  - when the cutoff time for today's programme has passed, show a French ended state such as "Jeux termines" instead of rolling to tomorrow
+  - no tap/click behavior is needed for this countdown
 - Continue polishing admin post-upload/import validation summary:
   - horses parsed
   - expected runners
@@ -196,6 +201,7 @@ Phase 5: Premium Analytics Later
   - include current programme summary/detail
   - include counts/status needed by home screen
   - reduce sequential frontend requests on startup
+- Include current programme betting/cutoff data in bootstrap/home payloads so the home countdown can use the same "Arret des jeux" timing extracted from the PDF.
 - Add backend caching/precomputation for expensive data:
   - stats
   - Race Intelligence summaries
