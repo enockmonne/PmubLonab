@@ -110,6 +110,7 @@ export default function StatsScreen() {
   const topConsensus = (currentMedia?.consensus || [])
     .filter((entry) => entry.score > 0)
     .slice(0, 3);
+  const topConsensusHorse = topConsensus[0];
 
   const insightText = useMemo(() => {
     if (!bestTipster) return "Les signaux se renforceront avec plus de resultats officiels.";
@@ -209,128 +210,84 @@ export default function StatsScreen() {
 
         {statsTab === "summary" && (
           <>
-        <View style={styles.signalCard}>
-          <View style={styles.signalIcon}>
-            <Ionicons name="analytics-outline" size={20} color={theme.colors.brand} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.signalLabel}>Signal du moment</Text>
-            <Text style={styles.signalTitle}>
-              {bestTipster ? bestTipster.source : "Donnees limitees"}
-            </Text>
-            <Text style={styles.signalText}>{insightText}</Text>
-          </View>
-          {bestTipster && (
-            <View style={styles.signalScore}>
-              <Text style={styles.signalScoreValue}>{bestTipster.top3_rate}%</Text>
-              <Text style={styles.signalScoreLabel}>top 3</Text>
+        <View style={styles.summaryCard} testID="stats-summary-card">
+          <View style={styles.summaryHeader}>
+            <View style={styles.summaryIcon}>
+              <Ionicons name="analytics-outline" size={18} color={theme.colors.brand} />
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>Lecture rapide</Text>
+              <Text style={styles.summaryTitle}>
+                {currentRace?.race.name || "Course actuelle"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.summaryDivider} />
+
+          <CompactInsightRow
+            icon="ribbon-outline"
+            label="Signal du moment"
+            title={bestTipster ? bestTipster.source : "Donnees limitees"}
+            text={insightText}
+            value={bestTipster ? `${bestTipster.top3_rate}% top 3` : undefined}
+          />
+
+          {raceInsight && (
+            <CompactInsightRow
+              testID="race-insight-summary"
+              icon="flash-outline"
+              label="Intelligence course"
+              title={raceInsight.title}
+              text={raceInsight.summary}
+              value={raceInsight.consensusValue}
+            />
+          )}
+
+          {mediaInsight && (
+            <CompactInsightRow
+              testID="media-insight-summary"
+              icon="git-compare-outline"
+              label="Accord medias"
+              title={mediaInsight.title}
+              text={mediaInsight.summary}
+              value={mediaInsight.agreementValue}
+            />
           )}
         </View>
 
-        {raceInsight && (
-          <View style={styles.section} testID="race-insight-summary">
-            <Text style={styles.sectionOverline}>Intelligence course</Text>
-            <Text style={styles.sectionTitle}>Resume de la course</Text>
-            <Text style={styles.sectionLead}>
-              Lecture enrichie de la course actuelle: {currentRace?.race.name}.
-            </Text>
-            <View style={styles.raceInsightCard}>
-              <View style={styles.raceInsightHeader}>
-                <Ionicons name="analytics-outline" size={18} color={theme.colors.gold} />
-                <Text style={styles.raceInsightHeaderText}>{raceInsight.title}</Text>
-              </View>
-              <Text style={styles.raceInsightBody}>{raceInsight.summary}</Text>
-              <View style={styles.raceInsightSignalRow}>
-                {raceInsight.signals.map((signal) => (
-                  <View key={signal} style={styles.raceInsightPill}>
-                    <Text style={styles.raceInsightPillText}>{signal}</Text>
-                  </View>
-                ))}
-              </View>
-              <View style={styles.raceInsightMetricGrid}>
-                <InsightMetric label="Consensus" value={raceInsight.consensusValue} />
-                <InsightMetric label="Medias" value={raceInsight.mediaValue} />
-                <InsightMetric label="Profil regulier" value={raceInsight.formValue} />
-                <InsightMetric label="Donnees" value={raceInsight.dataValue} />
-              </View>
-            </View>
-          </View>
-        )}
-
-        {mediaInsight && (
-          <View style={styles.section} testID="media-insight-summary">
-            <Text style={styles.sectionOverline}>Lecture pronostics</Text>
-            <Text style={styles.sectionTitle}>Accord des medias</Text>
-            <Text style={styles.sectionLead}>
-              Synthese enrichie des pronostics de la course actuelle.
-            </Text>
-            <View style={styles.raceInsightCard}>
-              <View style={styles.raceInsightHeader}>
-                <Ionicons name="git-compare-outline" size={18} color={theme.colors.gold} />
-                <Text style={styles.raceInsightHeaderText}>{mediaInsight.title}</Text>
-              </View>
-              <Text style={styles.raceInsightBody}>{mediaInsight.summary}</Text>
-              <View style={styles.raceInsightSignalRow}>
-                {mediaInsight.signals.map((signal) => (
-                  <View key={signal} style={styles.raceInsightPill}>
-                    <Text style={styles.raceInsightPillText}>{signal}</Text>
-                  </View>
-                ))}
-              </View>
-              <View style={styles.raceInsightMetricGrid}>
-                <InsightMetric label="Accord" value={mediaInsight.agreementValue} />
-                <InsightMetric label="Ecart" value={mediaInsight.gapValue} />
-                <InsightMetric label="Bases" value={mediaInsight.baseValue} />
-                <InsightMetric label="Outlier" value={mediaInsight.outlierValue} />
-              </View>
-            </View>
-          </View>
-        )}
-
         {topConsensus.length > 0 && (
           <View style={styles.section} testID="stats-consensus-summary">
-            <Text style={styles.sectionOverline}>Synthese pronostics</Text>
-            <Text style={styles.sectionTitle}>Consensus de la course</Text>
-            <Text style={styles.sectionLead}>
-              Classement derive des pronostics extraits pour la course actuelle.
-            </Text>
-            <View style={styles.consensusPodium}>
-              {topConsensus.map((pick, idx) => {
-                const isFirst = idx === 0;
-                return (
-                  <TouchableOpacity
-                    key={pick.number}
-                    testID={`stats-consensus-${pick.number}`}
-                    style={[styles.consensusCard, isFirst && styles.consensusCardFirst]}
-                    onPress={() => router.push(`/horse/${pick.number}`)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={[styles.consensusRank, isFirst && styles.consensusRankFirst]}>
-                      {idx === 0 ? "1er" : idx === 1 ? "2e" : "3e"}
-                    </Text>
-                    <View
-                      style={[
-                        styles.consensusNumber,
-                        isFirst && { backgroundColor: theme.colors.gold },
-                      ]}
-                    >
-                      <Text style={styles.consensusNumberText}>{pick.number}</Text>
-                    </View>
-                    <Text style={[styles.consensusScore, isFirst && { color: "#fff" }]}>
-                      {pick.score} pts
-                    </Text>
-                    <Text
-                      style={[
-                        styles.consensusMentions,
-                        isFirst && { color: "rgba(255,255,255,0.75)" },
-                      ]}
-                    >
-                      {pick.appearances} media{pick.appearances > 1 ? "s" : ""}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionOverline}>Synthese pronostics</Text>
+                <Text style={styles.sectionTitle}>Consensus</Text>
+              </View>
+              {topConsensusHorse && (
+                <View style={styles.topBadge}>
+                  <Text style={styles.topBadgeText}>N° {topConsensusHorse.number}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.consensusStrip}>
+              {topConsensus.map((pick, idx) => (
+                <TouchableOpacity
+                  key={pick.number}
+                  testID={`stats-consensus-${pick.number}`}
+                  style={styles.consensusStripItem}
+                  onPress={() => router.push(`/horse/${pick.number}`)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.consensusStripRank}>
+                    {idx === 0 ? "1er" : idx === 1 ? "2e" : "3e"}
+                  </Text>
+                  <Text style={styles.consensusStripNumber}>{pick.number}</Text>
+                  <Text style={styles.consensusStripMeta}>
+                    {pick.score} pts · {pick.appearances} media
+                    {pick.appearances > 1 ? "s" : ""}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         )}
@@ -539,11 +496,38 @@ export default function StatsScreen() {
   );
 }
 
-function InsightMetric({ label, value }: { label: string; value: string }) {
+function CompactInsightRow({
+  icon,
+  label,
+  title,
+  text,
+  value,
+  testID,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  title: string;
+  text: string;
+  value?: string;
+  testID?: string;
+}) {
   return (
-    <View style={styles.raceInsightMetricCell}>
-      <Text style={styles.raceInsightMetricLabel}>{label}</Text>
-      <Text style={styles.raceInsightMetricValue}>{value}</Text>
+    <View style={styles.compactInsightRow} testID={testID}>
+      <View style={styles.compactInsightIcon}>
+        <Ionicons name={icon} size={16} color={theme.colors.gold} />
+      </View>
+      <View style={styles.compactInsightBody}>
+        <View style={styles.compactInsightTop}>
+          <Text style={styles.compactInsightLabel}>{label}</Text>
+          {value && <Text style={styles.compactInsightValue}>{value}</Text>}
+        </View>
+        <Text style={styles.compactInsightTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.compactInsightText} numberOfLines={2}>
+          {text}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -657,179 +641,96 @@ const styles = StyleSheet.create({
   statsTabTextActive: {
     color: "#fff",
   },
-  signalCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+  summaryCard: {
     marginHorizontal: 16,
     marginTop: 10,
-    padding: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
-  signalIcon: {
-    width: 36,
-    height: 36,
+  summaryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  summaryIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+  },
+  summaryTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    marginTop: 2,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: theme.colors.border,
+    marginVertical: 12,
+  },
+  compactInsightRow: {
+    flexDirection: "row",
+    gap: 10,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  compactInsightIcon: {
+    width: 30,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: theme.colors.surfaceAlt,
     borderWidth: 1,
     borderColor: theme.colors.border,
   },
-  signalLabel: {
-    fontSize: 10,
+  compactInsightBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  compactInsightTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  compactInsightLabel: {
+    flex: 1,
+    fontSize: 9,
     color: theme.colors.gold,
-    fontWeight: "800",
+    fontWeight: "900",
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  signalTitle: {
-    fontSize: 16,
-    fontWeight: "800",
+  compactInsightValue: {
+    fontSize: 10,
+    color: theme.colors.brand,
+    fontWeight: "900",
+  },
+  compactInsightTitle: {
+    fontSize: 14,
+    fontWeight: "900",
     color: theme.colors.textPrimary,
     marginTop: 2,
   },
-  signalText: {
+  compactInsightText: {
     fontSize: 12,
     color: theme.colors.textSecondary,
     lineHeight: 17,
     marginTop: 3,
-  },
-  signalScore: {
-    alignItems: "flex-end",
-    minWidth: 58,
-  },
-  signalScoreValue: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: theme.colors.brand,
-  },
-  signalScoreLabel: {
-    fontSize: 9,
-    color: theme.colors.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  raceInsightCard: {
-    marginTop: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  raceInsightHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  raceInsightHeaderText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "800",
-    color: theme.colors.textPrimary,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  raceInsightBody: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 20,
-    color: theme.colors.textPrimary,
-  },
-  raceInsightSignalRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 10,
-  },
-  raceInsightPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  raceInsightPillText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: theme.colors.brand,
-    textTransform: "uppercase",
-    letterSpacing: 0.7,
-  },
-  raceInsightMetricGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  raceInsightMetricCell: {
-    width: "50%",
-    padding: 10,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  raceInsightMetricLabel: {
-    fontSize: 9,
-    color: theme.colors.gold,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  raceInsightMetricValue: {
-    marginTop: 3,
-    fontSize: 17,
-    fontWeight: "900",
-    color: theme.colors.textPrimary,
-  },
-  consensusPodium: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 14,
-  },
-  consensusCard: {
-    flex: 1,
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  consensusCardFirst: {
-    backgroundColor: theme.colors.brand,
-    borderColor: theme.colors.brand,
-  },
-  consensusRank: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  consensusRankFirst: { color: theme.colors.gold },
-  consensusNumber: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.colors.brand,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 8,
-  },
-  consensusNumberText: { color: "#fff", fontSize: 18, fontWeight: "900" },
-  consensusScore: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: theme.colors.textPrimary,
-  },
-  consensusMentions: {
-    fontSize: 10,
-    color: theme.colors.textSecondary,
-    marginTop: 2,
   },
   section: { marginTop: 18, paddingHorizontal: 16 },
   sectionOverline: {
@@ -857,6 +758,62 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 6,
     lineHeight: 17,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  topBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: theme.colors.brand,
+  },
+  topBadgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#fff",
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+  },
+  consensusStrip: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  consensusStripItem: {
+    minHeight: 54,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  consensusStripRank: {
+    width: 30,
+    fontSize: 11,
+    color: theme.colors.gold,
+    fontWeight: "900",
+    textTransform: "uppercase",
+  },
+  consensusStripNumber: {
+    width: 34,
+    height: 34,
+    lineHeight: 34,
+    textAlign: "center",
+    backgroundColor: theme.colors.brand,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  consensusStripMeta: {
+    flex: 1,
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: "700",
   },
   empty: { alignItems: "center", padding: 24 },
   emptyText: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 8, textAlign: "center" },
