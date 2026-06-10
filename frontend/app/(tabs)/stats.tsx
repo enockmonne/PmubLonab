@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Linking,
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
@@ -12,7 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { theme, API_URL, ADMIN_WEB_URL } from "../../src/theme";
+import { theme, API_URL } from "../../src/theme";
 import { buildRaceInsight, type RaceInsightData } from "../../src/raceInsight";
 import { buildMediaInsight, type MediaInsightData } from "../../src/mediaInsight";
 
@@ -457,43 +456,6 @@ export default function StatsScreen() {
               </View>
             )}
           </View>
-        )}
-
-        {statsTab === "people" && (
-        /* Links */
-        <View style={styles.section}>
-          <Text style={styles.sectionOverline}>Explorer</Text>
-          <Text style={styles.sectionTitle}>Fiches détaillées</Text>
-          <TouchableOpacity
-            testID="go-archives"
-            style={styles.linkCard}
-            onPress={() => router.push("/(tabs)/archives")}
-          >
-            <Ionicons name="search" size={20} color={theme.colors.brand} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.linkTitle}>Rechercher un cheval</Text>
-              <Text style={styles.linkSub}>
-                Tapez un nom dans Archives → voir l&apos;historique complet
-                (taux victoire, toutes les courses).
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="go-admin"
-            style={styles.linkCard}
-            onPress={() => Linking.openURL(ADMIN_WEB_URL)}
-          >
-            <Ionicons name="lock-closed-outline" size={20} color={theme.colors.gold} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.linkTitle}>Espace admin</Text>
-              <Text style={styles.linkSub}>
-                Importer de nouveaux PDF • Définir la course du jour.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -1119,16 +1081,4 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 17,
   },
-  linkCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    marginTop: 10,
-  },
-  linkTitle: { fontSize: 15, fontWeight: "700", color: theme.colors.textPrimary },
-  linkSub: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 3, lineHeight: 17 },
 });
