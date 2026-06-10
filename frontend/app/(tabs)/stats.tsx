@@ -176,15 +176,6 @@ export default function StatsScreen() {
           </View>
         </View>
 
-        {/* Info card */}
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle-outline" size={18} color={theme.colors.brand} />
-          <Text style={styles.infoText}>
-            Les taux sont calculés sur les courses archivées disposant d&apos;un
-            résultat confirmé.
-          </Text>
-        </View>
-
         <View style={styles.statsTabs}>
           {(
             [
@@ -631,19 +622,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 2,
   },
-  infoCard: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: "transparent",
-  },
-  infoText: { fontSize: 11, color: theme.colors.textSecondary, flex: 1, lineHeight: 15 },
   statsTabs: {
     flexDirection: "row",
     gap: 0,
