@@ -112,14 +112,14 @@ export default function StatsScreen() {
   const topConsensusHorse = topConsensus[0];
 
   const insightText = useMemo(() => {
-    if (!bestTipster) return "Les signaux se renforceront avec plus de resultats officiels.";
+    if (!bestTipster) return "Les signaux se renforceront avec plus de résultats officiels.";
     if (bestTipster.evaluated_races < 3) {
-      return "Lecture prudente: l'echantillon reste encore limite.";
+      return "Lecture prudente : l'échantillon reste encore limité.";
     }
     if (bestTipster.top3_rate >= 60) {
-      return `${bestTipster.source} ressort avec un signal top 3 regulier.`;
+      return `${bestTipster.source} ressort avec un signal top 3 régulier.`;
     }
-    return "Les ecarts entre sources restent moderes pour le moment.";
+    return "Les écarts entre sources restent modérés pour le moment.";
   }, [bestTipster]);
 
   return (
@@ -142,7 +142,7 @@ export default function StatsScreen() {
           <Text style={styles.overline}>Performance</Text>
           <Text style={styles.title}>Stats</Text>
           <Text style={styles.headerLead}>
-            Synthese claire des signaux construits avec les resultats officiels.
+            Synthèse claire des signaux construits avec les résultats officiels.
           </Text>
         </View>
 
@@ -153,7 +153,7 @@ export default function StatsScreen() {
             </View>
             <View>
               <Text style={styles.snapshotValue}>{evaluatedRaces}</Text>
-              <Text style={styles.snapshotLabel}>courses evaluees</Text>
+              <Text style={styles.snapshotLabel}>courses évaluées</Text>
             </View>
           </View>
           <View style={styles.snapshotTile}>
@@ -162,7 +162,7 @@ export default function StatsScreen() {
             </View>
             <View>
               <Text style={styles.snapshotValue}>{linkedResultsUsed}</Text>
-              <Text style={styles.snapshotLabel}>resultats lies</Text>
+              <Text style={styles.snapshotLabel}>résultats liés</Text>
             </View>
           </View>
           <View style={styles.snapshotTile}>
@@ -179,7 +179,7 @@ export default function StatsScreen() {
         <View style={styles.statsTabs}>
           {(
             [
-              { key: "summary", label: "Synthese" },
+              { key: "summary", label: "Synthèse" },
               { key: "sources", label: "Sources" },
               { key: "people", label: "Acteurs" },
             ] as { key: StatsTab; label: string }[]
@@ -218,7 +218,7 @@ export default function StatsScreen() {
           <CompactInsightRow
             icon="ribbon-outline"
             label="Signal du moment"
-            title={bestTipster ? bestTipster.source : "Donnees limitees"}
+            title={bestTipster ? bestTipster.source : "Données limitées"}
             text={insightText}
             value={bestTipster ? `${bestTipster.top3_rate}% top 3` : undefined}
           />
@@ -238,7 +238,7 @@ export default function StatsScreen() {
             <CompactInsightRow
               testID="media-insight-summary"
               icon="git-compare-outline"
-              label="Accord medias"
+              label="Accord médias"
               title={mediaInsight.title}
               text={mediaInsight.summary}
               value={mediaInsight.agreementValue}
@@ -250,7 +250,7 @@ export default function StatsScreen() {
           <View style={styles.section} testID="stats-consensus-summary">
             <View style={styles.sectionHeaderRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sectionOverline}>Synthese pronostics</Text>
+                <Text style={styles.sectionOverline}>Synthèse pronostics</Text>
                 <Text style={styles.sectionTitle}>Consensus</Text>
               </View>
               {topConsensusHorse && (
@@ -288,15 +288,15 @@ export default function StatsScreen() {
         {statsTab === "sources" && (
           <View style={styles.section}>
             <Text style={styles.sectionOverline}>Sources</Text>
-            <Text style={styles.sectionTitle}>Performance des medias</Text>
+            <Text style={styles.sectionTitle}>Performance des médias</Text>
             <Text style={styles.sectionLead}>
-              Lecture du pick n1 de chaque source, compare aux resultats officiels.
+              Lecture du pick n°1 de chaque source, comparé aux résultats officiels.
             </Text>
 
             <View style={styles.contextRow}>
               <ContextPill
                 icon="link-outline"
-                label="Resultats lies"
+                label="Résultats liés"
                 value={`${linkedResultsUsed}`}
               />
               <ContextPill
@@ -312,7 +312,7 @@ export default function StatsScreen() {
                   <Ionicons name="ribbon-outline" size={18} color={theme.colors.gold} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.focusLabel}>Source la plus reguliere</Text>
+                  <Text style={styles.focusLabel}>Source la plus régulière</Text>
                   <Text style={styles.focusTitle}>{bestTipster.source}</Text>
                   <Text style={styles.focusText}>
                     {bestTipster.top3_rate}% top 3 sur {bestTipster.evaluated_races} course
@@ -328,7 +328,7 @@ export default function StatsScreen() {
               <View style={styles.empty}>
                 <Ionicons name="hourglass-outline" size={28} color={theme.colors.textSecondary} />
                 <Text style={styles.emptyText}>
-                  Pas encore de courses avec resultats pour calculer le classement.
+                  Pas encore de courses avec résultats pour calculer le classement.
                 </Text>
               </View>
             ) : (
@@ -356,9 +356,9 @@ export default function StatsScreen() {
         {statsTab === "people" && (
           <View style={styles.section}>
             <Text style={styles.sectionOverline}>Acteurs</Text>
-            <Text style={styles.sectionTitle}>Jockeys & entraineurs</Text>
+            <Text style={styles.sectionTitle}>Jockeys & entraîneurs</Text>
             <Text style={styles.sectionLead}>
-              Classement base sur les arrivees archivees: victoires, top 3 et volume.
+              Classement basé sur les arrivées archivées : victoires, top 3 et volume.
             </Text>
 
             <View style={styles.peopleTabs}>
@@ -395,7 +395,7 @@ export default function StatsScreen() {
                     peopleTab === "trainers" && styles.peopleTabTextActive,
                   ]}
                 >
-                  Entraineurs
+                  Entraîneurs
                 </Text>
               </TouchableOpacity>
             </View>
@@ -406,7 +406,7 @@ export default function StatsScreen() {
                   <Ionicons name="trophy-outline" size={18} color={theme.colors.gold} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.focusLabel}>En tete</Text>
+                  <Text style={styles.focusLabel}>En tête</Text>
                   <Text style={styles.focusTitle}>{bestPerson.name}</Text>
                   <Text style={styles.focusText}>
                     {bestPerson.wins} victoire{bestPerson.wins > 1 ? "s" : ""} -{" "}
@@ -973,49 +973,6 @@ const styles = StyleSheet.create({
   },
   empty: { alignItems: "center", padding: 24 },
   emptyText: { fontSize: 13, color: theme.colors.textSecondary, marginTop: 8, textAlign: "center" },
-  lbList: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  lbRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    gap: 10,
-  },
-  lbRank: {
-    fontSize: 13,
-    color: theme.colors.gold,
-    fontWeight: "800",
-    width: 30,
-  },
-  lbSource: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: theme.colors.textPrimary,
-  },
-  lbMeta: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
-  lbScoreCol: { alignItems: "flex-end", minWidth: 50 },
-  lbScore: { fontSize: 18, fontWeight: "800", color: theme.colors.brand },
-  lbScoreLabel: {
-    fontSize: 9,
-    color: theme.colors.textSecondary,
-    letterSpacing: 1,
-    textTransform: "uppercase",
-  },
-  barBg: {
-    height: 6,
-    backgroundColor: theme.colors.surfaceAlt,
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  barFill: { height: "100%", backgroundColor: theme.colors.gold },
   peopleTabs: {
     flexDirection: "row",
     gap: 8,
@@ -1043,20 +1000,4 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
   },
   peopleTabTextActive: { color: "#fff" },
-  miniHighlight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surfaceAlt,
-  },
-  miniHighlightText: {
-    flex: 1,
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    lineHeight: 17,
-  },
 });
