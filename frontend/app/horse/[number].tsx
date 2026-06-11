@@ -34,14 +34,15 @@ type HorseDetailData = {
 };
 
 export default function HorseDetail() {
-  const { number } = useLocalSearchParams<{ number: string }>();
+  const { number, race_id } = useLocalSearchParams<{ number: string; race_id?: string }>();
   const router = useRouter();
   const [data, setData] = useState<HorseDetailData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/horses/${number}`);
+      const qs = race_id ? `?race_id=${encodeURIComponent(race_id)}` : "";
+      const response = await fetch(`${API_URL}/api/horses/${number}${qs}`);
       if (response.ok) {
         setData(await response.json());
       }
@@ -50,7 +51,7 @@ export default function HorseDetail() {
     } finally {
       setLoading(false);
     }
-  }, [number]);
+  }, [number, race_id]);
 
   useEffect(() => {
     load();
