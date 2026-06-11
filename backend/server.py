@@ -757,11 +757,52 @@ async def list_admin_logs(
     return {"logs": items}
 
 
+async def _get_current_programme_doc() -> Optional[dict]:
+    today = datetime.now(timezone.utc).date().isoformat()
+    programme_query = {"doc_type": "programme", "horses.0": {"$exists": True}}
+    doc = await db.races.find_one({"is_current": True, **programme_query})
+    if doc:
+        return doc
+    doc = await db.races.find_one(
+        {"date_iso": today, **programme_query},
+        sort=[("created_at", -1)],
+    )
+    if doc:
+        return doc
+    return await db.races.find_one(
+        programme_query,
+        sort=[("date_iso", -1), ("created_at", -1)],
+    )
+
+
 async def _get_current_race_doc() -> Optional[dict]:
     doc = await db.races.find_one({"is_current": True})
-    if not doc:
-        doc = await db.races.find_one({}, sort=[("created_at", -1)])
-    return doc
+    if doc and doc.get("doc_type") == "programme" and doc.get("horses"):
+        return doc
+    if doc and doc.get("doc_type") == "result":
+        linked_programme_ids = doc.get("linked_programme_ids") or []
+        if linked_programme_ids:
+            linked = await db.races.find_one(
+                {"race_id": {"$in": linked_programme_ids}, "doc_type": "programme"}
+            )
+            if linked and linked.get("horses"):
+                return linked
+    return await _get_current_programme_doc()
+
+
+async def _get_programme_doc_for_context(race_id: Optional[str] = None) -> Optional[dict]:
+    if race_id:
+        doc = await db.races.find_one({"race_id": race_id})
+        if doc and doc.get("doc_type") == "programme":
+            return doc
+        if doc and doc.get("doc_type") == "result":
+            linked_programme_ids = doc.get("linked_programme_ids") or []
+            if linked_programme_ids:
+                return await db.races.find_one(
+                    {"race_id": {"$in": linked_programme_ids}, "doc_type": "programme"}
+                )
+        return None
+    return await _get_current_race_doc()
 
 
 @api_router.get("/race")
@@ -796,8 +837,8 @@ async def get_current_race():
 
 
 @api_router.get("/horses")
-async def get_horses():
-    doc = await _get_current_race_doc()
+async def get_horses(race_id: Optional[str] = Query(None)):
+    doc = await _get_programme_doc_for_context(race_id)
     if not doc:
         return {"horses": [], "total": 0}
     enriched = enrich_race(doc)
@@ -805,8 +846,8 @@ async def get_horses():
 
 
 @api_router.get("/horses/{horse_number}")
-async def get_horse(horse_number: int):
-    doc = await _get_current_race_doc()
+async def get_horse(horse_number: int, race_id: Optional[str] = Query(None)):
+    doc = await _get_programme_doc_for_context(race_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Aucune course disponible")
     enriched = enrich_race(doc)

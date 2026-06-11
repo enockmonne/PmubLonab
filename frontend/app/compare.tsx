@@ -30,7 +30,7 @@ type Horse = {
 };
 
 export default function CompareScreen() {
-  const { ids } = useLocalSearchParams<{ ids: string }>();
+  const { ids, race_id } = useLocalSearchParams<{ ids: string; race_id?: string }>();
   const router = useRouter();
   const [horses, setHorses] = useState<Horse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,9 +42,10 @@ export default function CompareScreen() {
         .map((s) => Number(s.trim()))
         .filter((n) => !Number.isNaN(n));
       try {
+        const qs = race_id ? `?race_id=${encodeURIComponent(race_id)}` : "";
         const fetched = await Promise.all(
           numbers.map((n) =>
-            fetch(`${API_URL}/api/horses/${n}`).then((r) => (r.ok ? r.json() : null))
+            fetch(`${API_URL}/api/horses/${n}${qs}`).then((r) => (r.ok ? r.json() : null))
           )
         );
         const unwrapped = fetched
@@ -57,7 +58,7 @@ export default function CompareScreen() {
         setLoading(false);
       }
     })();
-  }, [ids]);
+  }, [ids, race_id]);
 
   if (loading) {
     return (
