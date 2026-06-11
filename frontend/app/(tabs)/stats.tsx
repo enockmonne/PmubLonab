@@ -171,7 +171,7 @@ export default function StatsScreen() {
             </View>
             <View>
               <Text style={styles.snapshotValue}>{sourcesCount}</Text>
-              <Text style={styles.snapshotLabel}>sources suivies</Text>
+              <Text style={styles.snapshotLabel}>sources comparées</Text>
             </View>
           </View>
         </View>
