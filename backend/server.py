@@ -1182,6 +1182,77 @@ async def global_search(q: str = Query(..., min_length=2)):
 
 # ---------- Stats ----------
 
+@api_router.get("/stats/horses")
+async def horses_leaderboard():
+    """Horse leaderboard based on official linked or embedded results."""
+    races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
+    races_by_id = {r.get("race_id"): r for r in races if r.get("race_id")}
+    horse_stats: Dict[str, Dict[str, Any]] = {}
+    evaluated_race_ids: set[str] = set()
+    linked_results_used = 0
+
+    for race in races:
+        if race.get("doc_type", "programme") != "programme" or not race.get("horses"):
+            continue
+        result_context = official_results_for_race(race, races_by_id)
+        order = (result_context["results"] or {}).get("finishing_order", []) or []
+        if not order:
+            continue
+        if result_context["source"] == "linked_result":
+            linked_results_used += 1
+        evaluated_race_ids.add(race.get("race_id", ""))
+        horses_by_number = {
+            h.get("number"): h
+            for h in race.get("horses", [])
+            if h.get("number") is not None and h.get("name")
+        }
+        for idx, horse_number in enumerate(order):
+            horse = horses_by_number.get(horse_number)
+            if not horse:
+                continue
+            name = (horse.get("name") or "").strip().upper()
+            entry = horse_stats.setdefault(
+                name,
+                {
+                    "name": name,
+                    "runs": 0,
+                    "wins": 0,
+                    "top3": 0,
+                    "latest_date": race.get("date_iso", ""),
+                    "latest_race_id": race.get("race_id"),
+                    "latest_race_name": race.get("name"),
+                    "latest_position": None,
+                },
+            )
+            position = idx + 1
+            entry["runs"] += 1
+            if position == 1:
+                entry["wins"] += 1
+            if position <= 3:
+                entry["top3"] += 1
+            if (race.get("date_iso") or "") >= (entry.get("latest_date") or ""):
+                entry["latest_date"] = race.get("date_iso", "")
+                entry["latest_race_id"] = race.get("race_id")
+                entry["latest_race_name"] = race.get("name")
+                entry["latest_position"] = position
+
+    leaderboard = []
+    for entry in horse_stats.values():
+        runs = entry["runs"] or 1
+        leaderboard.append({
+            **entry,
+            "win_rate": round((entry["wins"] / runs) * 100, 1),
+            "top3_rate": round((entry["top3"] / runs) * 100, 1),
+        })
+    leaderboard.sort(key=lambda h: (-h["top3_rate"], -h["wins"], -h["top3"], -h["runs"], h["name"]))
+    return {
+        "leaderboard": leaderboard,
+        "evaluated_races": len([race_id for race_id in evaluated_race_ids if race_id]),
+        "linked_results_used": linked_results_used,
+        "methodology": "Classement base sur les arrivees officielles reliees aux programmes; seuls les chevaux retrouves dans les partants du programme sont inclus.",
+    }
+
+
 @api_router.get("/stats/horses/{name}")
 async def horse_history(name: str):
     """Aggregate a horse's history across all races in DB."""

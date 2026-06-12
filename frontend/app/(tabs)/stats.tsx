@@ -35,7 +35,20 @@ type Person = {
   top3_rate: number;
 };
 
-type StatsTab = "summary" | "sources" | "people";
+type HorseLeader = {
+  name: string;
+  runs: number;
+  wins: number;
+  top3: number;
+  win_rate: number;
+  top3_rate: number;
+  latest_date?: string;
+  latest_race_id?: string;
+  latest_race_name?: string;
+  latest_position?: number | null;
+};
+
+type StatsTab = "summary" | "sources" | "horses" | "people";
 type StatsExcluded = { no_predictions: number; no_official_results: number };
 type SourceNormalization = { source: string; aliases: string[] };
 type StatsMethodology = {
@@ -46,6 +59,8 @@ type StatsMethodology = {
 
 export default function StatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
+  const [horseLeaders, setHorseLeaders] = useState<HorseLeader[]>([]);
+  const [horseStatsMethodology, setHorseStatsMethodology] = useState("");
   const [jockeys, setJockeys] = useState<Person[]>([]);
   const [trainers, setTrainers] = useState<Person[]>([]);
   const [currentRace, setCurrentRace] = useState<RaceInsightData | null>(null);
@@ -66,14 +81,19 @@ export default function StatsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [tip, ppl] = await Promise.all([
+      const [tip, ppl, horseStats] = await Promise.all([
         fetch(`${API_URL}/api/stats/tipsters`).then((r) => r.json()),
         fetch(`${API_URL}/api/stats/people`).then((r) => r.json()),
+        fetch(`${API_URL}/api/stats/horses`)
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
       ]);
       const current = await fetch(`${API_URL}/api/races/current`)
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
       setLeaderboard(tip.leaderboard || []);
+      setHorseLeaders(horseStats?.leaderboard || []);
+      setHorseStatsMethodology(horseStats?.methodology || "");
       setLinkedResultsUsed(tip.linked_results_used || 0);
       setEvaluatedRaces(tip.evaluated_races || 0);
       setExcluded(tip.excluded || { no_predictions: 0, no_official_results: 0 });
@@ -122,9 +142,11 @@ export default function StatsScreen() {
   const raceInsight = currentRace ? buildRaceInsight(currentRace) : null;
   const mediaInsight = currentMedia ? buildMediaInsight(currentMedia) : null;
   const visibleLeaderboard = leaderboard.slice(0, 5);
+  const visibleHorseLeaders = horseLeaders.slice(0, 5);
   const visiblePeople = activePeople.slice(0, 5);
   const mergedSourceCount = sourceNormalization.length;
   const excludedTotal = excluded.no_predictions + excluded.no_official_results;
+  const bestHorse = visibleHorseLeaders[0];
   const topConsensus = (currentMedia?.consensus || [])
     .filter((entry) => entry.score > 0)
     .slice(0, 3);
@@ -200,6 +222,7 @@ export default function StatsScreen() {
             [
               { key: "summary", label: "Synthese" },
               { key: "sources", label: "Sources" },
+              { key: "horses", label: "Chevaux" },
               { key: "people", label: "Acteurs" },
             ] as { key: StatsTab; label: string }[]
           ).map((tab) => (
@@ -403,6 +426,74 @@ export default function StatsScreen() {
                     scoreLabel="top 3"
                     progress={t.top3_rate}
                   />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+
+        {statsTab === "horses" && (
+          <View style={styles.section}>
+            <Text style={styles.sectionOverline}>Chevaux</Text>
+            <Text style={styles.sectionTitle}>Chevaux reguliers</Text>
+            <Text style={styles.sectionLead}>
+              Classement base sur les arrivees officielles liees aux programmes.
+            </Text>
+
+            {bestHorse && (
+              <TouchableOpacity
+                testID="best-horse-card"
+                style={styles.focusCard}
+                activeOpacity={0.85}
+                onPress={() => router.push(`/horse-history/${encodeURIComponent(bestHorse.name)}`)}
+              >
+                <View style={styles.focusIcon}>
+                  <Ionicons name="medal-outline" size={18} color={theme.colors.gold} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.focusLabel}>Cheval en vue</Text>
+                  <Text style={styles.focusTitle}>{bestHorse.name}</Text>
+                  <Text style={styles.focusText}>
+                    {bestHorse.top3} top 3 sur {bestHorse.runs} course
+                    {bestHorse.runs > 1 ? "s" : ""} analysee
+                    {bestHorse.runs > 1 ? "s" : ""}.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={17} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+
+            {horseStatsMethodology ? (
+              <Text style={styles.sectionNote}>{horseStatsMethodology}</Text>
+            ) : null}
+
+            {visibleHorseLeaders.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="hourglass-outline" size={28} color={theme.colors.textSecondary} />
+                <Text style={styles.emptyText}>
+                  Pas encore assez de resultats lies pour classer les chevaux.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.rankingList}>
+                {visibleHorseLeaders.map((horse, idx) => (
+                  <TouchableOpacity
+                    key={horse.name}
+                    activeOpacity={0.85}
+                    onPress={() => router.push(`/horse-history/${encodeURIComponent(horse.name)}`)}
+                  >
+                    <RankingRow
+                      testID={`horse-leader-${idx}`}
+                      rank={idx + 1}
+                      title={horse.name}
+                      meta={`${horse.wins} V - ${horse.top3} top 3 - ${horse.runs} course${
+                        horse.runs > 1 ? "s" : ""
+                      }`}
+                      score={`${horse.top3_rate}%`}
+                      scoreLabel="top 3"
+                      progress={horse.top3_rate}
+                    />
+                  </TouchableOpacity>
                 ))}
               </View>
             )}
