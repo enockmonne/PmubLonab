@@ -260,7 +260,6 @@ export default function SearchScreen() {
             onChangeText={setQuery}
             placeholder="Cheval, jockey, entraîneur, course, date..."
             placeholderTextColor={theme.colors.textSecondary}
-            autoFocus
             returnKeyType="search"
             onSubmitEditing={() => Keyboard.dismiss()}
           />
@@ -395,7 +394,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 20,
     color: theme.colors.textPrimary,
     paddingVertical: 2,
   },

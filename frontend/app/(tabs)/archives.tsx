@@ -375,7 +375,13 @@ const styles = StyleSheet.create({
     height: 44,
     gap: 8,
   },
-  search: { flex: 1, fontSize: 14, color: theme.colors.textPrimary, marginLeft: 6 },
+  search: {
+    flex: 1,
+    fontSize: 16,
+    lineHeight: 20,
+    color: theme.colors.textPrimary,
+    marginLeft: 6,
+  },
   sep: { height: 10 },
   empty: { alignItems: "center", padding: 32, gap: 8 },
   emptyText: {
