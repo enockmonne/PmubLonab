@@ -42,8 +42,8 @@ export default function TabsLayout() {
         tabBarActiveTintColor: "#0A2E1A",
         tabBarInactiveTintColor: "#6F6F6F",
         tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopColor: "#D4CFBF",
+          backgroundColor: "#F1EFE7",
+          borderTopColor: "#C8B88A",
           borderTopWidth: 2,
           paddingTop: 9,
           height: 76,
@@ -56,6 +56,8 @@ export default function TabsLayout() {
         },
         tabBarItemStyle: {
           paddingHorizontal: 2,
+          borderLeftWidth: 1,
+          borderLeftColor: "#DDD7C5",
         },
         tabBarLabelStyle: {
           fontSize: 10,
@@ -185,10 +187,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "transparent",
+    borderColor: "#E1DAC7",
+    backgroundColor: "#FAF9F6",
   },
   iconWrapActive: {
     backgroundColor: "#0A2E1A",
-    borderColor: "#0A2E1A",
+    borderColor: "#C8B88A",
   },
 });
