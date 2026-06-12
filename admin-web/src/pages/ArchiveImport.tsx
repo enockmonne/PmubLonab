@@ -42,6 +42,8 @@ export default function ArchiveImport() {
   const [resultFilter, setResultFilter] = useState<ImportResultFilter>('all');
   const [recentImports, setRecentImports] = useState<LonabRecentImport[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
+  const [alreadyImportedCount, setAlreadyImportedCount] = useState(0);
+  const [hasPreviewed, setHasPreviewed] = useState(false);
 
   const resultCounts = useMemo(
     () => ({
@@ -86,6 +88,8 @@ export default function ArchiveImport() {
     setImportResults([]);
     setResultFilter('all');
     setErrors([]);
+    setAlreadyImportedCount(0);
+    setHasPreviewed(false);
     if (nextType !== 'custom') {
       setSourceUrl(LONAB_SOURCES[nextType].url);
     }
@@ -94,6 +98,7 @@ export default function ArchiveImport() {
   const preview = async () => {
     setLoading(true);
     setErrors([]);
+    setAlreadyImportedCount(0);
     try {
       const { data } = await Admin.previewLonabArchive({
         source_url: sourceUrl,
@@ -106,7 +111,9 @@ export default function ArchiveImport() {
       setImportResults([]);
       setResultFilter('all');
       setErrors(data.errors || []);
-      toast.success(`${data.count} PDF detecte(s)`);
+      setAlreadyImportedCount(data.already_imported_count || 0);
+      setHasPreviewed(true);
+      toast.success(`${data.count} PDF disponible(s)`);
     } catch (err) {
       toast.error(apiError(err));
     } finally {
@@ -134,6 +141,13 @@ export default function ArchiveImport() {
       const { data } = await Admin.importLonabPdfs(selected);
       setImportResults(data.results);
       setResultFilter(data.errors > 0 ? 'error' : 'all');
+      const completedUrls = new Set(
+        data.results
+          .filter((result) => result.status === 'imported' || result.status === 'skipped')
+          .map((result) => result.pdf_url)
+      );
+      setItems((prev) => prev.filter((item) => !completedUrls.has(item.pdf_url)));
+      setSelected((prev) => prev.filter((url) => !completedUrls.has(url)));
       loadRecent();
       toast.success(`${data.imported} importe(s), ${data.skipped} ignore(s), ${data.errors} erreur(s)`);
     } catch (err) {
@@ -153,6 +167,13 @@ export default function ArchiveImport() {
       const { data } = await Admin.importLonabPdfs(failedImportUrls.slice(0, 5));
       setImportResults(data.results);
       setResultFilter(data.errors > 0 ? 'error' : 'all');
+      const completedUrls = new Set(
+        data.results
+          .filter((result) => result.status === 'imported' || result.status === 'skipped')
+          .map((result) => result.pdf_url)
+      );
+      setItems((prev) => prev.filter((item) => !completedUrls.has(item.pdf_url)));
+      setSelected((prev) => prev.filter((url) => !completedUrls.has(url)));
       loadRecent();
       toast.success(`${data.imported} importe(s), ${data.skipped} ignore(s), ${data.errors} erreur(s)`);
     } catch (err) {
@@ -263,7 +284,8 @@ export default function ArchiveImport() {
       <div className="mt-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-fg">
-            {items.length} PDF detecte{items.length > 1 ? 's' : ''}
+            {items.length} nouveau{items.length > 1 ? 'x' : ''} PDF disponible
+            {items.length > 1 ? 's' : ''}
           </h2>
           {items.length > 0 && (
             <button onClick={importSelected} disabled={importing || selected.length === 0} className="btn-primary">
@@ -272,10 +294,18 @@ export default function ArchiveImport() {
             </button>
           )}
         </div>
+        {alreadyImportedCount > 0 && (
+          <p className="mb-3 text-xs text-fg-muted">
+            {alreadyImportedCount} PDF deja importe{alreadyImportedCount > 1 ? 's' : ''} masque
+            {alreadyImportedCount > 1 ? 's' : ''} de cette liste.
+          </p>
+        )}
         <div className="card divide-y divide-border">
           {items.length === 0 ? (
             <div className="p-8 text-center text-sm text-fg-muted">
-              Lancez une previsualisation pour voir les PDF disponibles.
+              {hasPreviewed
+                ? 'Aucun nouveau PDF disponible dans cette previsualisation.'
+                : 'Lancez une previsualisation pour voir les PDF disponibles.'}
             </div>
           ) : (
             items.map((item) => (

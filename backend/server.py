@@ -1478,7 +1478,31 @@ async def admin_lonab_archive_preview(
             "errors": errors,
         }
 
-    return await asyncio.to_thread(discover)
+    preview_result = await asyncio.to_thread(discover)
+    discovered_items = preview_result.get("items", [])
+    pdf_urls = [item.get("pdf_url") for item in discovered_items if item.get("pdf_url")]
+    existing_urls = set()
+    if pdf_urls:
+        existing = await db.races.find(
+            {
+                "import_source.provider": "lonab",
+                "import_source.pdf_url": {"$in": pdf_urls},
+            },
+            {"_id": 0, "import_source.pdf_url": 1},
+        ).to_list(length=len(pdf_urls))
+        existing_urls = {
+            ((doc.get("import_source") or {}).get("pdf_url") or "")
+            for doc in existing
+        }
+
+    available_items = [
+        item for item in discovered_items if item.get("pdf_url") not in existing_urls
+    ]
+    preview_result["items"] = available_items
+    preview_result["count"] = len(available_items)
+    preview_result["discovered_count"] = len(discovered_items)
+    preview_result["already_imported_count"] = len(discovered_items) - len(available_items)
+    return preview_result
 
 
 @api_router.post("/admin/imports/lonab/import")

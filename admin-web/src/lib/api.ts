@@ -145,6 +145,8 @@ export interface LonabImportPreviewResponse {
   scanned_pages: number;
   items: LonabImportPreviewItem[];
   count: number;
+  discovered_count?: number;
+  already_imported_count?: number;
   errors: string[];
 }
 
