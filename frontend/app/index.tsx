@@ -15,10 +15,23 @@ import { useRouter } from "expo-router";
 import { theme, API_URL } from "../src/theme";
 import ArrestCountdown from "../src/ArrestCountdown";
 import AnnouncementBanner from "../src/AnnouncementBanner";
+import { readCache, writeCache } from "../src/storageCache";
 
 const ONBOARDING_KEY = "pmub_onboarded_v1";
+const HOME_BOOTSTRAP_CACHE_KEY = "pmub.home.bootstrap.v1";
+const BOOTSTRAP_TIMEOUT_MS = 8000;
 
 type Counts = { programmes: number; resultats: number; total: number };
+type HomeBootstrap = {
+  counts?: Counts;
+  current_race?: {
+    race_id?: string;
+    name?: string;
+    date_text?: string;
+    date_iso?: string;
+    location?: string;
+  } | null;
+};
 
 const HERO_PROGRAMMES =
   "https://images.pexels.com/photos/6818590/pexels-photo-6818590.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940";
@@ -30,6 +43,7 @@ export default function Landing() {
   const [counts, setCounts] = useState<Counts | null>(null);
   const [loading, setLoading] = useState(true);
   const [redirecting, setRedirecting] = useState(true);
+  const [networkNotice, setNetworkNotice] = useState<string | null>(null);
 
   // Check if user has seen onboarding
   useEffect(() => {
@@ -46,16 +60,42 @@ export default function Landing() {
   }, [router]);
 
   useEffect(() => {
+    let mounted = true;
     (async () => {
+      const cached = await readCache<HomeBootstrap>(HOME_BOOTSTRAP_CACHE_KEY);
+      if (mounted && cached?.counts) {
+        setCounts(cached.counts);
+        setLoading(false);
+        setNetworkNotice("Donnees recentes affichees");
+      }
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), BOOTSTRAP_TIMEOUT_MS);
       try {
-        const bootstrap = await fetch(`${API_URL}/api/bootstrap`).then((r) => r.json());
+        const bootstrap: HomeBootstrap = await fetch(`${API_URL}/api/bootstrap`, {
+          signal: controller.signal,
+        }).then((r) => r.json());
+        if (!mounted) return;
         setCounts(bootstrap.counts || { programmes: 0, resultats: 0, total: 0 });
+        setNetworkNotice(null);
+        writeCache(HOME_BOOTSTRAP_CACHE_KEY, bootstrap);
       } catch (e) {
         console.error(e);
+        if (mounted) {
+          setNetworkNotice(
+            cached?.counts
+              ? "Connexion lente - donnees recentes affichees"
+              : "Connexion lente - reessayez dans un instant"
+          );
+        }
       } finally {
-        setLoading(false);
+        clearTimeout(timeout);
+        if (mounted) setLoading(false);
       }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
@@ -83,6 +123,13 @@ export default function Landing() {
 
         {/* Announcement banner */}
         <AnnouncementBanner />
+
+        {networkNotice && (
+          <View style={styles.notice} testID="home-network-notice">
+            <Ionicons name="cloud-offline-outline" size={15} color={theme.colors.gold} />
+            <Text style={styles.noticeText}>{networkNotice}</Text>
+          </View>
+        )}
 
         {/* Two CTAs */}
         <View style={styles.cards}>
@@ -304,6 +351,24 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     marginTop: 18,
+  },
+  notice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
   },
   secBtn: {
     flex: 1,
