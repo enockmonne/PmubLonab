@@ -153,7 +153,10 @@ Payment integration direction:
 - Prefer a payment aggregator first if it supports Burkina Faso Orange Money and Moov Money reliably.
 - Avoid direct mobile-operator integrations unless aggregator coverage, settlement, or fees are unacceptable.
 - Keep payment checkout web-based initially so it can support PWA and mobile web users.
-- If native app-store distribution becomes primary, review Apple/Google digital-goods rules before selling in-app subscriptions.
+- Treat PWA/web as the first paid-access channel because it supports shareable access and local payment methods such as Orange Money/Moov Money without app-store checkout constraints.
+- Treat Play Store/App Store apps as optional or parallel frontends that consume the same backend account and entitlement state.
+- Do not put Orange Money/Moov Money purchase flows directly inside App Store / Play Store builds until Apple/Google digital-goods rules are reviewed for the exact release model.
+- Allow users who paid on web/PWA to log into native apps and consume already-unlocked content, with the backend deciding access.
 
 Hosting decision path:
 
@@ -330,6 +333,11 @@ Phase 5: Premium Analytics Later
   - monthly pass
 - Decide whether tester access is paid, invite-code based, or manually granted with expiry.
 - Add backend entitlement records and access checks.
+- Make backend entitlements the shared source of truth across PWA/web, Android, and iOS:
+  - same account/access state across all frontends
+  - web/PWA can handle Orange Money/Moov Money payment
+  - native apps can consume unlocked content after login
+  - platform-specific payment options can be added later if needed
 - Add admin entitlement management.
 - Research and select Burkina Faso payment provider/aggregator:
   - Orange Money support
@@ -468,7 +476,8 @@ After each staging deploy:
 ## Decisions
 
 - Keep React Native / Expo for now because app-style engagement and push notifications matter.
-- Add PWA/lightweight web access later if useful.
+- Use a PWA/web-first monetization path for Burkina Faso paid access, especially for Orange Money/Moov Money.
+- Keep Android/iOS apps as optional or parallel frontends using the same backend, database, accounts, and entitlement checks.
 - Use staging as the main review environment.
 - Keep local dev for fast iteration, not shared review.
 - Avoid direct betting recommendations.
