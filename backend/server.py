@@ -80,6 +80,18 @@ def _cors_origins() -> List[str]:
 
 # ---------- Helpers ----------
 
+def _beta_access_codes() -> set[str]:
+    raw = os.environ.get("BETA_ACCESS_CODES", "")
+    return {code.strip().upper() for code in raw.split(",") if code.strip()}
+
+
+def _request_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else ""
+
+
 def slugify(value: str) -> str:
     value = unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode()
     value = re.sub(r"[^\w\s-]", "", value.lower()).strip()
@@ -599,6 +611,9 @@ async def ensure_indexes():
     await db.push_tokens.create_index("token", unique=True)
     await db.push_tokens.create_index("device_id")
     await db.push_tokens.create_index("topics")
+    await db.beta_access_uses.create_index([("code", 1), ("device_id", 1)], unique=True)
+    await db.beta_access_uses.create_index("code")
+    await db.beta_access_uses.create_index([("last_seen_at", -1)])
 
 
 @app.on_event("startup")
@@ -619,6 +634,12 @@ class LoginPayload(BaseModel):
 class ChangePasswordPayload(BaseModel):
     old_password: str
     new_password: str
+
+
+class BetaAccessVerifyPayload(BaseModel):
+    code: str
+    device_id: str
+    platform: Optional[str] = None
 
 
 @api_router.post("/auth/login")
@@ -664,6 +685,41 @@ async def auth_change_password(
         {"$set": {"password_hash": hash_password(payload.new_password)}},
     )
     return {"ok": True}
+
+
+@api_router.post("/beta/access/verify")
+async def verify_beta_access(payload: BetaAccessVerifyPayload, request: Request):
+    allowed_codes = _beta_access_codes()
+    if not allowed_codes:
+        raise HTTPException(status_code=503, detail="Codes beta non configures")
+
+    code = (payload.code or "").strip().upper()
+    device_id = (payload.device_id or "").strip()
+    if not code or code not in allowed_codes:
+        raise HTTPException(status_code=403, detail="Code invalide ou expire")
+    if not device_id:
+        raise HTTPException(status_code=400, detail="Identifiant appareil manquant")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.beta_access_uses.update_one(
+        {"code": code, "device_id": device_id},
+        {
+            "$setOnInsert": {
+                "code": code,
+                "device_id": device_id,
+                "first_seen_at": now,
+            },
+            "$set": {
+                "last_seen_at": now,
+                "platform": payload.platform or "",
+                "user_agent": request.headers.get("user-agent", ""),
+                "ip": _request_ip(request),
+            },
+            "$inc": {"use_count": 1},
+        },
+        upsert=True,
+    )
+    return {"ok": True, "enabled": True}
 
 
 def check_admin(passcode: Optional[str]):
@@ -774,6 +830,63 @@ async def list_admin_logs(
     await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
     items = await db.admin_logs.find({}, projection={"_id": 0}).sort("created_at", -1).to_list(length=min(limit, 200))
     return {"logs": items}
+
+
+@api_router.get("/admin/beta-access/usage")
+async def beta_access_usage(
+    authorization: Optional[str] = Header(None),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    configured_codes = sorted(_beta_access_codes())
+    docs = await db.beta_access_uses.find({}, projection={"_id": 0}).sort("last_seen_at", -1).to_list(length=1000)
+    by_code: Dict[str, Dict[str, Any]] = {}
+    for code in configured_codes:
+        by_code[code] = {
+            "code": code,
+            "configured": True,
+            "device_count": 0,
+            "total_uses": 0,
+            "first_seen_at": None,
+            "last_seen_at": None,
+            "suspicious": False,
+        }
+
+    for doc in docs:
+        code = str(doc.get("code") or "").upper()
+        item = by_code.setdefault(
+            code,
+            {
+                "code": code,
+                "configured": code in configured_codes,
+                "device_count": 0,
+                "total_uses": 0,
+                "first_seen_at": None,
+                "last_seen_at": None,
+                "suspicious": False,
+            },
+        )
+        item["device_count"] += 1
+        item["total_uses"] += int(doc.get("use_count") or 0)
+        first_seen = doc.get("first_seen_at")
+        last_seen = doc.get("last_seen_at")
+        if first_seen and (not item["first_seen_at"] or str(first_seen) < str(item["first_seen_at"])):
+            item["first_seen_at"] = first_seen
+        if last_seen and (not item["last_seen_at"] or str(last_seen) > str(item["last_seen_at"])):
+            item["last_seen_at"] = last_seen
+
+    codes = []
+    for item in by_code.values():
+        item["suspicious"] = item["device_count"] > 1
+        codes.append(item)
+    codes.sort(key=lambda item: (not item["suspicious"], -item["device_count"], item["code"]))
+
+    return {
+        "enabled": bool(configured_codes),
+        "configured_codes_count": len(configured_codes),
+        "codes": codes,
+        "devices": docs,
+    }
 
 
 async def _get_current_programme_doc() -> Optional[dict]:

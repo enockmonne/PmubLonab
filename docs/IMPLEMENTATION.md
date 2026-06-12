@@ -97,6 +97,8 @@ Principles:
 
 Must have before external user testing:
 
+- Add a lightweight beta access gate so the staging link alone is not enough to enter the app.
+- Track beta code usage by anonymous device id so shared/reused codes are visible in admin.
 - API must be always-on for staging or production-like testing; avoid free-instance cold starts for tester feedback.
 - App must show cached last-known programme/results immediately when available, then refresh in the background.
 - App must avoid full-screen blocking spinners after the first load where cached or partial data exists.
@@ -112,6 +114,7 @@ Must have before external user testing:
   - paid test pass, invite code, or manually granted entitlement
   - expiry date
   - ability to revoke access
+  - individual codes should be preferred over one shared code during feedback testing
 - Add a staging QA checklist for slow network testing:
   - first open
   - returning open with cached data
