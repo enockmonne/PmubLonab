@@ -19,6 +19,7 @@ import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL } from "../../src/theme";
 import HorseLoader from "../../src/HorseLoader";
 import { haptics } from "../../src/haptics";
+import { readCache, writeCache } from "../../src/storageCache";
 
 LocaleConfig.locales["fr"] = {
   monthNames: [
@@ -84,6 +85,16 @@ type PersonSheet = {
   horses: Horse[];
 };
 
+type PronosticsCache = {
+  data: Data;
+  horses: Horse[];
+  programmes: ProgrammeSummary[];
+  selectedId: string;
+  selectedRace: RaceMeta | null;
+};
+
+const PRONOSTICS_CACHE_KEY = "pmub.pronostics.v1";
+
 export default function PronosticsScreen() {
   const [data, setData] = useState<Data | null>(null);
   const [horses, setHorses] = useState<Horse[]>([]);
@@ -112,6 +123,22 @@ export default function PronosticsScreen() {
     return m;
   }, [programmes, selectedId]);
 
+  useEffect(() => {
+    let mounted = true;
+    readCache<PronosticsCache>(PRONOSTICS_CACHE_KEY).then((cached) => {
+      if (!mounted || !cached?.data) return;
+      setData(cached.data);
+      setHorses(cached.horses || []);
+      setProgrammes(cached.programmes || []);
+      setSelectedId(cached.selectedId || null);
+      setSelectedRace(cached.selectedRace || null);
+      setLoading(false);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const loadProgrammes = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/api/races?doc_type=programme&limit=100`);
@@ -138,30 +165,40 @@ export default function PronosticsScreen() {
     try {
       const res = await fetch(`${API_URL}/api/races/${raceId}`);
       const race = await res.json();
-      setSelectedRace({
-        race_id: race.race_id,
-        name: race.name || "Programme",
-        date_text: race.date_text || "",
-        date_iso: race.date_iso || "",
-        location: race.location || "",
-        is_current: race.is_current,
-      });
-      setData({
+      const nextData = {
         experts: race.predictions || [],
         odds: race.odds || [],
         weekly_best: race.weekly_best || { trainers: [], drivers: [] },
         consensus: race.consensus || [],
         classifications: race.classifications || {},
         classement: race.classement || {},
+      };
+      const nextRace = {
+        race_id: race.race_id,
+        name: race.name || "Programme",
+        date_text: race.date_text || "",
+        date_iso: race.date_iso || "",
+        location: race.location || "",
+        is_current: race.is_current,
+      };
+      const nextHorses = race.horses || [];
+      setSelectedRace(nextRace);
+      setData(nextData);
+      setHorses(nextHorses);
+      writeCache(PRONOSTICS_CACHE_KEY, {
+        data: nextData,
+        horses: nextHorses,
+        programmes,
+        selectedId: raceId,
+        selectedRace: nextRace,
       });
-      setHorses(race.horses || []);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [programmes]);
 
   useEffect(() => {
     loadProgrammes();

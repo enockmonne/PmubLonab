@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import { theme, API_URL } from "../../src/theme";
 import { buildRaceInsight, type RaceInsightData } from "../../src/raceInsight";
 import { buildMediaInsight, type MediaInsightData } from "../../src/mediaInsight";
+import { readCache, writeCache } from "../../src/storageCache";
 
 type Tipster = {
   source: string;
@@ -57,6 +58,23 @@ type StatsMethodology = {
   exclusion_rule?: string;
 };
 
+type StatsCache = {
+  leaderboard: Tipster[];
+  horseLeaders: HorseLeader[];
+  horseStatsMethodology: string;
+  jockeys: Person[];
+  trainers: Person[];
+  currentRace: RaceInsightData | null;
+  currentMedia: MediaInsightData | null;
+  linkedResultsUsed: number;
+  evaluatedRaces: number;
+  excluded: StatsExcluded;
+  sourceNormalization: SourceNormalization[];
+  methodology: StatsMethodology | null;
+};
+
+const STATS_CACHE_KEY = "pmub.stats.v1";
+
 export default function StatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
   const [horseLeaders, setHorseLeaders] = useState<HorseLeader[]>([]);
@@ -91,18 +109,18 @@ export default function StatsScreen() {
       const current = await fetch(`${API_URL}/api/races/current`)
         .then((r) => (r.ok ? r.json() : null))
         .catch(() => null);
-      setLeaderboard(tip.leaderboard || []);
-      setHorseLeaders(horseStats?.leaderboard || []);
-      setHorseStatsMethodology(horseStats?.methodology || "");
-      setLinkedResultsUsed(tip.linked_results_used || 0);
-      setEvaluatedRaces(tip.evaluated_races || 0);
-      setExcluded(tip.excluded || { no_predictions: 0, no_official_results: 0 });
-      setSourceNormalization(tip.source_normalization || []);
-      setMethodology(tip.methodology || null);
-      setJockeys(ppl.jockeys || []);
-      setTrainers(ppl.trainers || []);
-      setCurrentRace(
-        current
+      const nextCache: StatsCache = {
+        leaderboard: tip.leaderboard || [],
+        horseLeaders: horseStats?.leaderboard || [],
+        horseStatsMethodology: horseStats?.methodology || "",
+        linkedResultsUsed: tip.linked_results_used || 0,
+        evaluatedRaces: tip.evaluated_races || 0,
+        excluded: tip.excluded || { no_predictions: 0, no_official_results: 0 },
+        sourceNormalization: tip.source_normalization || [],
+        methodology: tip.methodology || null,
+        jockeys: ppl.jockeys || [],
+        trainers: ppl.trainers || [],
+        currentRace: current
           ? {
               race: {
                 name: current.name || "Course actuelle",
@@ -113,16 +131,27 @@ export default function StatsScreen() {
               predictions_count: (current.predictions || []).length,
             }
           : null,
-      );
-      setCurrentMedia(
-        current
+        currentMedia: current
           ? {
               experts: current.predictions || [],
               consensus: current.consensus || [],
               horses: current.horses || [],
             }
           : null,
-      );
+      };
+      setLeaderboard(nextCache.leaderboard);
+      setHorseLeaders(nextCache.horseLeaders);
+      setHorseStatsMethodology(nextCache.horseStatsMethodology);
+      setLinkedResultsUsed(nextCache.linkedResultsUsed);
+      setEvaluatedRaces(nextCache.evaluatedRaces);
+      setExcluded(nextCache.excluded);
+      setSourceNormalization(nextCache.sourceNormalization);
+      setMethodology(nextCache.methodology);
+      setJockeys(nextCache.jockeys);
+      setTrainers(nextCache.trainers);
+      setCurrentRace(nextCache.currentRace);
+      setCurrentMedia(nextCache.currentMedia);
+      writeCache(STATS_CACHE_KEY, nextCache);
     } catch (e) {
       console.error(e);
     } finally {
@@ -132,7 +161,27 @@ export default function StatsScreen() {
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    readCache<StatsCache>(STATS_CACHE_KEY).then((cached) => {
+      if (!mounted || !cached) return;
+      setLeaderboard(cached.leaderboard || []);
+      setHorseLeaders(cached.horseLeaders || []);
+      setHorseStatsMethodology(cached.horseStatsMethodology || "");
+      setJockeys(cached.jockeys || []);
+      setTrainers(cached.trainers || []);
+      setCurrentRace(cached.currentRace || null);
+      setCurrentMedia(cached.currentMedia || null);
+      setLinkedResultsUsed(cached.linkedResultsUsed || 0);
+      setEvaluatedRaces(cached.evaluatedRaces || 0);
+      setExcluded(cached.excluded || { no_predictions: 0, no_official_results: 0 });
+      setSourceNormalization(cached.sourceNormalization || []);
+      setMethodology(cached.methodology || null);
+      setLoading(false);
+    });
     load();
+    return () => {
+      mounted = false;
+    };
   }, [load]);
 
   const bestTipster = leaderboard[0];
