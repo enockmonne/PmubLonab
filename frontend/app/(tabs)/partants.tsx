@@ -526,7 +526,8 @@ const styles = StyleSheet.create({
   },
   search: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 20,
     color: theme.colors.textPrimary,
     marginLeft: 6,
   },
