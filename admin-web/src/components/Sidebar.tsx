@@ -6,6 +6,7 @@ import {
   Trophy,
   Megaphone,
   History,
+  KeyRound,
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -16,6 +17,7 @@ const navItems = [
   { to: '/archive-import', label: 'Import LONAB', icon: DownloadCloud },
   { to: '/races', label: 'Courses', icon: Trophy },
   { to: '/announcements', label: 'Annonces', icon: Megaphone },
+  { to: '/beta-access', label: 'Accès beta', icon: KeyRound },
   { to: '/logs', label: 'Activité', icon: History },
   { to: '/settings', label: 'Paramètres', icon: SettingsIcon },
 ];

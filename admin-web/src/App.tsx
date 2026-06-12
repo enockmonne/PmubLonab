@@ -7,6 +7,7 @@ import ArchiveImport from './pages/ArchiveImport';
 import Announcements from './pages/Announcements';
 import Logs from './pages/Logs';
 import Settings from './pages/Settings';
+import BetaAccess from './pages/BetaAccess';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/archive-import" element={<ArchiveImport />} />
         <Route path="/races" element={<Races />} />
         <Route path="/announcements" element={<Announcements />} />
+        <Route path="/beta-access" element={<BetaAccess />} />
         <Route path="/logs" element={<Logs />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

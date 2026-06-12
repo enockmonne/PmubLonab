@@ -95,6 +95,34 @@ export interface AdminLog {
   created_at?: string;
 }
 
+export interface BetaAccessCodeUsage {
+  code: string;
+  configured: boolean;
+  device_count: number;
+  total_uses: number;
+  first_seen_at?: string | null;
+  last_seen_at?: string | null;
+  suspicious: boolean;
+}
+
+export interface BetaAccessDeviceUsage {
+  code: string;
+  device_id: string;
+  platform?: string;
+  use_count?: number;
+  first_seen_at?: string;
+  last_seen_at?: string;
+  ip?: string;
+  user_agent?: string;
+}
+
+export interface BetaAccessUsageResponse {
+  enabled: boolean;
+  configured_codes_count: number;
+  codes: BetaAccessCodeUsage[];
+  devices: BetaAccessDeviceUsage[];
+}
+
 export interface ParseQuality {
   doc_type: string;
   expected_runners: number;
@@ -244,4 +272,5 @@ export const Admin = {
     }),
   deleteAnnouncement: (id: string) => api.delete(`/admin/announcements/${id}`),
   listLogs: (limit = 50) => api.get<{ logs: AdminLog[] }>(`/admin/logs?limit=${limit}`),
+  betaAccessUsage: () => api.get<BetaAccessUsageResponse>('/admin/beta-access/usage'),
 };

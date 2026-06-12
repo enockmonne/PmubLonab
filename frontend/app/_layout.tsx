@@ -15,10 +15,9 @@ import {
   Inter_900Black,
 } from "@expo-google-fonts/inter";
 import { usePushRegistration } from "../src/push";
+import BetaAccessGate from "../src/BetaAccessGate";
 
 export default function RootLayout() {
-  usePushRegistration();
-
   const [serifLoaded] = usePlayfair({
     PlayfairDisplay_400Regular_Italic,
     PlayfairDisplay_700Bold,
@@ -48,22 +47,32 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "#FAF9F6" },
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="resultats" />
-        <Stack.Screen name="search" />
-        <Stack.Screen name="compare" />
-        <Stack.Screen name="horse/[number]" />
-        <Stack.Screen name="race/[race_id]" />
-        <Stack.Screen name="horse-history/[name]" />
-      </Stack>
+      <BetaAccessGate>
+        <AppStack />
+      </BetaAccessGate>
     </>
+  );
+}
+
+function AppStack() {
+  usePushRegistration();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: "#FAF9F6" },
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="onboarding" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="resultats" />
+      <Stack.Screen name="search" />
+      <Stack.Screen name="compare" />
+      <Stack.Screen name="horse/[number]" />
+      <Stack.Screen name="race/[race_id]" />
+      <Stack.Screen name="horse-history/[name]" />
+    </Stack>
   );
 }

@@ -16,7 +16,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function getDeviceId() {
+export async function getDeviceId() {
   const existing = await AsyncStorage.getItem(DEVICE_ID_KEY);
   if (existing) return existing;
   const generated = `device-${Date.now()}-${Math.random().toString(16).slice(2)}`;
