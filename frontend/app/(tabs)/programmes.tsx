@@ -18,6 +18,11 @@ import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 import { haptics } from "../../src/haptics";
 import { readCache, writeCache } from "../../src/storageCache";
 import ArrestCountdown from "../../src/ArrestCountdown";
+import {
+  getSelectedProgrammeId,
+  setSelectedProgrammeId,
+  subscribeSelectedProgramme,
+} from "../../src/programmeSelection";
 
 // French locale
 LocaleConfig.locales["fr"] = {
@@ -96,6 +101,11 @@ export default function RaceScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  const chooseProgramme = useCallback((raceId: string | null) => {
+    setSelectedId(raceId);
+    setSelectedProgrammeId(raceId);
+  }, []);
+
   const markedDates = useMemo(() => {
     const m: Record<string, any> = {};
     programmes.forEach((p) => {
@@ -112,17 +122,38 @@ export default function RaceScreen() {
   }, [programmes, selectedId]);
   useEffect(() => {
     let mounted = true;
-    readCache<ProgrammesCache>(PROGRAMMES_CACHE_KEY).then((cached) => {
+    Promise.all([
+      readCache<ProgrammesCache>(PROGRAMMES_CACHE_KEY),
+      getSelectedProgrammeId(),
+    ]).then(([cached, sharedSelectedId]) => {
       if (!mounted || !cached) return;
-      setData(cached.data);
+      const nextSelectedId = sharedSelectedId || cached.selectedId || cached.data.race.id;
+      const cacheMatchesSelection =
+        !nextSelectedId ||
+        nextSelectedId === cached.selectedId ||
+        nextSelectedId === cached.data.race.id;
+      if (cacheMatchesSelection) {
+        setData(cached.data);
+        setLoading(false);
+      }
       setProgrammes(cached.programmes || []);
-      setSelectedId(cached.selectedId || cached.data.race.id);
-      setLoading(false);
+      setSelectedId(nextSelectedId);
     });
     return () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    return subscribeSelectedProgramme((raceId) => {
+      if (!raceId) return;
+      setSelectedId((current) => (current === raceId ? current : raceId));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) setSelectedProgrammeId(selectedId);
+  }, [selectedId]);
 
   // Load the list of all available programmes
   const loadProgrammes = useCallback(async () => {
@@ -133,13 +164,15 @@ export default function RaceScreen() {
       setProgrammes(list);
       const selectedStillExists = selectedId && list.some((p) => p.race_id === selectedId);
       if (!selectedStillExists) {
-        const current = list.find((p) => p.is_current) || list[0];
-        if (current) setSelectedId(current.race_id);
+        const sharedSelectedId = await getSelectedProgrammeId();
+        const shared = list.find((p) => p.race_id === sharedSelectedId);
+        const current = shared || list.find((p) => p.is_current) || list[0];
+        if (current) chooseProgramme(current.race_id);
       }
     } catch (e) {
       console.error(e);
     }
-  }, [selectedId]);
+  }, [chooseProgramme, selectedId]);
 
   // Load one programme's full data (by id)
   const loadRace = useCallback(async (raceId: string) => {
@@ -422,7 +455,7 @@ export default function RaceScreen() {
                 const programme = programmes.find((p) => p.date_iso === day.dateString);
                 if (programme) {
                   haptics.success();
-                  setSelectedId(programme.race_id);
+                  chooseProgramme(programme.race_id);
                   setCalendarOpen(false);
                 } else {
                   haptics.warning();
