@@ -1,32 +1,74 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { theme } from "./theme";
 
-/**
- * Live countdown to next « Arrêt des jeux ».
- * Schedule (post DST 29 Mars 2026):
- *  - Mon-Fri: 11:45
- *  - Sat-Sun: 13:05
- * If the time has passed today, show next slot.
- */
-function getNextArrestTime(now: Date): Date {
-  const day = now.getDay(); // 0 Sun .. 6 Sat
+type BettingInfo = {
+  arret_jeux_weekday?: string;
+  arret_jeux_weekend?: string;
+  arret_jeux_nocturne?: string;
+};
+
+type ArrestCountdownProps = {
+  variant?: "compact" | "full";
+  betting?: BettingInfo | null;
+  dateIso?: string | null;
+  eventType?: string | null;
+  meetingLabel?: string | null;
+};
+
+function parseArrestTime(value?: string): { hours: number; minutes: number } | null {
+  const text = (value || "").trim();
+  if (!text) return null;
+
+  const match = text.match(/(\d{1,2})\s*(?:h|:)\s*(\d{1,2})?/i);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours > 23 || minutes > 59) {
+    return null;
+  }
+
+  return { hours, minutes };
+}
+
+function buildLocalDate(dateIso?: string | null): Date {
+  const [year, month, day] = String(dateIso || "").slice(0, 10).split("-").map(Number);
+  if (year && month && day) {
+    return new Date(year, month - 1, day);
+  }
+
+  const today = new Date();
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
+function isSameCalendarDay(left: Date, right: Date): boolean {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function getArrestTarget({
+  betting,
+  dateIso,
+  eventType,
+  meetingLabel,
+}: Pick<ArrestCountdownProps, "betting" | "dateIso" | "eventType" | "meetingLabel">): Date {
+  const target = buildLocalDate(dateIso);
+  const day = target.getDay();
   const isWeekend = day === 0 || day === 6;
-  const target = new Date(now);
-  if (isWeekend) {
-    target.setHours(13, 5, 0, 0);
-  } else {
-    target.setHours(11, 45, 0, 0);
-  }
-  if (target.getTime() <= now.getTime()) {
-    // shift to next day
-    target.setDate(target.getDate() + 1);
-    const nextDay = target.getDay();
-    const nextIsWeekend = nextDay === 0 || nextDay === 6;
-    if (nextIsWeekend) target.setHours(13, 5, 0, 0);
-    else target.setHours(11, 45, 0, 0);
-  }
+  const isNocturne = `${eventType || ""} ${meetingLabel || ""}`.toLowerCase().includes("nocturne");
+  const rawTime =
+    (isNocturne && betting?.arret_jeux_nocturne) ||
+    (isWeekend ? betting?.arret_jeux_weekend : betting?.arret_jeux_weekday) ||
+    betting?.arret_jeux_weekday ||
+    betting?.arret_jeux_weekend ||
+    "11h 45mn";
+  const parsed = parseArrestTime(rawTime) || { hours: 11, minutes: 45 };
+  target.setHours(parsed.hours, parsed.minutes, 0, 0);
   return target;
 }
 
@@ -47,9 +89,11 @@ function formatRemaining(ms: number): string {
 
 export default function ArrestCountdown({
   variant = "compact",
-}: {
-  variant?: "compact" | "full";
-}) {
+  betting,
+  dateIso,
+  eventType,
+  meetingLabel,
+}: ArrestCountdownProps) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -57,49 +101,56 @@ export default function ArrestCountdown({
     return () => clearInterval(id);
   }, []);
 
-  const target = getNextArrestTime(now);
+  const target = useMemo(
+    () => getArrestTarget({ betting, dateIso, eventType, meetingLabel }),
+    [betting, dateIso, eventType, meetingLabel]
+  );
   const remaining = target.getTime() - now.getTime();
   const remainingStr = formatRemaining(remaining);
-
-  const isUrgent = remaining < 1000 * 60 * 30; // <30min
+  const hasEnded = remaining <= 0;
+  const isUrgent = remaining > 0 && remaining < 1000 * 60 * 30;
   const targetTime = target.toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
   });
   const day = target.getDay();
   const dayLabel = ["Dim.", "Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam."][day];
+  const dateLabel = target.toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const titleDate = isSameCalendarDay(target, now) ? `Aujourd'hui ${dateLabel}` : dateLabel;
 
   if (variant === "compact") {
     return (
-      <View style={[styles.compact, isUrgent && styles.compactUrgent]}>
+      <View style={[styles.compact, isUrgent && styles.compactUrgent, hasEnded && styles.ended]}>
         <Ionicons
-          name="time"
+          name={hasEnded ? "checkmark-circle-outline" : "time"}
           size={14}
           color={isUrgent ? "#fff" : theme.colors.gold}
         />
         <Text style={[styles.compactText, isUrgent && styles.compactTextUrgent]}>
-          Arrêt à {targetTime} • {remainingStr}
+          {hasEnded ? "Jeux terminés" : `Arrêt à ${targetTime} • ${remainingStr}`}
         </Text>
       </View>
     );
   }
 
   return (
-    <View style={[styles.full, isUrgent && styles.fullUrgent]}>
+    <View style={[styles.full, isUrgent && styles.fullUrgent, hasEnded && styles.ended]}>
       <View style={styles.fullHeader}>
         <Ionicons
-          name="alarm-outline"
+          name={hasEnded ? "checkmark-circle-outline" : "alarm-outline"}
           size={16}
           color={isUrgent ? "#fff" : theme.colors.gold}
         />
-        <Text
-          style={[styles.fullOverline, isUrgent && { color: "#fff" }]}
-        >
-          Arrêt des jeux
+        <Text style={[styles.fullOverline, isUrgent && { color: "#fff" }]}>
+          Arrêt des jeux · {titleDate}
         </Text>
       </View>
       <Text style={[styles.fullCountdown, isUrgent && { color: "#fff" }]}>
-        {remainingStr}
+        {hasEnded ? "Jeux terminés" : remainingStr}
       </Text>
       <Text style={[styles.fullSub, isUrgent && { color: "rgba(255,255,255,0.7)" }]}>
         {dayLabel} à {targetTime}
@@ -147,10 +198,15 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.accent,
     borderLeftColor: "#fff",
   },
+  ended: {
+    backgroundColor: theme.colors.surfaceAlt,
+    borderColor: theme.colors.border,
+  },
   fullHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
   fullOverline: {
+    flex: 1,
     fontSize: 11,
-    letterSpacing: 2,
+    letterSpacing: 1.6,
     color: theme.colors.gold,
     fontWeight: "800",
     textTransform: "uppercase",
@@ -161,12 +217,12 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     fontFamily: theme.fonts.serifBlack,
     color: theme.colors.textPrimary,
-    letterSpacing: -1,
     fontVariant: ["tabular-nums"],
   },
   fullSub: {
-    fontSize: 12,
+    fontSize: 13,
     color: theme.colors.textSecondary,
     marginTop: 2,
+    fontWeight: "700",
   },
 });

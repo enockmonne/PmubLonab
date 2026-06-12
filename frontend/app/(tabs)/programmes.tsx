@@ -17,6 +17,7 @@ import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 import { haptics } from "../../src/haptics";
 import { readCache, writeCache } from "../../src/storageCache";
+import ArrestCountdown from "../../src/ArrestCountdown";
 
 // French locale
 LocaleConfig.locales["fr"] = {
@@ -46,6 +47,7 @@ type RaceData = {
     race_type?: string;
     start_mode?: string;
     date: string;
+    date_iso?: string;
     location: string;
     discipline: string;
     distance_m: number;
@@ -154,6 +156,7 @@ export default function RaceScreen() {
           race_type: full.race_type || "",
           start_mode: full.start_mode || "",
           date: full.date_text,
+          date_iso: full.date_iso,
           location: full.location,
           discipline: full.discipline,
           distance_m: full.distance_m,
@@ -328,16 +331,13 @@ export default function RaceScreen() {
         {/* Betting info */}
         <View style={styles.section}>
           <Text style={styles.sectionOverline}>Arrêt des jeux</Text>
-          <View style={styles.infoCard}>
-            <Ionicons
-              name="time-outline"
-              size={20}
-              color={theme.colors.brand}
-            />
-            <Text style={styles.infoCardText}>
-              Dimanche — {betting.arret_jeux_weekend}
-            </Text>
-          </View>
+          <ArrestCountdown
+            variant="full"
+            betting={betting}
+            dateIso={race.date_iso}
+            eventType={race.event_type}
+            meetingLabel={meetingLabel}
+          />
           {/* Official information banner */}
           <View style={styles.infoBanner}>
             <View style={styles.infoBannerHeader}>
@@ -616,22 +616,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 6,
     lineHeight: 19,
-  },
-  infoCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    marginTop: 12,
-    gap: 10,
-  },
-  infoCardText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: theme.colors.textPrimary,
-    marginLeft: 10,
   },
   daylightNote: {
     fontSize: 12,
