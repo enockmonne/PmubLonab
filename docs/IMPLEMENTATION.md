@@ -1,6 +1,6 @@
 # Implementation Plan
 
-Last updated: 2026-06-03
+Last updated: 2026-06-12
 
 This is the living project control document for PmubLonab. Use it to track what is live, what is in progress, what should be done next, and which decisions have already been made.
 
@@ -56,14 +56,16 @@ This is the living project control document for PmubLonab. Use it to track what 
 
 ## Immediate Next Steps
 
-1. Continue small-batch LONAB ingestion in staging, importing both programme PDFs and result/gain PDFs.
-2. Normalize duplicate pronostic/source names so variants such as casing, accents, and apostrophes roll up cleanly in Stats.
-3. Improve Results detail UX so official arrivals and payout groups are easier to scan.
-4. Improve Admin import UX with filters for imported/skipped/error files and a retry action for failed PDFs.
-5. Add admin manual correction tools for programme/result links and extracted race metadata.
-6. Continue Race Intelligence/Stats value work: horse leaderboards, source accuracy explanations, and clearer limited-data states.
-7. Run a focused UI consistency and polish pass across the main app screens.
-8. Keep updating docs and handoff notes before switching computers or opening a long new implementation thread.
+1. Treat performance/connectivity as a must-have testing gate before inviting outside users.
+2. Define paid-access requirements before public testing so testers do not assume the product will be free.
+3. Continue small-batch LONAB ingestion in staging, importing both programme PDFs and result/gain PDFs.
+4. Normalize duplicate pronostic/source names so variants such as casing, accents, and apostrophes roll up cleanly in Stats.
+5. Improve Results detail UX so official arrivals and payout groups are easier to scan.
+6. Improve Admin import UX with filters for imported/skipped/error files and a retry action for failed PDFs.
+7. Add admin manual correction tools for programme/result links and extracted race metadata.
+8. Continue Race Intelligence/Stats value work: horse leaderboards, source accuracy explanations, and clearer limited-data states.
+9. Run a focused UI consistency and polish pass across the main app screens.
+10. Keep updating docs and handoff notes before switching computers or opening a long new implementation thread.
 
 ## Documentation Roadmap
 
@@ -80,6 +82,85 @@ Formal `docs/` package:
 - `LAUNCH_READINESS.md`
 
 ## Product Roadmap
+
+### Performance + Monetization Plan
+
+Goal: make the app feel dependable on mobile networks in Burkina Faso and establish paid access before broader user testing.
+
+Principles:
+
+- Basic programme/raw PDF-style data is not free. It can be low-cost, but access should still require payment or a controlled trial code.
+- Do not rewrite the backend until measurements show the current stack cannot meet the target experience.
+- Optimize perceived speed first: cached data, fewer startup requests, partial loading, and clear offline states.
+- Treat Burkina Faso mobile-network conditions as the target, not high-speed Wi-Fi.
+- Keep payment and entitlement logic on the backend, never only in the frontend.
+
+Must have before external user testing:
+
+- API must be always-on for staging or production-like testing; avoid free-instance cold starts for tester feedback.
+- App must show cached last-known programme/results immediately when available, then refresh in the background.
+- App must avoid full-screen blocking spinners after the first load where cached or partial data exists.
+- Add request timeout/error states with French copy such as "Connexion lente" and "Reessayer".
+- Add simple API timing logs for key endpoints:
+  - app bootstrap/current programme
+  - programme list
+  - selected programme detail
+  - partants/horses
+  - results
+  - stats
+- Define a tester access model:
+  - paid test pass, invite code, or manually granted entitlement
+  - expiry date
+  - ability to revoke access
+- Add a staging QA checklist for slow network testing:
+  - first open
+  - returning open with cached data
+  - switching tabs
+  - selecting another programme date
+  - opening results and horse detail
+
+Must have before paid production launch:
+
+- Production API on an always-on paid host.
+- Production database and backups configured.
+- Basic uptime/error monitoring.
+- Entitlement model:
+  - user/device/account identity
+  - plan type
+  - valid_until
+  - payment provider transaction id
+  - manual admin override
+- Access enforcement on backend endpoints that expose paid content.
+- Admin view to search a user/customer and grant, extend, revoke, or inspect access.
+- Payment provider selected for Burkina Faso mobile money coverage.
+- Payment webhook endpoint with idempotency, signature verification where provider supports it, and audit logs.
+- Clear French payment/access states:
+  - "Acces actif"
+  - "Abonnement expire"
+  - "Paiement en attente"
+  - "Renouveler"
+
+Recommended payment packaging:
+
+- No permanent free tier for programme access.
+- Low-cost day/programme pass only if operationally simple.
+- Weekly pass as the primary entry offer.
+- Monthly pass for serious repeat users.
+- Premium analytics tier later for deeper historical stats, alerts, and advanced filters.
+
+Payment integration direction:
+
+- Prefer a payment aggregator first if it supports Burkina Faso Orange Money and Moov Money reliably.
+- Avoid direct mobile-operator integrations unless aggregator coverage, settlement, or fees are unacceptable.
+- Keep payment checkout web-based initially so it can support PWA and mobile web users.
+- If native app-store distribution becomes primary, review Apple/Google digital-goods rules before selling in-app subscriptions.
+
+Hosting decision path:
+
+- Step 1: keep Render for staging, but use an always-on paid API instance for meaningful testing.
+- Step 2: measure real latency from tester sessions and backend logs.
+- Step 3: compare Render Frankfurt, Fly.io Johannesburg/Europe, VPS Europe, and AWS/Azure only after measurement.
+- Step 4: move only if data shows hosting location or cold starts are the main issue after app caching and request reduction.
 
 ### Core App Quality
 
@@ -159,6 +240,8 @@ Phase 5: Premium Analytics Later
   - show cached data immediately on app open
   - refresh data in the background
   - replace full-screen spinners with skeleton/partial loading states where useful
+  - add slow-connection and retry states in French
+  - make tab switches resilient when one endpoint is delayed
 - Improve Results detail UX:
   - "Arrivee officielle"
   - "Rapports principaux"
@@ -201,6 +284,11 @@ Phase 5: Premium Analytics Later
   - include current programme summary/detail
   - include counts/status needed by home screen
   - reduce sequential frontend requests on startup
+- Add basic performance instrumentation:
+  - endpoint duration
+  - status code
+  - cache hit/miss where applicable
+  - slow request warnings
 - Include current programme betting/cutoff data in bootstrap/home payloads so the home countdown can use the same "Arret des jeux" timing extracted from the PDF.
 - Add backend caching/precomputation for expensive data:
   - stats
@@ -233,6 +321,30 @@ Phase 5: Premium Analytics Later
   - separate deterministic/OCR extraction from LLM normalization where practical
   - clearer admin-facing parsing errors
   - preserve provider, quota, and retry details in admin parse feedback
+
+## Monetization To Do
+
+- Define the first paid plans:
+  - programme/day pass
+  - weekly pass
+  - monthly pass
+- Decide whether tester access is paid, invite-code based, or manually granted with expiry.
+- Add backend entitlement records and access checks.
+- Add admin entitlement management.
+- Research and select Burkina Faso payment provider/aggregator:
+  - Orange Money support
+  - Moov Money support
+  - webhook reliability
+  - settlement currency and fees
+  - documentation quality
+  - sandbox/test mode
+- Add payment lifecycle:
+  - initialize payment
+  - redirect/checkout instructions
+  - webhook confirmation
+  - entitlement activation
+  - retry/failed payment handling
+- Add French payment UX copy and support states.
 
 ### Robustness Improvement Plan
 
