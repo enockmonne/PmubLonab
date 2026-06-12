@@ -24,6 +24,8 @@ class TestRace:
         assert "resultats" in data["counts"]
         assert data["current_race"]["race_id"]
         assert data["current_race"]["name"]
+        assert "betting" in data["current_race"]
+        assert "arret_jeux_weekday" in data["current_race"]["betting"]
 
     def test_get_race(self, api):
         r = api.get(f"{BASE_URL}/api/race", timeout=30)

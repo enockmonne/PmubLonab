@@ -30,6 +30,13 @@ type HomeBootstrap = {
     date_text?: string;
     date_iso?: string;
     location?: string;
+    event_type?: string;
+    meeting_label?: string;
+    betting?: {
+      arret_jeux_weekday?: string;
+      arret_jeux_weekend?: string;
+      arret_jeux_nocturne?: string;
+    };
   } | null;
 };
 
@@ -44,6 +51,7 @@ export default function Landing() {
   const [loading, setLoading] = useState(true);
   const [redirecting, setRedirecting] = useState(true);
   const [networkNotice, setNetworkNotice] = useState<string | null>(null);
+  const [currentRace, setCurrentRace] = useState<HomeBootstrap["current_race"]>(null);
 
   // Check if user has seen onboarding
   useEffect(() => {
@@ -65,6 +73,7 @@ export default function Landing() {
       const cached = await readCache<HomeBootstrap>(HOME_BOOTSTRAP_CACHE_KEY);
       if (mounted && cached?.counts) {
         setCounts(cached.counts);
+        setCurrentRace(cached.current_race || null);
         setLoading(false);
         setNetworkNotice("Donnees recentes affichees");
       }
@@ -77,6 +86,7 @@ export default function Landing() {
         }).then((r) => r.json());
         if (!mounted) return;
         setCounts(bootstrap.counts || { programmes: 0, resultats: 0, total: 0 });
+        setCurrentRace(bootstrap.current_race || null);
         setNetworkNotice(null);
         writeCache(HOME_BOOTSTRAP_CACHE_KEY, bootstrap);
       } catch (e) {
@@ -118,7 +128,13 @@ export default function Landing() {
 
         {/* Live countdown */}
         <View style={{ paddingHorizontal: 20, marginTop: 4, marginBottom: 4 }}>
-          <ArrestCountdown variant="full" />
+          <ArrestCountdown
+            variant="full"
+            betting={currentRace?.betting}
+            dateIso={currentRace?.date_iso}
+            eventType={currentRace?.event_type}
+            meetingLabel={currentRace?.meeting_label || currentRace?.location}
+          />
         </View>
 
         {/* Announcement banner */}
@@ -152,7 +168,7 @@ export default function Landing() {
                   ) : (
                     <Text style={styles.cardStatNum}>{counts?.programmes ?? 0}</Text>
                   )}
-                  <Text style={styles.cardStatLabel}>à venir</Text>
+                  <Text style={styles.cardStatLabel}>Disponible</Text>
                 </View>
               </View>
               <View>
@@ -258,14 +274,14 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   tagline: {
-    fontSize: 12,
+    fontSize: 14,
     color: theme.colors.textSecondary,
     textAlign: "center",
     fontStyle: "italic",
   },
   cards: { paddingHorizontal: 16, gap: 14, marginTop: 8 },
   card: {
-    height: 220,
+    minHeight: 236,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -305,7 +321,7 @@ const styles = StyleSheet.create({
   },
   cardStatLabel: {
     color: "rgba(255,255,255,0.7)",
-    fontSize: 10,
+    fontSize: 11,
     letterSpacing: 2,
     textTransform: "uppercase",
     fontWeight: "700",
@@ -327,22 +343,28 @@ const styles = StyleSheet.create({
     lineHeight: 42,
   },
   cardSub: {
-    color: "rgba(255,255,255,0.78)",
-    fontSize: 12,
+    color: "rgba(255,255,255,0.86)",
+    fontSize: 14,
     marginTop: 6,
-    lineHeight: 17,
+    lineHeight: 20,
     maxWidth: 300,
   },
   ctaRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginTop: 12,
+    alignSelf: "flex-start",
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.75)",
+    backgroundColor: "rgba(255,255,255,0.16)",
   },
   ctaText: {
     color: "#fff",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "900",
     letterSpacing: 2,
     textTransform: "uppercase",
   },
@@ -366,7 +388,7 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     color: theme.colors.textSecondary,
   },
@@ -382,7 +404,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
   },
   secBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
     color: theme.colors.textPrimary,
     letterSpacing: 0.5,
@@ -390,7 +412,7 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: "center",
     color: theme.colors.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 24,
     letterSpacing: 1,
   },

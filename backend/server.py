@@ -1021,6 +1021,7 @@ async def get_app_bootstrap():
             "location": current.get("location"),
             "runners": current.get("runners"),
             "doc_type": current.get("doc_type", "programme"),
+            "betting": normalize_betting(current.get("betting") or {}),
         }
     return {
         "counts": {
