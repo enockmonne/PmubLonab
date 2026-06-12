@@ -4,6 +4,7 @@ import uuid
 import asyncio
 import hashlib
 import logging
+import time
 import unicodedata
 from html import unescape
 from datetime import datetime, timezone
@@ -50,6 +51,24 @@ api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+
+@app.middleware("http")
+async def log_api_timing(request: Request, call_next):
+    started = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = round((time.perf_counter() - started) * 1000, 1)
+    if request.url.path.startswith("/api/"):
+        log = logger.warning if elapsed_ms >= 1500 else logger.info
+        log(
+            "api_request path=%s method=%s status=%s duration_ms=%s",
+            request.url.path,
+            request.method,
+            response.status_code,
+            elapsed_ms,
+        )
+        response.headers["X-Response-Time-Ms"] = str(elapsed_ms)
+    return response
 
 
 def _cors_origins() -> List[str]:
