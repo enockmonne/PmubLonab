@@ -20,6 +20,11 @@ import { theme, API_URL } from "../../src/theme";
 import HorseLoader from "../../src/HorseLoader";
 import { haptics } from "../../src/haptics";
 import { readCache, writeCache } from "../../src/storageCache";
+import {
+  getSelectedProgrammeId,
+  setSelectedProgrammeId,
+  subscribeSelectedProgramme,
+} from "../../src/programmeSelection";
 
 LocaleConfig.locales["fr"] = {
   monthNames: [
@@ -109,6 +114,11 @@ export default function PronosticsScreen() {
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
 
+  const chooseProgramme = useCallback((raceId: string | null) => {
+    setSelectedId(raceId);
+    setSelectedProgrammeId(raceId);
+  }, []);
+
   const markedDates = useMemo(() => {
     const m: Record<string, any> = {};
     programmes.forEach((p) => {
@@ -125,19 +135,37 @@ export default function PronosticsScreen() {
 
   useEffect(() => {
     let mounted = true;
-    readCache<PronosticsCache>(PRONOSTICS_CACHE_KEY).then((cached) => {
+    Promise.all([
+      readCache<PronosticsCache>(PRONOSTICS_CACHE_KEY),
+      getSelectedProgrammeId(),
+    ]).then(([cached, sharedSelectedId]) => {
       if (!mounted || !cached?.data) return;
-      setData(cached.data);
-      setHorses(cached.horses || []);
+      const nextSelectedId = sharedSelectedId || cached.selectedId || null;
+      const cacheMatchesSelection = !nextSelectedId || nextSelectedId === cached.selectedId;
+      if (cacheMatchesSelection) {
+        setData(cached.data);
+        setHorses(cached.horses || []);
+        setSelectedRace(cached.selectedRace || null);
+        setLoading(false);
+      }
       setProgrammes(cached.programmes || []);
-      setSelectedId(cached.selectedId || null);
-      setSelectedRace(cached.selectedRace || null);
-      setLoading(false);
+      setSelectedId(nextSelectedId);
     });
     return () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    return subscribeSelectedProgramme((raceId) => {
+      if (!raceId) return;
+      setSelectedId((current) => (current === raceId ? current : raceId));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) setSelectedProgrammeId(selectedId);
+  }, [selectedId]);
 
   const loadProgrammes = useCallback(async () => {
     try {
@@ -147,8 +175,12 @@ export default function PronosticsScreen() {
       setProgrammes(list);
       const selectedStillExists = selectedId && list.some((p) => p.race_id === selectedId);
       if (!selectedStillExists) {
-        const current = list.find((p) => p.is_current) || list[0];
-        setSelectedId(current?.race_id || null);
+        const sharedSelectedId = await getSelectedProgrammeId();
+        const current =
+          list.find((p) => p.race_id === sharedSelectedId) ||
+          list.find((p) => p.is_current) ||
+          list[0];
+        chooseProgramme(current?.race_id || null);
       }
       if (list.length === 0) {
         setLoading(false);
@@ -159,7 +191,7 @@ export default function PronosticsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedId]);
+  }, [chooseProgramme, selectedId]);
 
   const loadRace = useCallback(async (raceId: string) => {
     try {
@@ -715,7 +747,7 @@ export default function PronosticsScreen() {
                 const programme = programmes.find((p) => p.date_iso === day.dateString);
                 if (programme) {
                   haptics.success();
-                  setSelectedId(programme.race_id);
+                  chooseProgramme(programme.race_id);
                   setCalendarOpen(false);
                 } else {
                   haptics.warning();

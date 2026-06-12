@@ -17,6 +17,11 @@ import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, formatFCFA } from "../../src/theme";
 import { haptics } from "../../src/haptics";
 import { HorseListSkeleton } from "../../src/Skeleton";
+import {
+  getSelectedProgrammeId,
+  setSelectedProgrammeId,
+  subscribeSelectedProgramme,
+} from "../../src/programmeSelection";
 
 LocaleConfig.locales["fr"] = LocaleConfig.locales["fr"] || {
   monthNames: [
@@ -69,6 +74,11 @@ export default function PartantsScreen() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const router = useRouter();
 
+  const chooseProgramme = useCallback((raceId: string | null) => {
+    setSelectedId(raceId);
+    setSelectedProgrammeId(raceId);
+  }, []);
+
   const selectedProgramme = programmes.find((p) => p.race_id === selectedId);
   const markedDates = useMemo(() => {
     const m: Record<string, any> = {};
@@ -113,9 +123,13 @@ export default function PartantsScreen() {
       try {
         const list = await loadProgrammes();
         if (cancelled) return;
-        const initial = list.find((p) => p.is_current) || list[0];
+        const sharedSelectedId = await getSelectedProgrammeId();
+        const initial =
+          list.find((p) => p.race_id === sharedSelectedId) ||
+          list.find((p) => p.is_current) ||
+          list[0];
         if (initial) {
-          setSelectedId(initial.race_id);
+          chooseProgramme(initial.race_id);
         } else {
           await load(null);
         }
@@ -127,7 +141,18 @@ export default function PartantsScreen() {
     return () => {
       cancelled = true;
     };
-  }, [load, loadProgrammes]);
+  }, [chooseProgramme, load, loadProgrammes]);
+
+  useEffect(() => {
+    return subscribeSelectedProgramme((raceId) => {
+      if (!raceId) return;
+      setSelectedId((current) => (current === raceId ? current : raceId));
+    });
+  }, []);
+
+  useEffect(() => {
+    if (selectedId) setSelectedProgrammeId(selectedId);
+  }, [selectedId]);
 
   useEffect(() => {
     if (selectedId) {
@@ -257,7 +282,7 @@ export default function PartantsScreen() {
               refreshing={refreshing}
               onRefresh={() => {
                 setRefreshing(true);
-                load();
+                load(selectedId);
               }}
               tintColor={theme.colors.brand}
             />
@@ -402,7 +427,7 @@ export default function PartantsScreen() {
                 const programme = programmes.find((p) => p.date_iso === day.dateString);
                 if (programme) {
                   haptics.success();
-                  setSelectedId(programme.race_id);
+                  chooseProgramme(programme.race_id);
                   setCalendarOpen(false);
                 } else {
                   haptics.warning();
