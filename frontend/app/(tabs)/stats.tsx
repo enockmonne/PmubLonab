@@ -17,6 +17,7 @@ import { buildMediaInsight, type MediaInsightData } from "../../src/mediaInsight
 
 type Tipster = {
   source: string;
+  aliases?: string[];
   evaluated_races: number;
   top_pick_wins: number;
   top_pick_top3: number;
@@ -35,6 +36,13 @@ type Person = {
 };
 
 type StatsTab = "summary" | "sources" | "people";
+type StatsExcluded = { no_predictions: number; no_official_results: number };
+type SourceNormalization = { source: string; aliases: string[] };
+type StatsMethodology = {
+  source_metric?: string;
+  result_priority?: string;
+  exclusion_rule?: string;
+};
 
 export default function StatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
@@ -44,6 +52,12 @@ export default function StatsScreen() {
   const [currentMedia, setCurrentMedia] = useState<MediaInsightData | null>(null);
   const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
   const [evaluatedRaces, setEvaluatedRaces] = useState(0);
+  const [excluded, setExcluded] = useState<StatsExcluded>({
+    no_predictions: 0,
+    no_official_results: 0,
+  });
+  const [sourceNormalization, setSourceNormalization] = useState<SourceNormalization[]>([]);
+  const [methodology, setMethodology] = useState<StatsMethodology | null>(null);
   const [statsTab, setStatsTab] = useState<StatsTab>("summary");
   const [peopleTab, setPeopleTab] = useState<"jockeys" | "trainers">("jockeys");
   const [loading, setLoading] = useState(true);
@@ -62,6 +76,9 @@ export default function StatsScreen() {
       setLeaderboard(tip.leaderboard || []);
       setLinkedResultsUsed(tip.linked_results_used || 0);
       setEvaluatedRaces(tip.evaluated_races || 0);
+      setExcluded(tip.excluded || { no_predictions: 0, no_official_results: 0 });
+      setSourceNormalization(tip.source_normalization || []);
+      setMethodology(tip.methodology || null);
       setJockeys(ppl.jockeys || []);
       setTrainers(ppl.trainers || []);
       setCurrentRace(
@@ -106,6 +123,8 @@ export default function StatsScreen() {
   const mediaInsight = currentMedia ? buildMediaInsight(currentMedia) : null;
   const visibleLeaderboard = leaderboard.slice(0, 5);
   const visiblePeople = activePeople.slice(0, 5);
+  const mergedSourceCount = sourceNormalization.length;
+  const excludedTotal = excluded.no_predictions + excluded.no_official_results;
   const topConsensus = (currentMedia?.consensus || [])
     .filter((entry) => entry.score > 0)
     .slice(0, 3);
@@ -305,6 +324,44 @@ export default function StatsScreen() {
                 value={`${evaluatedRaces}`}
               />
             </View>
+            <View style={styles.contextRow}>
+              <ContextPill
+                icon="git-merge-outline"
+                label="Sources fusionnees"
+                value={`${mergedSourceCount}`}
+              />
+              <ContextPill
+                icon="filter-outline"
+                label="Courses exclues"
+                value={`${excludedTotal}`}
+              />
+            </View>
+
+            <View style={styles.methodCard} testID="stats-methodology">
+              <Text style={styles.methodTitle}>Comment lire ce classement</Text>
+              <Text style={styles.methodText}>
+                {methodology?.source_metric ||
+                  "Le classement mesure le numero 1 de chaque source face aux resultats officiels."}
+              </Text>
+              <Text style={styles.methodText}>
+                {methodology?.result_priority ||
+                  "Les resultats officiels lies sont utilises en priorite."}
+              </Text>
+              <Text style={styles.methodMuted}>
+                Exclusions: {excluded.no_predictions} sans pronostics,{" "}
+                {excluded.no_official_results} sans resultat officiel exploitable.
+              </Text>
+              {sourceNormalization.length > 0 && (
+                <View style={styles.aliasList}>
+                  <Text style={styles.aliasTitle}>Noms de sources regroupes</Text>
+                  {sourceNormalization.slice(0, 3).map((item) => (
+                    <Text key={item.source} style={styles.aliasText} numberOfLines={2}>
+                      {item.source}: {item.aliases.join(", ")}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </View>
 
             {bestTipster && (
               <View style={styles.focusCard}>
@@ -341,7 +398,7 @@ export default function StatsScreen() {
                     title={t.source}
                     meta={`${t.top_pick_wins} vict. - ${t.evaluated_races} course${
                       t.evaluated_races > 1 ? "s" : ""
-                    }`}
+                    }${t.aliases?.length ? " - variantes regroupees" : ""}`}
                     score={`${t.top3_rate}%`}
                     scoreLabel="top 3"
                     progress={t.top3_rate}
@@ -837,6 +894,53 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     lineHeight: 17,
     marginTop: 2,
+  },
+  methodCard: {
+    marginTop: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  methodTitle: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  methodText: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    lineHeight: 17,
+    marginTop: 3,
+  },
+  methodMuted: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    lineHeight: 16,
+    marginTop: 8,
+    fontWeight: "700",
+  },
+  aliasList: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  aliasTitle: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: theme.colors.gold,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  aliasText: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    lineHeight: 16,
   },
   sectionHeaderRow: {
     flexDirection: "row",

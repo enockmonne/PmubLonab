@@ -1181,16 +1181,20 @@ async def tipsters_leaderboard():
     """Leaderboard: how often each source's #1 pick finished in top 3."""
     all_races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
     races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
-    agg: Dict[str, Dict[str, int]] = {}
+    agg: Dict[str, Dict[str, Any]] = {}
     linked_results_used = 0
     evaluated_race_ids: set[str] = set()
+    excluded = {"no_predictions": 0, "no_official_results": 0}
     for r in all_races:
         predictions = r.get("predictions", []) or []
         if not predictions:
+            if r.get("doc_type", "programme") == "programme":
+                excluded["no_predictions"] += 1
             continue
         result_context = official_results_for_race(r, races_by_id)
         order = (result_context["results"] or {}).get("finishing_order", []) or []
         if not order:
+            excluded["no_official_results"] += 1
             continue
         if result_context["source"] == "linked_result":
             linked_results_used += 1
@@ -1211,8 +1215,10 @@ async def tipsters_leaderboard():
                     "top_pick_wins": 0,
                     "top_pick_top3": 0,
                     "base_in_top3": 0,
+                    "raw_sources": set(),
                 },
             )
+            entry["raw_sources"].add((raw_src or "").strip())
             entry["evaluated"] += 1
             if picks[0] == winner:
                 entry["top_pick_wins"] += 1
@@ -1221,10 +1227,13 @@ async def tipsters_leaderboard():
             if any(p in top3 for p in picks[:3]):
                 entry["base_in_top3"] += 1
     leaderboard = []
+    source_normalization = []
     for v in agg.values():
         ev = v["evaluated"] or 1
+        aliases = sorted(s for s in v.get("raw_sources", set()) if s and s != v["source"])
         leaderboard.append({
             "source": v["source"],
+            "aliases": aliases,
             "evaluated_races": v["evaluated"],
             "top_pick_wins": v["top_pick_wins"],
             "top_pick_top3": v["top_pick_top3"],
@@ -1232,11 +1241,21 @@ async def tipsters_leaderboard():
             "win_rate": round((v["top_pick_wins"] / ev) * 100, 1),
             "top3_rate": round((v["top_pick_top3"] / ev) * 100, 1),
         })
+        if aliases:
+            source_normalization.append({"source": v["source"], "aliases": aliases})
     leaderboard.sort(key=lambda x: (-x["top3_rate"], -x["win_rate"]))
+    source_normalization.sort(key=lambda x: x["source"])
     return {
         "leaderboard": leaderboard,
         "evaluated_races": len([race_id for race_id in evaluated_race_ids if race_id]),
         "linked_results_used": linked_results_used,
+        "excluded": excluded,
+        "source_normalization": source_normalization,
+        "methodology": {
+            "source_metric": "Le classement mesure le numero 1 de chaque source et verifie s'il termine gagnant ou dans le top 3 officiel.",
+            "result_priority": "Les resultats officiels lies sont utilises en priorite; les resultats integres au programme servent seulement de repli.",
+            "exclusion_rule": "Une course est exclue si elle n'a pas de pronostics ou aucun resultat officiel exploitable.",
+        },
     }
 
 
