@@ -17,6 +17,7 @@ import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 import { haptics } from "../../src/haptics";
 import { readCache, writeCache } from "../../src/storageCache";
+import { fetchJson } from "../../src/apiClient";
 import ArrestCountdown from "../../src/ArrestCountdown";
 import {
   getSelectedProgrammeId,
@@ -158,8 +159,9 @@ export default function RaceScreen() {
   // Load the list of all available programmes
   const loadProgrammes = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/races?doc_type=programme&limit=100`);
-      const j = await r.json();
+      const j = await fetchJson<{ races?: ProgrammeSummary[] }>(
+        `${API_URL}/api/races?doc_type=programme&limit=100`,
+      );
       const list: ProgrammeSummary[] = j.races || [];
       setProgrammes(list);
       const selectedStillExists = selectedId && list.some((p) => p.race_id === selectedId);
@@ -177,8 +179,7 @@ export default function RaceScreen() {
   // Load one programme's full data (by id)
   const loadRace = useCallback(async (raceId: string) => {
     try {
-      const r = await fetch(`${API_URL}/api/races/${raceId}`);
-      const full = await r.json();
+      const full = await fetchJson<any>(`${API_URL}/api/races/${raceId}`);
       const adapted: RaceData = {
         race: {
           id: full.race_id,

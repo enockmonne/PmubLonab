@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, formatFCFA } from "../../src/theme";
 import { haptics } from "../../src/haptics";
 import { HorseListSkeleton } from "../../src/Skeleton";
+import { fetchJson } from "../../src/apiClient";
+import { readCache, writeCache } from "../../src/storageCache";
 import {
   getSelectedProgrammeId,
   setSelectedProgrammeId,
@@ -61,6 +63,14 @@ type ProgrammeSummary = {
   is_current: boolean;
 };
 
+type PartantsCache = {
+  horses: Horse[];
+  programmes: ProgrammeSummary[];
+  selectedId: string | null;
+};
+
+const PARTANTS_CACHE_KEY = "pmub.partants.v1";
+
 export default function PartantsScreen() {
   const [horses, setHorses] = useState<Horse[]>([]);
   const [programmes, setProgrammes] = useState<ProgrammeSummary[]>([]);
@@ -72,6 +82,8 @@ export default function PartantsScreen() {
   const [compareMode, setCompareMode] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [networkNotice, setNetworkNotice] = useState<string | null>(null);
+  const hasHorsesRef = useRef(false);
   const router = useRouter();
 
   const chooseProgramme = useCallback((raceId: string | null) => {
@@ -96,8 +108,9 @@ export default function PartantsScreen() {
   }, [programmes, selectedId]);
 
   const loadProgrammes = useCallback(async () => {
-    const r = await fetch(`${API_URL}/api/races?doc_type=programme&limit=100`);
-    const j = await r.json();
+    const j = await fetchJson<{ races?: ProgrammeSummary[] }>(
+      `${API_URL}/api/races?doc_type=programme&limit=100`,
+    );
     const list: ProgrammeSummary[] = j.races || [];
     setProgrammes(list);
     return list;
@@ -106,11 +119,16 @@ export default function PartantsScreen() {
   const load = useCallback(async (raceId?: string | null) => {
     try {
       const qs = raceId ? `?race_id=${encodeURIComponent(raceId)}` : "";
-      const r = await fetch(`${API_URL}/api/horses${qs}`);
-      const j = await r.json();
+      const j = await fetchJson<{ horses?: Horse[] }>(`${API_URL}/api/horses${qs}`);
       setHorses(j.horses || []);
+      setNetworkNotice(null);
     } catch (e) {
       console.error(e);
+      setNetworkNotice(
+        hasHorsesRef.current
+          ? "Connexion lente - donnees recentes affichees"
+          : "Connexion lente - reessayez dans un instant"
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -118,12 +136,33 @@ export default function PartantsScreen() {
   }, []);
 
   useEffect(() => {
+    hasHorsesRef.current = horses.length > 0;
+  }, [horses.length]);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        const [cached, sharedSelectedId] = await Promise.all([
+          readCache<PartantsCache>(PARTANTS_CACHE_KEY),
+          getSelectedProgrammeId(),
+        ]);
+        if (!cancelled && cached) {
+          const nextSelectedId = sharedSelectedId || cached.selectedId || null;
+          const cacheMatchesSelection =
+            !nextSelectedId || nextSelectedId === cached.selectedId;
+          setProgrammes(cached.programmes || []);
+          setSelectedId(nextSelectedId);
+          if (cacheMatchesSelection) {
+            setHorses(cached.horses || []);
+            setLoading(false);
+            if ((cached.horses || []).length > 0) {
+              setNetworkNotice("Donnees recentes affichees");
+            }
+          }
+        }
         const list = await loadProgrammes();
         if (cancelled) return;
-        const sharedSelectedId = await getSelectedProgrammeId();
         const initial =
           list.find((p) => p.race_id === sharedSelectedId) ||
           list.find((p) => p.is_current) ||
@@ -135,6 +174,11 @@ export default function PartantsScreen() {
         }
       } catch (e) {
         console.error(e);
+        setNetworkNotice(
+          hasHorsesRef.current
+            ? "Connexion lente - donnees recentes affichees"
+            : "Connexion lente - reessayez dans un instant"
+        );
         setLoading(false);
       }
     })();
@@ -160,6 +204,15 @@ export default function PartantsScreen() {
       load(selectedId);
     }
   }, [load, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId || horses.length === 0) return;
+    writeCache(PARTANTS_CACHE_KEY, {
+      horses,
+      programmes,
+      selectedId,
+    });
+  }, [horses, programmes, selectedId]);
 
   const filtered = horses
     .filter(
@@ -218,6 +271,13 @@ export default function PartantsScreen() {
             placeholderTextColor={theme.colors.textSecondary}
           />
         </View>
+
+        {networkNotice && (
+          <View style={styles.notice} testID="partants-network-notice">
+            <Ionicons name="cloud-offline-outline" size={14} color={theme.colors.gold} />
+            <Text style={styles.noticeText}>{networkNotice}</Text>
+          </View>
+        )}
 
         <View style={styles.actionsRow}>
           <TouchableOpacity
@@ -560,6 +620,23 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     marginTop: 10,
+  },
+  notice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.bg,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
   },
   detailsBtn: {
     flex: 1,
