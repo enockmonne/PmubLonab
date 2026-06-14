@@ -15,6 +15,7 @@ import { theme, API_URL } from "../../src/theme";
 import { buildRaceInsight, type RaceInsightData } from "../../src/raceInsight";
 import { buildMediaInsight, type MediaInsightData } from "../../src/mediaInsight";
 import { readCache, writeCache } from "../../src/storageCache";
+import { fetchJson } from "../../src/apiClient";
 
 type Tipster = {
   source: string;
@@ -99,16 +100,12 @@ export default function StatsScreen() {
 
   const load = useCallback(async () => {
     try {
-      const [tip, ppl, horseStats] = await Promise.all([
-        fetch(`${API_URL}/api/stats/tipsters`).then((r) => r.json()),
-        fetch(`${API_URL}/api/stats/people`).then((r) => r.json()),
-        fetch(`${API_URL}/api/stats/horses`)
-          .then((r) => (r.ok ? r.json() : null))
-          .catch(() => null),
+      const [tip, ppl, horseStats, current] = await Promise.all([
+        fetchJson<any>(`${API_URL}/api/stats/tipsters`),
+        fetchJson<any>(`${API_URL}/api/stats/people`),
+        fetchJson<any>(`${API_URL}/api/stats/horses`).catch(() => null),
+        fetchJson<any>(`${API_URL}/api/races/current`).catch(() => null),
       ]);
-      const current = await fetch(`${API_URL}/api/races/current`)
-        .then((r) => (r.ok ? r.json() : null))
-        .catch(() => null);
       const nextCache: StatsCache = {
         leaderboard: tip.leaderboard || [],
         horseLeaders: horseStats?.leaderboard || [],

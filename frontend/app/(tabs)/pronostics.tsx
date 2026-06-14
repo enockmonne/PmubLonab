@@ -20,6 +20,7 @@ import { theme, API_URL } from "../../src/theme";
 import HorseLoader from "../../src/HorseLoader";
 import { haptics } from "../../src/haptics";
 import { readCache, writeCache } from "../../src/storageCache";
+import { fetchJson } from "../../src/apiClient";
 import {
   getSelectedProgrammeId,
   setSelectedProgrammeId,
@@ -169,8 +170,9 @@ export default function PronosticsScreen() {
 
   const loadProgrammes = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/races?doc_type=programme&limit=100`);
-      const json = await res.json();
+      const json = await fetchJson<{ races?: ProgrammeSummary[] }>(
+        `${API_URL}/api/races?doc_type=programme&limit=100`,
+      );
       const list: ProgrammeSummary[] = json.races || [];
       setProgrammes(list);
       const selectedStillExists = selectedId && list.some((p) => p.race_id === selectedId);
@@ -195,8 +197,7 @@ export default function PronosticsScreen() {
 
   const loadRace = useCallback(async (raceId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/races/${raceId}`);
-      const race = await res.json();
+      const race = await fetchJson<any>(`${API_URL}/api/races/${raceId}`);
       const nextData = {
         experts: race.predictions || [],
         odds: race.odds || [],
