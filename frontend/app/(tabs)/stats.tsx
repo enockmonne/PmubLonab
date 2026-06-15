@@ -50,7 +50,7 @@ type HorseLeader = {
   latest_position?: number | null;
 };
 
-type StatsTab = "summary" | "sources" | "horses" | "people";
+type StatsTab = "summary" | "consensus" | "sources" | "horses" | "people";
 type StatsExcluded = { no_predictions: number; no_official_results: number };
 type SourceNormalization = { source: string; aliases: string[] };
 type StatsMethodology = {
@@ -196,6 +196,11 @@ export default function StatsScreen() {
   const topConsensus = (currentMedia?.consensus || [])
     .filter((entry) => entry.score > 0)
     .slice(0, 3);
+  const consensusRankings = (currentMedia?.consensus || []).filter((entry) => entry.score > 0);
+  const maxConsensusScore = Math.max(1, ...consensusRankings.map((entry) => entry.score));
+  const horseNameByNumber = new Map(
+    (currentMedia?.horses || []).map((horse) => [horse.number, horse.name]),
+  );
   const topConsensusHorse = topConsensus[0];
 
   const insightText = useMemo(() => {
@@ -267,6 +272,7 @@ export default function StatsScreen() {
           {(
             [
               { key: "summary", label: "Synthèse" },
+              { key: "consensus", label: "Consensus" },
               { key: "sources", label: "Sources" },
               { key: "horses", label: "Chevaux" },
               { key: "people", label: "Acteurs" },
@@ -370,6 +376,63 @@ export default function StatsScreen() {
           </View>
         )}
           </>
+        )}
+
+        {statsTab === "consensus" && (
+          <View style={styles.section} testID="stats-consensus-view">
+            <Text style={styles.sectionOverline}>Synthèse pronostics</Text>
+            <Text style={styles.sectionTitle}>Consensus</Text>
+            <Text style={styles.sectionLead}>
+              Classement calculé à partir des médias extraits du programme.
+            </Text>
+
+            {consensusRankings.length === 0 ? (
+              <View style={styles.empty}>
+                <Ionicons name="hourglass-outline" size={28} color={theme.colors.textSecondary} />
+                <Text style={styles.emptyText}>
+                  Aucun consensus calculable pour cette course.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.consensusRankingList}>
+                {consensusRankings.map((pick, idx) => (
+                  <TouchableOpacity
+                    key={pick.number}
+                    testID={`stats-consensus-row-${pick.number}`}
+                    style={styles.consensusRankingRow}
+                    onPress={() => router.push(`/horse/${pick.number}`)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.consensusRankingRank}>#{idx + 1}</Text>
+                    <View style={styles.consensusRankingNumber}>
+                      <Text style={styles.consensusRankingNumberText}>{pick.number}</Text>
+                    </View>
+                    <View style={styles.consensusRankingBody}>
+                      <View style={styles.consensusRankingTop}>
+                        <Text style={styles.consensusRankingName} numberOfLines={1}>
+                          {horseNameByNumber.get(pick.number) || "Cheval non renseigné"}
+                        </Text>
+                        <Text style={styles.consensusRankingScore}>
+                          {pick.score} pts
+                        </Text>
+                      </View>
+                      <View style={styles.consensusRankingBarBg}>
+                        <View
+                          style={[
+                            styles.consensusRankingBarFill,
+                            { width: `${(pick.score / maxConsensusScore) * 100}%` },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.consensusRankingMeta}>
+                        Cité par {pick.appearances}/7 médias
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         {/* Tipsters leaderboard */}
@@ -1133,6 +1196,77 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: theme.colors.textSecondary,
+    fontWeight: "700",
+  },
+  consensusRankingList: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  consensusRankingRow: {
+    minHeight: 72,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  consensusRankingRank: {
+    width: 34,
+    fontSize: 12,
+    fontWeight: "900",
+    color: theme.colors.gold,
+  },
+  consensusRankingNumber: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.colors.brand,
+  },
+  consensusRankingNumberText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#fff",
+  },
+  consensusRankingBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  consensusRankingTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  consensusRankingName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+  },
+  consensusRankingScore: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: theme.colors.brand,
+  },
+  consensusRankingBarBg: {
+    height: 6,
+    marginTop: 8,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  consensusRankingBarFill: {
+    height: "100%",
+    backgroundColor: theme.colors.gold,
+  },
+  consensusRankingMeta: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    marginTop: 4,
     fontWeight: "700",
   },
   rankingList: {

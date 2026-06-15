@@ -95,13 +95,13 @@ export default function HorseDetail() {
             <Text style={styles.heroOverline}>Fiche cheval</Text>
             <Text style={styles.heroName}>{horse.name}</Text>
             <Text style={styles.heroMeta}>
-              Donnees extraites du PDF programme.
+              Donnees du programme.
             </Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Profil PDF</Text>
+          <Text style={styles.label}>Profil</Text>
           <View style={styles.rawGrid}>
             <RawCell label="N" value={`${horse.number}`} />
             <RawCell label="Sexe / age" value={sexeAge} />
@@ -125,7 +125,7 @@ export default function HorseDetail() {
 
         {expert_mentions.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.label}>Pronostics PDF</Text>
+            <Text style={styles.label}>Pronostics</Text>
             <View style={styles.list}>
               {expert_mentions.map((mention) => (
                 <View key={mention.source} style={styles.row}>
@@ -139,7 +139,7 @@ export default function HorseDetail() {
 
         {classifications.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.label}>Categories PDF</Text>
+            <Text style={styles.label}>Categories</Text>
             <View style={styles.tagsRow}>
               {classifications.map((classification) => (
                 <View key={classification} style={styles.tag}>
@@ -152,7 +152,7 @@ export default function HorseDetail() {
 
         {horse.commentary ? (
           <View style={styles.section}>
-            <Text style={styles.label}>Commentaire PDF</Text>
+            <Text style={styles.label}>Commentaire</Text>
             <Text style={styles.commentary}>{horse.commentary}</Text>
           </View>
         ) : null}
@@ -221,43 +221,43 @@ const styles = StyleSheet.create({
   hero: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 16,
     margin: 16,
-    padding: 14,
+    padding: 18,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
   },
   heroNum: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     backgroundColor: theme.colors.brand,
     alignItems: "center",
     justifyContent: "center",
   },
-  heroNumText: { color: "#fff", fontSize: 30, fontWeight: "900" },
+  heroNumText: { color: "#fff", fontSize: 38, fontWeight: "900" },
   heroTextWrap: { flex: 1, minWidth: 0 },
   heroOverline: {
-    fontSize: 10,
+    fontSize: 12,
     color: theme.colors.gold,
-    fontWeight: "800",
-    letterSpacing: 1.2,
+    fontWeight: "900",
+    letterSpacing: 1.8,
     textTransform: "uppercase",
   },
   heroName: {
     fontFamily: theme.fonts.serifBlack,
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 30,
+    fontWeight: "900",
     color: theme.colors.textPrimary,
-    letterSpacing: -0.5,
-    marginTop: 2,
+    letterSpacing: -0.7,
+    marginTop: 4,
   },
   heroMeta: {
-    fontSize: 12,
+    fontSize: 13,
     color: theme.colors.textSecondary,
-    marginTop: 6,
-    lineHeight: 17,
+    marginTop: 8,
+    lineHeight: 18,
   },
   section: { marginTop: 18, paddingHorizontal: 16 },
   label: {

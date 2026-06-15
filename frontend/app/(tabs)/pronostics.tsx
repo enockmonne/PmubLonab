@@ -83,7 +83,7 @@ type RaceMeta = {
   is_current?: boolean;
 };
 
-type Tab = "consensus" | "experts" | "cotes" | "semaine" | "aptitudes" | "classement";
+type Tab = "experts" | "cotes" | "semaine" | "aptitudes" | "classement";
 
 type PersonSheet = {
   role: "trainer" | "jockey";
@@ -110,7 +110,7 @@ export default function PronosticsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>("consensus");
+  const [tab, setTab] = useState<Tab>("experts");
   const [sheet, setSheet] = useState<PersonSheet | null>(null);
   const router = useRouter();
   const tabBarHeight = useBottomTabBarHeight();
@@ -249,12 +249,6 @@ export default function PronosticsScreen() {
     if (selectedId) loadRace(selectedId);
   };
 
-  const topConsensusNumber = useMemo(() => {
-    if (!data) return null;
-    const top = data.consensus.filter((c) => c.score > 0)[0];
-    return top ? top.number : null;
-  }, [data]);
-
   const openPerson = useCallback(
     (role: "trainer" | "jockey", name: string) => {
       const filtered = horses.filter((h) =>
@@ -275,8 +269,7 @@ export default function PronosticsScreen() {
     );
   }
 
-  const maxScore = Math.max(1, ...data.consensus.map((c) => c.score));
-  const TAB_ORDER: Tab[] = ["consensus", "experts", "cotes", "semaine", "aptitudes", "classement"];
+  const TAB_ORDER: Tab[] = ["experts", "cotes", "semaine", "aptitudes", "classement"];
   const expertsWithPicks = data.experts.filter((e) => (e.picks || []).length > 0);
   const oddsTables = data.odds || [];
   const weeklyBest = data.weekly_best || { trainers: [], drivers: [] };
@@ -349,7 +342,6 @@ export default function PronosticsScreen() {
       >
         {(
           [
-            { k: "consensus", label: "Consensus" },
             { k: "experts", label: "Médias" },
             { k: "cotes", label: "Cotes" },
             { k: "semaine", label: "LES MEILLEURS DE LA SEMAINE" },
@@ -393,74 +385,6 @@ export default function PronosticsScreen() {
             />
           }
         >
-        {tab === "consensus" && (
-          <View testID="consensus-view" key="consensus-wrapper">
-            <Text style={styles.lead}>
-              Classement calculé à partir de 7 médias. Plus un cheval figure haut
-              dans les pronostics, plus son score est élevé.
-            </Text>
-            {data.consensus
-              .filter((c) => c.score > 0)
-              .map((c, idx) => (
-                <Animated.View
-                  key={c.number}
-                  entering={FadeInDown.duration(350).delay(idx * 45)}
-                >
-                  <TouchableOpacity
-                    testID={`consensus-row-${c.number}`}
-                    style={[
-                      styles.consensusRow,
-                      c.number === topConsensusNumber && styles.consensusRowFavori,
-                    ]}
-                    onPress={() => router.push(`/horse/${c.number}`)}
-                    activeOpacity={0.85}
-                  >
-                    <View style={styles.consensusRankWrap}>
-                      {c.number === topConsensusNumber && (
-                        <Ionicons
-                          name="star"
-                          size={13}
-                          color={theme.colors.gold}
-                          style={{ marginRight: 2 }}
-                        />
-                      )}
-                      <Text style={styles.consensusRank}>#{idx + 1}</Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.horseNumSmall,
-                        c.number === topConsensusNumber && {
-                          backgroundColor: theme.colors.gold,
-                        },
-                      ]}
-                    >
-                      <Text style={styles.horseNumSmallText}>{c.number}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.barBg}>
-                        <View
-                          style={[
-                            styles.barFill,
-                            { width: `${(c.score / maxScore) * 100}%` },
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.barMeta}>
-                        {c.score} points • cité par {c.appearances}/7 médias
-                      </Text>
-                    </View>
-                    {c.number === topConsensusNumber && (
-                      <View style={styles.favBadge}>
-                        <Ionicons name="trophy" size={10} color="#fff" />
-                        <Text style={styles.favBadgeText}>FAVORI</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </Animated.View>
-              ))}
-          </View>
-        )}
-
         {tab === "experts" && (
           <View testID="experts-view" key="experts-wrapper">
             <Text style={styles.lead}>
@@ -474,21 +398,13 @@ export default function PronosticsScreen() {
               >
                 <Text style={styles.expertSource}>{e.source}</Text>
                 <View style={styles.picksRow}>
-                  {e.picks.map((p, idx) => (
+                  {e.picks.map((p) => (
                     <TouchableOpacity
                       key={`${e.source}-${p}`}
                       onPress={() => router.push(`/horse/${p}`)}
-                      style={[
-                        styles.pickChip,
-                        idx === 0 && styles.pickChipBase,
-                      ]}
+                      style={styles.pickChip}
                     >
-                      <Text
-                        style={[
-                          styles.pickChipText,
-                          idx === 0 && styles.pickChipBaseText,
-                        ]}
-                      >
+                      <Text style={styles.pickChipText}>
                         {p}
                       </Text>
                     </TouchableOpacity>
@@ -588,24 +504,8 @@ export default function PronosticsScreen() {
                             <TouchableOpacity
                               key={`${cat}-${item}`}
                               onPress={() => router.push(`/horse/${item}`)}
-                              style={[
-                                styles.pickChip,
-                                item === topConsensusNumber &&
-                                  styles.pickChipFavori,
-                              ]}
+                              style={styles.pickChip}
                             >
-                              {item === topConsensusNumber && (
-                                <Ionicons
-                                  name="star"
-                                  size={9}
-                                  color={theme.colors.gold}
-                                  style={{
-                                    position: "absolute",
-                                    top: 2,
-                                    right: 2,
-                                  }}
-                                />
-                              )}
                               <Text style={styles.pickChipText}>{item}</Text>
                             </TouchableOpacity>
                           );
@@ -1005,66 +905,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: 8,
   },
-  consensusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-    marginBottom: 10,
-    gap: 10,
-  },
-  consensusRowFavori: {
-    backgroundColor: "#FFFCF5",
-    borderColor: theme.colors.gold,
-  },
-  consensusRankWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: 48,
-  },
-  consensusRank: {
-    fontSize: 13,
-    color: theme.colors.gold,
-    fontWeight: "800",
-    letterSpacing: 0.5,
-  },
-  horseNumSmall: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.brand,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  horseNumSmallText: { color: "#fff", fontSize: 13, fontWeight: "800" },
-  barBg: {
-    height: 10,
-    backgroundColor: theme.colors.surfaceAlt,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-  },
-  barFill: {
-    height: "100%",
-    backgroundColor: theme.colors.gold,
-  },
-  barMeta: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 4 },
-  favBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-    backgroundColor: theme.colors.gold,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 2,
-  },
-  favBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: 0.8,
-  },
   expertCard: {
     padding: 14,
     borderWidth: 1,
@@ -1169,20 +1009,11 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  pickChipBase: {
-    backgroundColor: theme.colors.brand,
-    borderColor: theme.colors.brand,
-  },
-  pickChipFavori: {
-    borderColor: theme.colors.gold,
-    borderWidth: 2,
-  },
   pickChipText: {
     fontSize: 13,
     fontWeight: "700",
     color: theme.colors.textPrimary,
   },
-  pickChipBaseText: { color: "#fff" },
   namePill: {
     flexDirection: "row",
     alignItems: "center",
