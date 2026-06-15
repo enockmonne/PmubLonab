@@ -245,6 +245,8 @@ export const Admin = {
   },
   setCurrent: (race_id: string) => api.post(`/admin/races/${race_id}/set-current`),
   deleteRace: (race_id: string) => api.delete(`/admin/races/${race_id}`),
+  overrideRaceLink: (race_id: string, target_race_id: string | null) =>
+    api.post(`/admin/races/${race_id}/link-override`, { target_race_id }),
   linkRelatedRaces: () =>
     api.post<{
       ok: boolean;

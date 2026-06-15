@@ -88,10 +88,40 @@ export default function Races() {
 
   if (loading) return <CenteredSpinner label="Chargement des courses…" />;
 
+  const handleOverrideLink = async (race: Race, targetRaceId: string) => {
+    setBusyId(race.race_id);
+    try {
+      await Admin.overrideRaceLink(race.race_id, targetRaceId || null);
+      toast.success(targetRaceId ? 'Lien manuel mis à jour' : 'Lien manuel supprimé');
+      await load();
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const linkedTargets = (race: Race) => [
     ...(race.linked_programmes || []),
     ...(race.linked_results || []),
   ];
+
+  const linkCandidates = (race: Race) => {
+    const oppositeType = race.doc_type === 'result' ? 'programme' : 'result';
+    return races
+      .filter((candidate) => candidate.race_id !== race.race_id && candidate.doc_type === oppositeType)
+      .sort((a, b) => {
+        const aSameDate = a.date_iso && race.date_iso && a.date_iso === race.date_iso ? 0 : 1;
+        const bSameDate = b.date_iso && race.date_iso && b.date_iso === race.date_iso ? 0 : 1;
+        if (aSameDate !== bSameDate) return aSameDate - bSameDate;
+        return (b.date_iso || '').localeCompare(a.date_iso || '');
+      });
+  };
+
+  const currentLinkedId = (race: Race) => {
+    if (race.doc_type === 'result') return race.linked_programme_ids?.[0] || '';
+    return race.linked_result_ids?.[0] || '';
+  };
 
   return (
     <div>
@@ -198,6 +228,21 @@ export default function Races() {
                   <td className="px-4 py-3 text-fg-subtle text-xs">{formatDate(r.created_at)}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
+                      <select
+                        value={currentLinkedId(r)}
+                        onChange={(e) => handleOverrideLink(r, e.target.value)}
+                        disabled={busyId === r.race_id}
+                        className="input min-w-[220px] text-xs"
+                        title="Corriger le lien programme/résultat"
+                      >
+                        <option value="">Aucun lien</option>
+                        {linkCandidates(r).map((candidate) => (
+                          <option key={candidate.race_id} value={candidate.race_id}>
+                            {candidate.date_iso === r.date_iso ? 'Même date - ' : ''}
+                            {candidate.date_text || candidate.date_iso || 'Sans date'} · {candidate.name}
+                          </option>
+                        ))}
+                      </select>
                       {!r.is_current && (
                         <button
                           onClick={() => handleSetCurrent(r.race_id)}
