@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, ADMIN_WEB_URL, formatFCFA } from "../src/theme";
 import { readCache, writeCache } from "../src/storageCache";
+import { fetchJson } from "../src/apiClient";
 
 LocaleConfig.locales["fr"] = {
   monthNames: [
@@ -87,17 +88,26 @@ export default function ResultatsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [networkNotice, setNetworkNotice] = useState<string | null>(null);
+  const hasResultsRef = useRef(false);
   const router = useRouter();
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/races?has_results=true&limit=100`);
-      const j = await r.json();
+      const j = await fetchJson<{ races?: ResultRace[] }>(
+        `${API_URL}/api/races?has_results=true&limit=100`,
+      );
       const list: ResultRace[] = j.races || [];
       setRaces(list);
+      setNetworkNotice(null);
       writeCache(RESULTS_CACHE_KEY, list);
     } catch (e) {
       console.error(e);
+      setNetworkNotice(
+        hasResultsRef.current
+          ? "Connexion lente - donnees recentes affichees"
+          : "Connexion lente - reessayez dans un instant"
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -105,11 +115,18 @@ export default function ResultatsScreen() {
   }, []);
 
   useEffect(() => {
+    hasResultsRef.current = races.length > 0;
+  }, [races.length]);
+
+  useEffect(() => {
     let mounted = true;
     readCache<ResultRace[]>(RESULTS_CACHE_KEY).then((cached) => {
       if (!mounted || !cached) return;
       setRaces(cached);
       setLoading(false);
+      if (cached.length > 0) {
+        setNetworkNotice("Donnees recentes affichees");
+      }
     });
     load();
     return () => {
@@ -180,6 +197,13 @@ export default function ResultatsScreen() {
           les PDF de courses ou de résultats.
         </Text>
       </View>
+
+      {networkNotice && (
+        <View style={styles.notice} testID="results-network-notice">
+          <Ionicons name="cloud-offline-outline" size={15} color={theme.colors.gold} />
+          <Text style={styles.noticeText}>{networkNotice}</Text>
+        </View>
+      )}
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={theme.colors.brand} />
@@ -420,6 +444,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   lead: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 8, lineHeight: 17 },
+  notice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
+  },
   dateFilterWrap: {
     paddingTop: 4,
     paddingBottom: 8,
