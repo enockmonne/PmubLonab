@@ -44,14 +44,13 @@ type SearchResult = {
   trainers: { name: string; appearances: number }[];
 };
 
-type ArchiveFilter = "all" | "programmes" | "results" | "linked" | "missing";
+type ArchiveFilter = "all" | "programmes" | "results" | "linked";
 
 const FILTERS: { key: ArchiveFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: "all", label: "Tous", icon: "albums-outline" },
   { key: "programmes", label: "Programmes", icon: "newspaper-outline" },
   { key: "results", label: "Resultats", icon: "trophy-outline" },
   { key: "linked", label: "Avec rapports", icon: "link-outline" },
-  { key: "missing", label: "A completer", icon: "alert-circle-outline" },
 ];
 
 export default function ArchivesScreen() {
@@ -113,18 +112,9 @@ export default function ArchivesScreen() {
             (race.linked_programmes_count || 0) > 0,
         );
       }
-      if (filter === "missing") {
-        return docType === "programme" && !race.has_results && (race.linked_results_count || 0) === 0;
-      }
       return true;
     });
   }, [filter, races]);
-
-  const programmeCount = races.filter((race) => (race.doc_type || "programme") === "programme").length;
-  const resultCount = races.filter((race) => race.doc_type === "result").length;
-  const linkedCount = races.filter(
-    (race) => race.has_results || (race.linked_results_count || 0) > 0 || (race.linked_programmes_count || 0) > 0,
-  ).length;
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -132,14 +122,8 @@ export default function ArchivesScreen() {
         <Text style={styles.overline}>Archives & Recherche</Text>
         <Text style={styles.title}>Recherche</Text>
         <Text style={styles.headerLead}>
-          Retrouvez une course, un cheval, un jockey ou un ancien rapport sans connaitre la date exacte.
+          Retrouvez rapidement une course, un cheval, un jockey ou un ancien rapport.
         </Text>
-      </View>
-
-      <View style={styles.snapshotRow}>
-        <ArchiveMetric value={programmeCount} label="programmes" />
-        <ArchiveMetric value={resultCount} label="resultats" />
-        <ArchiveMetric value={linkedCount} label="avec rapports" />
       </View>
 
       <View style={styles.searchPanel}>
@@ -160,7 +144,6 @@ export default function ArchivesScreen() {
             </TouchableOpacity>
           )}
         </View>
-        <Text style={styles.searchHint}>Essayez un nom de cheval, une ville, un jockey ou une course.</Text>
       </View>
 
       <View style={styles.filterWrap}>
@@ -235,17 +218,7 @@ function filterTitle(filter: ArchiveFilter) {
   if (filter === "programmes") return "Programmes archives";
   if (filter === "results") return "Resultats officiels";
   if (filter === "linked") return "Courses avec rapports";
-  if (filter === "missing") return "Programmes a completer";
   return "Documents recents";
-}
-
-function ArchiveMetric({ value, label }: { value: number; label: string }) {
-  return (
-    <View style={styles.archiveMetric}>
-      <Text style={styles.archiveMetricValue}>{value}</Text>
-      <Text style={styles.archiveMetricLabel}>{label}</Text>
-    </View>
-  );
 }
 
 function ArchiveRaceRow({ item, onPress }: { item: RaceSummary; onPress: () => void }) {
@@ -467,7 +440,7 @@ function SearchSection({ title, children }: { title: string; children: React.Rea
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.bg },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 },
+  header: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 4 },
   overline: {
     fontSize: 11,
     letterSpacing: 2,
@@ -486,43 +459,14 @@ const styles = StyleSheet.create({
   headerLead: {
     fontSize: 13,
     color: theme.colors.textSecondary,
-    lineHeight: 18,
-    marginTop: 6,
-  },
-  snapshotRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 16,
-    marginTop: 10,
-  },
-  archiveMetric: {
-    flex: 1,
-    minHeight: 58,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  archiveMetricValue: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: theme.colors.textPrimary,
-  },
-  archiveMetricLabel: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: theme.colors.textSecondary,
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    marginTop: 2,
-    textAlign: "center",
+    lineHeight: 17,
+    marginTop: 5,
   },
   searchPanel: {
     marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 10,
-    padding: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    padding: 10,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surface,
@@ -552,18 +496,12 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     marginLeft: 2,
   },
-  searchHint: {
-    fontSize: 11,
-    color: theme.colors.textSecondary,
-    lineHeight: 16,
-    marginTop: 8,
-  },
   filterWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 7,
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   filterChip: {
     minHeight: 34,
