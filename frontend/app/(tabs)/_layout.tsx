@@ -117,7 +117,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="archives"
         options={{
-          title: "Archives",
+          title: "Recherche",
           tabBarIcon: ({ focused, color }) => (
             <ActiveIconWrap focused={focused}>
               <Ionicons
