@@ -44,13 +44,12 @@ type SearchResult = {
   trainers: { name: string; appearances: number }[];
 };
 
-type ArchiveFilter = "all" | "programmes" | "results" | "linked";
+type ArchiveFilter = "all" | "programmes" | "results";
 
 const FILTERS: { key: ArchiveFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: "all", label: "Tous", icon: "albums-outline" },
   { key: "programmes", label: "Programmes", icon: "newspaper-outline" },
   { key: "results", label: "Resultats", icon: "trophy-outline" },
-  { key: "linked", label: "Avec rapports", icon: "link-outline" },
 ];
 
 export default function ArchivesScreen() {
@@ -105,13 +104,6 @@ export default function ArchivesScreen() {
       const docType = race.doc_type || "programme";
       if (filter === "programmes") return docType === "programme";
       if (filter === "results") return docType === "result";
-      if (filter === "linked") {
-        return Boolean(
-          race.has_results ||
-            (race.linked_results_count || 0) > 0 ||
-            (race.linked_programmes_count || 0) > 0,
-        );
-      }
       return true;
     });
   }, [filter, races]);
@@ -217,7 +209,6 @@ export default function ArchivesScreen() {
 function filterTitle(filter: ArchiveFilter) {
   if (filter === "programmes") return "Programmes archives";
   if (filter === "results") return "Resultats officiels";
-  if (filter === "linked") return "Courses avec rapports";
   return "Documents recents";
 }
 
