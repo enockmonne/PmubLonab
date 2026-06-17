@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
 
 type RaceSummary = {
   race_id: string;
+  doc_type?: "programme" | "result";
   name: string;
   event_type: string;
   meeting_label?: string;
@@ -30,6 +31,10 @@ type RaceSummary = {
   prize_fcfa: number;
   is_current: boolean;
   has_results: boolean;
+  linked_results_count?: number;
+  linked_programmes_count?: number;
+  finishing_order?: number[];
+  top_payout?: { type?: string; amount_fcfa?: number; label?: string } | null;
 };
 
 type SearchResult = {
@@ -39,6 +44,16 @@ type SearchResult = {
   trainers: { name: string; appearances: number }[];
 };
 
+type ArchiveFilter = "all" | "programmes" | "results" | "linked" | "missing";
+
+const FILTERS: { key: ArchiveFilter; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: "all", label: "Tous", icon: "albums-outline" },
+  { key: "programmes", label: "Programmes", icon: "newspaper-outline" },
+  { key: "results", label: "Resultats", icon: "trophy-outline" },
+  { key: "linked", label: "Avec rapports", icon: "link-outline" },
+  { key: "missing", label: "A completer", icon: "alert-circle-outline" },
+];
+
 export default function ArchivesScreen() {
   const [races, setRaces] = useState<RaceSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,11 +61,12 @@ export default function ArchivesScreen() {
   const [query, setQuery] = useState("");
   const [searchRes, setSearchRes] = useState<SearchResult | null>(null);
   const [searching, setSearching] = useState(false);
+  const [filter, setFilter] = useState<ArchiveFilter>("all");
   const router = useRouter();
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch(`${API_URL}/api/races?limit=50`);
+      const r = await fetch(`${API_URL}/api/races?limit=100`);
       const j = await r.json();
       setRaces(j.races || []);
     } catch (e) {
@@ -85,34 +101,87 @@ export default function ArchivesScreen() {
     return () => clearTimeout(t);
   }, [query]);
 
+  const filteredRaces = useMemo(() => {
+    return races.filter((race) => {
+      const docType = race.doc_type || "programme";
+      if (filter === "programmes") return docType === "programme";
+      if (filter === "results") return docType === "result";
+      if (filter === "linked") {
+        return Boolean(
+          race.has_results ||
+            (race.linked_results_count || 0) > 0 ||
+            (race.linked_programmes_count || 0) > 0,
+        );
+      }
+      if (filter === "missing") {
+        return docType === "programme" && !race.has_results && (race.linked_results_count || 0) === 0;
+      }
+      return true;
+    });
+  }, [filter, races]);
+
+  const programmeCount = races.filter((race) => (race.doc_type || "programme") === "programme").length;
+  const resultCount = races.filter((race) => race.doc_type === "result").length;
+  const linkedCount = races.filter(
+    (race) => race.has_results || (race.linked_results_count || 0) > 0 || (race.linked_programmes_count || 0) > 0,
+  ).length;
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <Text style={styles.overline}>Archives & Recherche</Text>
-        <Text style={styles.title}>Toutes les courses</Text>
+        <Text style={styles.title}>Recherche</Text>
         <Text style={styles.headerLead}>
-          Retrouvez les programmes, resultats lies, chevaux, jockeys et entraineurs.
+          Retrouvez une course, un cheval, un jockey ou un ancien rapport sans connaitre la date exacte.
         </Text>
       </View>
 
+      <View style={styles.snapshotRow}>
+        <ArchiveMetric value={programmeCount} label="programmes" />
+        <ArchiveMetric value={resultCount} label="resultats" />
+        <ArchiveMetric value={linkedCount} label="avec rapports" />
+      </View>
+
       <View style={styles.searchPanel}>
-        <Text style={styles.searchLabel}>Recherche</Text>
+        <Text style={styles.searchLabel}>Recherche rapide</Text>
         <View style={styles.searchWrap}>
-        <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
-        <TextInput
-          testID="global-search"
-          style={styles.search}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Cheval, jockey, entraîneur, hippodrome..."
-          placeholderTextColor={theme.colors.textSecondary}
-        />
-        {query.length > 0 && (
-          <TouchableOpacity testID="clear-search" onPress={() => setQuery("")} hitSlop={10}>
-            <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
-          </TouchableOpacity>
-        )}
+          <Ionicons name="search" size={16} color={theme.colors.textSecondary} />
+          <TextInput
+            testID="global-search"
+            style={styles.search}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Cheval, jockey, entraineur, hippodrome..."
+            placeholderTextColor={theme.colors.textSecondary}
+          />
+          {query.length > 0 && (
+            <TouchableOpacity testID="clear-search" onPress={() => setQuery("")} hitSlop={10}>
+              <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
+          )}
         </View>
+        <Text style={styles.searchHint}>Essayez un nom de cheval, une ville, un jockey ou une course.</Text>
+      </View>
+
+      <View style={styles.filterWrap}>
+        {FILTERS.map((item) => (
+          <TouchableOpacity
+            key={item.key}
+            testID={`archive-filter-${item.key}`}
+            style={[styles.filterChip, filter === item.key && styles.filterChipActive]}
+            onPress={() => setFilter(item.key)}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name={item.icon}
+              size={14}
+              color={filter === item.key ? "#fff" : theme.colors.brand}
+            />
+            <Text style={[styles.filterText, filter === item.key && styles.filterTextActive]}>
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {loading ? (
@@ -127,7 +196,7 @@ export default function ArchivesScreen() {
       ) : (
         <FlatList
           testID="archives-list"
-          data={races}
+          data={filteredRaces}
           keyExtractor={(r) => r.race_id}
           refreshControl={
             <RefreshControl
@@ -141,62 +210,134 @@ export default function ArchivesScreen() {
           }
           ItemSeparatorComponent={() => <View style={styles.sep} />}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
+          ListHeaderComponent={
+            <View style={styles.listIntro}>
+              <Text style={styles.listOverline}>Historique</Text>
+              <Text style={styles.listTitle}>{filterTitle(filter)}</Text>
+            </View>
+          }
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="newspaper-outline" size={32} color={theme.colors.textSecondary} />
-              <Text style={styles.emptyText}>
-                Aucune course archivée. L&apos;admin peut importer des PDF via /admin.
-              </Text>
+              <Text style={styles.emptyText}>Aucun element pour ce filtre.</Text>
             </View>
           }
           renderItem={({ item }) => (
-            <TouchableOpacity
-              testID={`race-row-${item.race_id}`}
-              style={styles.raceRow}
-              onPress={() => router.push(`/race/${item.race_id}`)}
-            >
-              <View style={{ flex: 1 }}>
-                <View style={styles.raceHeaderRow}>
-                  <Text style={styles.raceName} numberOfLines={2}>
-                    {item.name}
-                  </Text>
-                  {item.is_current && (
-                    <View style={styles.currentBadge}>
-                      <Text style={styles.currentBadgeText}>Du jour</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.raceMeta}>
-                  {item.date_text} • {item.meeting_label || item.location}
-                </Text>
-                <Text style={styles.raceContext} numberOfLines={2}>
-                  {[item.event_type, item.meeting_label, item.race_type, item.course_label, item.start_mode].filter(Boolean).join(" • ")}
-                </Text>
-                <View style={styles.raceChips}>
-                  <View style={styles.chip}>
-                    <Text style={styles.chipText}>{item.runners} partants</Text>
-                  </View>
-                  {item.prize_euros ? (
-                    <View style={styles.chip}>
-                      <Text style={styles.chipText}>{formatEuro(item.prize_euros)}</Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.chip}>
-                    <Text style={styles.chipText}>Env. {formatFCFA(item.prize_fcfa)}</Text>
-                  </View>
-                  {item.has_results && (
-                    <View style={[styles.chip, styles.chipGold]}>
-                      <Text style={styles.chipText}>Résultats</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
-            </TouchableOpacity>
+            <ArchiveRaceRow item={item} onPress={() => router.push(`/race/${item.race_id}`)} />
           )}
         />
       )}
     </SafeAreaView>
+  );
+}
+
+function filterTitle(filter: ArchiveFilter) {
+  if (filter === "programmes") return "Programmes archives";
+  if (filter === "results") return "Resultats officiels";
+  if (filter === "linked") return "Courses avec rapports";
+  if (filter === "missing") return "Programmes a completer";
+  return "Documents recents";
+}
+
+function ArchiveMetric({ value, label }: { value: number; label: string }) {
+  return (
+    <View style={styles.archiveMetric}>
+      <Text style={styles.archiveMetricValue}>{value}</Text>
+      <Text style={styles.archiveMetricLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function ArchiveRaceRow({ item, onPress }: { item: RaceSummary; onPress: () => void }) {
+  const docType = item.doc_type || "programme";
+  const isResult = docType === "result";
+  const hasLinkedResults = (item.linked_results_count || 0) > 0;
+  const hasLinkedProgrammes = (item.linked_programmes_count || 0) > 0;
+  const statusLabel = isResult
+    ? hasLinkedProgrammes
+      ? "Programme lie"
+      : "Resultat seul"
+    : item.has_results || hasLinkedResults
+      ? "Rapports disponibles"
+      : "Rapports manquants";
+  const arrival = (item.finishing_order || []).slice(0, 5).join(" - ");
+
+  return (
+    <TouchableOpacity
+      testID={`race-row-${item.race_id}`}
+      style={styles.raceRow}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <View style={styles.rowTop}>
+        <View style={[styles.docBadge, isResult && styles.docBadgeResult]}>
+          <Text style={[styles.docBadgeText, isResult && styles.docBadgeTextResult]}>
+            {isResult ? "Resultat" : "Programme"}
+          </Text>
+        </View>
+        {item.is_current && (
+          <View style={styles.currentBadge}>
+            <Text style={styles.currentBadgeText}>Du jour</Text>
+          </View>
+        )}
+      </View>
+
+      <Text style={styles.raceName} numberOfLines={2}>
+        {item.name}
+      </Text>
+      <Text style={styles.raceMeta}>
+        {item.date_text} • {item.meeting_label || item.location}
+      </Text>
+      <Text style={styles.raceContext} numberOfLines={2}>
+        {[item.event_type, item.meeting_label, item.race_type, item.course_label, item.start_mode]
+          .filter(Boolean)
+          .join(" • ")}
+      </Text>
+
+      {isResult && arrival ? (
+        <Text style={styles.arrivalLine} numberOfLines={1}>
+          Arrivee officielle: {arrival}
+        </Text>
+      ) : null}
+
+      <View style={styles.raceChips}>
+        {!isResult ? (
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>{item.runners || 0} partants</Text>
+          </View>
+        ) : null}
+        {item.prize_euros ? (
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>{formatEuro(item.prize_euros)}</Text>
+          </View>
+        ) : null}
+        {!isResult && item.prize_fcfa ? (
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>Env. {formatFCFA(item.prize_fcfa)}</Text>
+          </View>
+        ) : null}
+        {item.top_payout?.amount_fcfa ? (
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>Ordre {formatFCFA(item.top_payout.amount_fcfa)}</Text>
+          </View>
+        ) : null}
+        <View
+          style={[
+            styles.chip,
+            item.has_results || hasLinkedResults || hasLinkedProgrammes
+              ? styles.chipReady
+              : styles.chipMissing,
+          ]}
+        >
+          <Text style={styles.chipText}>{statusLabel}</Text>
+        </View>
+      </View>
+
+      <View style={styles.openRow}>
+        <Text style={styles.openText}>Ouvrir le dossier</Text>
+        <Ionicons name="chevron-forward" size={16} color={theme.colors.brand} />
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -222,7 +363,7 @@ function SearchResultsView({
     return (
       <View style={styles.empty} testID="search-empty">
         <Ionicons name="search" size={32} color={theme.colors.textSecondary} />
-        <Text style={styles.emptyText}>Aucun résultat</Text>
+        <Text style={styles.emptyText}>Aucun resultat</Text>
       </View>
     );
   }
@@ -295,7 +436,7 @@ function SearchResultsView({
           )}
 
           {data.trainers.length > 0 && (
-            <SearchSection title="Entraîneurs">
+            <SearchSection title="Entraineurs">
               {data.trainers.map((t) => (
                 <View key={`t-${t.name}`} style={styles.searchRow}>
                   <Ionicons name="briefcase-outline" size={18} color={theme.colors.gold} />
@@ -348,10 +489,39 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 6,
   },
+  snapshotRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  archiveMetric: {
+    flex: 1,
+    minHeight: 58,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  archiveMetricValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+  },
+  archiveMetricLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginTop: 2,
+    textAlign: "center",
+  },
   searchPanel: {
     marginHorizontal: 16,
     marginTop: 10,
-    marginBottom: 12,
+    marginBottom: 10,
     padding: 12,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -380,7 +550,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     color: theme.colors.textPrimary,
-    marginLeft: 6,
+    marginLeft: 2,
+  },
+  searchHint: {
+    fontSize: 11,
+    color: theme.colors.textSecondary,
+    lineHeight: 16,
+    marginTop: 8,
+  },
+  filterWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  filterChip: {
+    minHeight: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  filterChipActive: {
+    borderColor: theme.colors.brand,
+    backgroundColor: theme.colors.brand,
+  },
+  filterText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: theme.colors.textSecondary,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+  },
+  filterTextActive: { color: "#fff" },
+  listIntro: { marginBottom: 10 },
+  listOverline: {
+    fontSize: 10,
+    color: theme.colors.gold,
+    fontWeight: "900",
+    letterSpacing: 1.4,
+    textTransform: "uppercase",
+  },
+  listTitle: {
+    fontSize: 18,
+    color: theme.colors.textPrimary,
+    fontWeight: "900",
+    marginTop: 2,
   },
   sep: { height: 10 },
   empty: { alignItems: "center", padding: 32, gap: 8 },
@@ -391,27 +611,41 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   raceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 14,
+    paddingVertical: 13,
     paddingHorizontal: 14,
     backgroundColor: theme.colors.surface,
     borderWidth: 1,
     borderColor: theme.colors.border,
-    gap: 10,
   },
-  raceHeaderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  raceName: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: theme.colors.textPrimary,
-    flexShrink: 1,
-    letterSpacing: -0.2,
+  rowTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
   },
+  docBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  docBadgeResult: {
+    borderColor: theme.colors.gold,
+    backgroundColor: "#FBF7EC",
+  },
+  docBadgeText: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: theme.colors.brand,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+  },
+  docBadgeTextResult: { color: theme.colors.gold },
   currentBadge: {
     backgroundColor: theme.colors.gold,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 4,
   },
   currentBadgeText: {
     fontSize: 9,
@@ -420,24 +654,54 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  raceMeta: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 3 },
+  raceName: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: theme.colors.textPrimary,
+    letterSpacing: -0.2,
+  },
+  raceMeta: { fontSize: 12, color: theme.colors.textSecondary, marginTop: 4 },
   raceContext: {
     fontSize: 11,
     color: theme.colors.brand,
-    fontWeight: "700",
+    fontWeight: "800",
     marginTop: 5,
     textTransform: "uppercase",
   },
-  raceChips: { flexDirection: "row", gap: 6, marginTop: 8, flexWrap: "wrap" },
+  arrivalLine: {
+    fontSize: 12,
+    color: theme.colors.textPrimary,
+    fontWeight: "800",
+    marginTop: 8,
+  },
+  raceChips: { flexDirection: "row", gap: 6, marginTop: 9, flexWrap: "wrap" },
   chip: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: theme.colors.border,
     backgroundColor: theme.colors.surfaceAlt,
   },
-  chipGold: { backgroundColor: theme.colors.surfaceAlt, borderColor: theme.colors.border },
-  chipText: { fontSize: 10, color: theme.colors.textSecondary, fontWeight: "600" },
+  chipReady: { borderColor: theme.colors.gold, backgroundColor: "#FBF7EC" },
+  chipMissing: { borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceAlt },
+  chipText: { fontSize: 10, color: theme.colors.textSecondary, fontWeight: "700" },
+  openRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+  },
+  openText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: theme.colors.brand,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+  },
   searchSectionTitle: {
     fontSize: 11,
     letterSpacing: 2,
