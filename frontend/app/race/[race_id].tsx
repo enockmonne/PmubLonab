@@ -95,6 +95,8 @@ export default function RaceDetail() {
     return groups;
   })();
   const arrivalPreview = prev.finishing_order?.slice(0, 5) || [];
+  const rawPredictions = race.predictions || [];
+  const oddsGroups = race.odds || [];
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -148,28 +150,10 @@ export default function RaceDetail() {
           />
         </View>
 
-        {/* Top 3 consensus */}
-        {!isResultsView && race.consensus && race.consensus.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Top 3 Consensus</Text>
-            <View style={styles.podium}>
-              {race.consensus.slice(0, 3).map((c: any, idx: number) => (
-                <View key={c.number} style={[styles.podiumItem, idx === 0 && styles.podiumGold]}>
-                  <Text style={styles.podiumRank}>{idx === 0 ? "1er" : `${idx + 1}e`}</Text>
-                  <Text style={[styles.podiumNum, idx === 0 && { color: "#fff" }]}>{c.number}</Text>
-                  <Text style={[styles.podiumScore, idx === 0 && { color: "rgba(255,255,255,0.85)" }]}>
-                    {c.score} pts
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
         {/* Horses list - only if race has partants */}
         {!isResultsView && (race.horses || []).length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Partants ({(race.horses || []).length})</Text>
+            <Text style={styles.sectionLabel}>Partants PDF ({(race.horses || []).length})</Text>
             <View style={styles.list}>
               {(race.horses || []).map((h: any) => (
                 <View key={h.number} style={styles.horseRow}>
@@ -181,8 +165,58 @@ export default function RaceDetail() {
                     <Text style={styles.hmeta} numberOfLines={1}>
                       {h.jockey} • {h.trainer}
                     </Text>
+                    <Text style={styles.hmeta} numberOfLines={1}>
+                      {[h.sex && h.age ? `${h.sex}.${h.age}` : "", h.distance, h.chrono, h.perf]
+                        .filter(Boolean)
+                        .join(" - ")}
+                    </Text>
                   </View>
-                  <Text style={styles.hscore}>{h.consensus_score || 0} pts</Text>
+                  <Text style={styles.hscore}>{h.gains_fcfa ? formatFCFA(h.gains_fcfa) : "—"}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {!isResultsView && rawPredictions.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Pronostics PDF</Text>
+            <View style={styles.list}>
+              {rawPredictions.map((p: any, idx: number) => (
+                <View
+                  key={`${p.source || "source"}-${idx}`}
+                  style={[styles.predictionRow, idx === rawPredictions.length - 1 && { borderBottomWidth: 0 }]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.predictionSource}>{p.source || "Source"}</Text>
+                    <Text style={styles.predictionPicks}>
+                      {(p.picks || []).join(" - ") || "Non renseigne"}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {!isResultsView && oddsGroups.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Cotes PDF</Text>
+            <View style={styles.list}>
+              {oddsGroups.map((group: any, idx: number) => (
+                <View
+                  key={`${group.source || "cotes"}-${idx}`}
+                  style={[styles.oddsBlock, idx === oddsGroups.length - 1 && { borderBottomWidth: 0 }]}
+                >
+                  <Text style={styles.predictionSource}>{group.source || "Cotes"}</Text>
+                  <View style={styles.oddsGrid}>
+                    {(group.values || []).map((item: any) => (
+                      <View key={`${group.source}-${item.number}`} style={styles.oddsChip}>
+                        <Text style={styles.oddsNum}>{item.number}</Text>
+                        <Text style={styles.oddsValue}>{item.odds}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
               ))}
             </View>
@@ -437,19 +471,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  podium: { flexDirection: "row", gap: 8 },
-  podiumItem: {
-    flex: 1,
-    alignItems: "center",
-    padding: 12,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  podiumGold: { backgroundColor: theme.colors.brand, borderColor: theme.colors.brand },
-  podiumRank: { fontSize: 9, letterSpacing: 1, color: theme.colors.textSecondary, fontWeight: "700", textTransform: "uppercase" },
-  podiumNum: { fontSize: 20, fontWeight: "800", color: theme.colors.textPrimary, marginTop: 4 },
-  podiumScore: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 2 },
   arrivalStrip: { flexDirection: "row", gap: 6 },
   arrivalCell: {
     flex: 1,
@@ -497,7 +518,64 @@ const styles = StyleSheet.create({
   hnumText: { color: "#fff", fontSize: 13, fontWeight: "800" },
   hname: { fontSize: 14, fontWeight: "700", color: theme.colors.textPrimary },
   hmeta: { fontSize: 11, color: theme.colors.textSecondary, marginTop: 1 },
-  hscore: { fontSize: 13, fontWeight: "800", color: theme.colors.gold },
+  hscore: {
+    minWidth: 66,
+    textAlign: "right",
+    fontSize: 12,
+    fontWeight: "800",
+    color: theme.colors.gold,
+  },
+  predictionRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  predictionSource: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  predictionPicks: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: theme.colors.brand,
+    marginTop: 4,
+  },
+  oddsBlock: {
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  oddsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
+  oddsChip: {
+    minWidth: 48,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+    alignItems: "center",
+  },
+  oddsNum: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: theme.colors.textSecondary,
+  },
+  oddsValue: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    marginTop: 2,
+  },
   prevSub: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 10, marginTop: -4 },
   payRow: {
     flexDirection: "row",

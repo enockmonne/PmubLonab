@@ -84,7 +84,6 @@ export default function StatsScreen() {
   const [trainers, setTrainers] = useState<Person[]>([]);
   const [currentRace, setCurrentRace] = useState<RaceInsightData | null>(null);
   const [currentMedia, setCurrentMedia] = useState<MediaInsightData | null>(null);
-  const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
   const [evaluatedRaces, setEvaluatedRaces] = useState(0);
   const [excluded, setExcluded] = useState<StatsExcluded>({
     no_predictions: 0,
@@ -139,7 +138,6 @@ export default function StatsScreen() {
       setLeaderboard(nextCache.leaderboard);
       setHorseLeaders(nextCache.horseLeaders);
       setHorseStatsMethodology(nextCache.horseStatsMethodology);
-      setLinkedResultsUsed(nextCache.linkedResultsUsed);
       setEvaluatedRaces(nextCache.evaluatedRaces);
       setExcluded(nextCache.excluded);
       setSourceNormalization(nextCache.sourceNormalization);
@@ -168,7 +166,6 @@ export default function StatsScreen() {
       setTrainers(cached.trainers || []);
       setCurrentRace(cached.currentRace || null);
       setCurrentMedia(cached.currentMedia || null);
-      setLinkedResultsUsed(cached.linkedResultsUsed || 0);
       setEvaluatedRaces(cached.evaluatedRaces || 0);
       setExcluded(cached.excluded || { no_predictions: 0, no_official_results: 0 });
       setSourceNormalization(cached.sourceNormalization || []);
@@ -202,6 +199,8 @@ export default function StatsScreen() {
     (currentMedia?.horses || []).map((horse) => [horse.number, horse.name]),
   );
   const topConsensusHorse = topConsensus[0];
+  const bestJockey = jockeys[0];
+  const bestTrainer = trainers[0];
 
   const insightText = useMemo(() => {
     if (!bestTipster) return "Les signaux se renforceront avec plus de résultats officiels.";
@@ -245,16 +244,16 @@ export default function StatsScreen() {
             </View>
             <View>
               <Text style={styles.snapshotValue}>{evaluatedRaces}</Text>
-              <Text style={styles.snapshotLabel}>courses évaluées</Text>
+              <Text style={styles.snapshotLabel}>courses avec resultats</Text>
             </View>
           </View>
           <View style={styles.snapshotTile}>
             <View style={styles.snapshotIcon}>
-              <Ionicons name="link-outline" size={17} color={theme.colors.brand} />
+              <Ionicons name="filter-outline" size={17} color={theme.colors.brand} />
             </View>
             <View>
-              <Text style={styles.snapshotValue}>{linkedResultsUsed}</Text>
-              <Text style={styles.snapshotLabel}>résultats liés</Text>
+              <Text style={styles.snapshotValue}>{excludedTotal}</Text>
+              <Text style={styles.snapshotLabel}>courses exclues</Text>
             </View>
           </View>
           <View style={styles.snapshotTile}>
@@ -263,7 +262,7 @@ export default function StatsScreen() {
             </View>
             <View>
               <Text style={styles.snapshotValue}>{sourcesCount}</Text>
-              <Text style={styles.snapshotLabel}>sources comparées</Text>
+              <Text style={styles.snapshotLabel}>medias suivis</Text>
             </View>
           </View>
         </View>
@@ -340,6 +339,41 @@ export default function StatsScreen() {
           )}
         </View>
 
+        <View style={styles.section} testID="stats-useful-markers">
+          <Text style={styles.sectionOverline}>Reperes</Text>
+          <Text style={styles.sectionTitle}>A surveiller</Text>
+          <View style={styles.insightGrid}>
+            <MiniInsight
+              icon="newspaper-outline"
+              label="Media regulier"
+              value={bestTipster?.source || "A completer"}
+              detail={bestTipster ? `${bestTipster.top3_rate}% top 3` : "Plus de resultats requis"}
+            />
+            <MiniInsight
+              icon="medal-outline"
+              label="Cheval regulier"
+              value={bestHorse?.name || "A completer"}
+              detail={
+                bestHorse
+                  ? `${bestHorse.top3} top 3 / ${bestHorse.runs} courses`
+                  : "Plus de resultats requis"
+              }
+            />
+            <MiniInsight
+              icon="people-outline"
+              label="Acteur en forme"
+              value={bestJockey?.name || bestTrainer?.name || "A completer"}
+              detail={
+                bestJockey
+                  ? `${bestJockey.wins} vict. / ${bestJockey.races} courses`
+                  : bestTrainer
+                    ? `${bestTrainer.wins} vict. / ${bestTrainer.races} courses`
+                    : "Plus de resultats requis"
+              }
+            />
+          </View>
+        </View>
+
         {topConsensus.length > 0 && (
           <View style={styles.section} testID="stats-consensus-summary">
             <View style={styles.sectionHeaderRow}>
@@ -367,7 +401,7 @@ export default function StatsScreen() {
                   </Text>
                   <Text style={styles.consensusStripNumber}>{pick.number}</Text>
                   <Text style={styles.consensusStripMeta}>
-                    {pick.score} pts · {pick.appearances} media
+                    indice {pick.score} - {pick.appearances} media
                     {pick.appearances > 1 ? "s" : ""}
                   </Text>
                 </TouchableOpacity>
@@ -385,6 +419,12 @@ export default function StatsScreen() {
             <Text style={styles.sectionLead}>
               Classement calculé à partir des médias extraits du programme.
             </Text>
+            <View style={styles.methodCard}>
+              <Text style={styles.methodTitle}>Comment lire l&apos;indice</Text>
+              <Text style={styles.methodText}>
+                L&apos;indice consensus augmente quand un cheval est cite par plusieurs medias et place haut dans leurs pronostics.
+              </Text>
+            </View>
 
             {consensusRankings.length === 0 ? (
               <View style={styles.empty}>
@@ -413,7 +453,7 @@ export default function StatsScreen() {
                           {horseNameByNumber.get(pick.number) || "Cheval non renseigné"}
                         </Text>
                         <Text style={styles.consensusRankingScore}>
-                          {pick.score} pts
+                          indice {pick.score}
                         </Text>
                       </View>
                       <View style={styles.consensusRankingBarBg}>
@@ -447,13 +487,13 @@ export default function StatsScreen() {
             <View style={styles.contextRow}>
               <ContextPill
                 icon="link-outline"
-                label="Résultats liés"
-                value={`${linkedResultsUsed}`}
+                label="Courses avec resultats"
+                value={`${evaluatedRaces}`}
               />
               <ContextPill
-                icon="flag-outline"
-                label="Courses"
-                value={`${evaluatedRaces}`}
+                icon="newspaper-outline"
+                label="Medias suivis"
+                value={`${sourcesCount}`}
               />
             </View>
             <View style={styles.contextRow}>
@@ -766,6 +806,35 @@ function ContextPill({
   );
 }
 
+function MiniInsight({
+  icon,
+  label,
+  value,
+  detail,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <View style={styles.miniInsight}>
+      <View style={styles.miniInsightIcon}>
+        <Ionicons name={icon} size={15} color={theme.colors.brand} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.miniInsightLabel}>{label}</Text>
+        <Text style={styles.miniInsightValue} numberOfLines={1}>
+          {value}
+        </Text>
+        <Text style={styles.miniInsightDetail} numberOfLines={1}>
+          {detail}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function RankingRow({
   rank,
   title,
@@ -1033,6 +1102,49 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     marginTop: 6,
     lineHeight: 17,
+  },
+  insightGrid: {
+    marginTop: 10,
+    gap: 8,
+  },
+  miniInsight: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+  },
+  miniInsightIcon: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  miniInsightLabel: {
+    fontSize: 9,
+    fontWeight: "900",
+    color: theme.colors.gold,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+  },
+  miniInsightValue: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: theme.colors.textPrimary,
+    marginTop: 2,
+  },
+  miniInsightDetail: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   contextRow: {
     flexDirection: "row",
