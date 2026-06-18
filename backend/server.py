@@ -1594,6 +1594,10 @@ class LonabArchiveImportPayload(BaseModel):
     pdf_urls: List[str]
 
 
+class RaceLinkOverridePayload(BaseModel):
+    target_race_id: Optional[str] = None
+
+
 @api_router.post("/admin/imports/lonab/preview")
 async def admin_lonab_archive_preview(
     payload: LonabArchivePreviewPayload,
@@ -1810,6 +1814,78 @@ async def admin_link_related_races(
     result = await rebuild_programme_result_links()
     await _log_admin_action(me.get("email"), "race.link_related", result)
     return {"ok": True, **result}
+
+
+@api_router.post("/admin/races/{race_id}/link-override")
+async def admin_override_race_link(
+    race_id: str,
+    payload: RaceLinkOverridePayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    doc = await db.races.find_one({"race_id": race_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Course introuvable")
+
+    doc_type = doc.get("doc_type", "programme")
+    if doc_type not in {"programme", "result"}:
+        raise HTTPException(status_code=400, detail="Type de document non compatible")
+
+    if doc_type == "programme":
+        own_field = "linked_result_ids"
+        target_field = "linked_programme_ids"
+        expected_target_type = "result"
+    else:
+        own_field = "linked_programme_ids"
+        target_field = "linked_result_ids"
+        expected_target_type = "programme"
+
+    previous_ids = doc.get(own_field, []) or []
+    target_id = (payload.target_race_id or "").strip()
+    target_doc = None
+
+    if target_id:
+        if target_id == race_id:
+            raise HTTPException(status_code=400, detail="Un document ne peut pas etre lie a lui-meme")
+        target_doc = await db.races.find_one({"race_id": target_id}, {"_id": 0})
+        if not target_doc:
+            raise HTTPException(status_code=404, detail="Document cible introuvable")
+        if target_doc.get("doc_type", "programme") != expected_target_type:
+            raise HTTPException(status_code=400, detail="Le document cible doit etre du type oppose")
+
+    if previous_ids:
+        await db.races.update_many(
+            {"race_id": {"$in": previous_ids}},
+            {"$pull": {target_field: race_id}},
+        )
+
+    next_ids = [target_id] if target_id else []
+    await db.races.update_one({"race_id": race_id}, {"$set": {own_field: next_ids}})
+
+    if target_id:
+        await db.races.update_one(
+            {"race_id": target_id},
+            {"$addToSet": {target_field: race_id}},
+        )
+
+    meta = {
+        "race_id": race_id,
+        "doc_type": doc_type,
+        "target_race_id": target_id or None,
+        "previous_linked_ids": previous_ids,
+    }
+    await _log_admin_action(me.get("email"), "race.link_override", meta)
+    return {
+        "ok": True,
+        **meta,
+        "target": {
+            "race_id": target_doc.get("race_id"),
+            "doc_type": target_doc.get("doc_type"),
+            "name": target_doc.get("name"),
+            "date_text": target_doc.get("date_text"),
+        } if target_doc else None,
+    }
 
 
 @api_router.post("/admin/races/upload")
