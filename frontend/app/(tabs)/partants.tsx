@@ -15,6 +15,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL, formatFCFA } from "../../src/theme";
+import { IS_ANALYSIS_APP } from "../../src/product";
+import AnalysisChevauxScreen from "../../src/AnalysisChevauxScreen";
 import { haptics } from "../../src/haptics";
 import { HorseListSkeleton } from "../../src/Skeleton";
 import { fetchJson } from "../../src/apiClient";
@@ -72,6 +74,14 @@ type PartantsCache = {
 const PARTANTS_CACHE_KEY = "pmub.partants.v1";
 
 export default function PartantsScreen() {
+  if (IS_ANALYSIS_APP) {
+    return <AnalysisChevauxScreen />;
+  }
+
+  return <CorePartantsScreen />;
+}
+
+function CorePartantsScreen() {
   const [horses, setHorses] = useState<Horse[]>([]);
   const [programmes, setProgrammes] = useState<ProgrammeSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);

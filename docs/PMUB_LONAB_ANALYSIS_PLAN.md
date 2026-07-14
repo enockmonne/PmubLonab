@@ -8,6 +8,13 @@ The current app remains focused on viewing programmes, partants, pronostics, res
 
 This product is for bettors who want more information and context. It should not present direct betting recommendations.
 
+## Analysis-Specific Docs
+
+- `docs/ANALYSIS_PRD.md`
+- `docs/ANALYSIS_TECHNICAL_DESIGN.md`
+- `docs/ANALYSIS_ROADMAP.md`
+- `docs/ANALYSIS_IMPLEMENTATION_KICKOFF.md`
+
 ## Confirmed Decisions
 
 - Start from the current PmubLonab repository.
@@ -237,10 +244,17 @@ Every AI summary should cite or derive from stored raw PDF data and avoid direct
 
 ## Immediate Next Actions
 
-1. Push the new branch.
-2. Start a new Codex chat using `PMUB_LONAB_ANALYSIS_HANDOFF.md`.
-3. In the new chat, inspect the worktree and confirm the branch.
-4. Add analysis env examples and product naming.
-5. Design the first analysis tab structure.
-6. Plan separate MongoDB Atlas setup.
-7. Decide whether to create separate Render services now or after the first UI split.
+1. Use `.\scripts\start-analysis-dev.ps1` and `.\scripts\check-analysis-dev.ps1` before frontend work. If `8081` is already occupied, use `.\scripts\start-analysis-dev.ps1 -RestartFrontend`.
+2. Keep local analysis work on frontend `8081`, backend `8003`, and analysis MongoDB `27018`.
+3. Use Render services named `pmublonab-analysis-staging-*` as the stable review/demo environment.
+4. Configure analysis staging secrets in Render before first deployment:
+   - `MONGO_URL`
+   - `ADMIN_EMAIL`
+   - `ADMIN_PASSWORD`
+   - `ADMIN_PASSCODE`
+   - `GEMINI_API_KEY`
+5. Push the current branch and deploy analysis staging.
+6. Continue replacing analysis tabs:
+   - `Courses`
+   - `Analyses`
+7. Plan separate MongoDB Atlas setup for analysis staging/production data.

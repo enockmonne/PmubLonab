@@ -38,6 +38,10 @@ Important decisions:
 - Eventually ingest all historical PDFs from LONAB.
 
 Read first:
+docs/ANALYSIS_PRD.md
+docs/ANALYSIS_TECHNICAL_DESIGN.md
+docs/ANALYSIS_ROADMAP.md
+docs/ANALYSIS_IMPLEMENTATION_KICKOFF.md
 docs/PMUB_LONAB_ANALYSIS_PLAN.md
 docs/PRD.md
 docs/IMPLEMENTATION.md
@@ -65,3 +69,34 @@ Do not include secrets in docs.
 - API: https://pmublonab-staging-api.onrender.com
 
 These are for the original app. The analysis app should get separate services/URLs when deployment begins.
+
+## Analysis Dev And Staging Guardrails
+
+Use the analysis-specific local environment for this branch:
+
+```powershell
+.\scripts\start-analysis-dev.ps1
+.\scripts\check-analysis-dev.ps1
+```
+
+If port `8081` is already occupied by an older Expo process, restart the frontend explicitly:
+
+```powershell
+.\scripts\start-analysis-dev.ps1 -RestartFrontend
+```
+
+Expected local URLs:
+
+- Frontend: http://192.168.50.131:8081
+- Backend: http://192.168.50.131:8003
+- MongoDB: `pmub_analysis_mongo` on host port `27018`
+
+Do not use the legacy `pmub_api` container on port `8001` for analysis work unless it has been recreated from this worktree. That container may belong to another checkout.
+
+Analysis staging services are declared in `render.yaml` with separate names:
+
+- API: `pmublonab-analysis-staging-api`
+- Web: `pmublonab-analysis-staging-web`
+- Admin: `pmublonab-analysis-staging-admin`
+
+Staging should be the stable review/demo environment. Active coding should still happen locally, then be pushed and deployed to analysis staging.
