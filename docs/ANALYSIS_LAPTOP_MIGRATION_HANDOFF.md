@@ -9,10 +9,11 @@ This document is the durable migration checklist for moving the PMU'B/LONAB/Anal
 - Repository: `https://github.com/enockmonne/PmubLonab`
 - Product: `PMU'B/LONAB/Analysis`
 - Branch: `codex/pmub-lonab-analysis`
-- Current commit: `75c085c` (`Bootstrap PMUB LONAB analysis app`)
+- Implementation baseline: `75c085c` (`Bootstrap PMUB LONAB analysis app`)
+- Migration handoff publication commit: `f605f2b` (`Add analysis laptop migration handoff`)
 - Previous branch commit: `ab5211f` (`Add PMUB LONAB Analysis planning docs`)
 - Pull request: `#88` - `https://github.com/enockmonne/PmubLonab/pull/88`
-- PR state: open draft, mergeable, two commits ahead of `main`
+- PR state at initial verification: open draft and mergeable; documentation pushes may temporarily show checks in progress
 - CI: Backend tests, Frontend checks, and Admin web build all pass
 - Working tree at handoff: clean and fully pushed
 
@@ -160,7 +161,7 @@ git log -3 --oneline
 Expected checkpoint:
 
 - Branch: `codex/pmub-lonab-analysis`
-- Commit: `75c085c`
+- History contains implementation baseline `75c085c` and migration handoff commit `f605f2b`
 - Working tree: clean
 
 Install dependencies:
@@ -290,7 +291,7 @@ Continue the PMU'B/LONAB/Analysis project from the laptop migration handoff.
 
 Repository: https://github.com/enockmonne/PmubLonab
 Branch: codex/pmub-lonab-analysis
-Expected checkpoint: commit 75c085c, draft PR #88
+Expected checkpoint: branch contains implementation baseline 75c085c and migration handoff commit f605f2b; draft PR #88
 
 Read first:
 - docs/ANALYSIS_LAPTOP_MIGRATION_HANDOFF.md
