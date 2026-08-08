@@ -1,5 +1,7 @@
 # PMU'B/LONAB/Analysis New Chat Handoff
 
+For a new-laptop migration, start with `docs/ANALYSIS_LAPTOP_MIGRATION_HANDOFF.md`. It contains the verified GitHub checkpoint, secret/data transfer checklist, machine setup, local restore commands, and migration completion gate.
+
 Use this prompt to start the new Codex chat/project for the analysis application.
 
 ```text
