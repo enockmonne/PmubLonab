@@ -12,18 +12,20 @@ services:
       context: ./backend
     container_name: pmub_analysis_api
     environment:
-      APP_ENV: analysis-local
-      APP_PRODUCT: analysis
+      APP_ENV: ${APP_ENV:-analysis-local}
+      APP_PRODUCT: ${APP_PRODUCT:-analysis}
       MONGO_URL: mongodb://analysis-mongo:27017
-      DB_NAME: pmub_analysis_dev
-      JWT_SECRET: dev-only-change-me
-      ADMIN_EMAIL: admin@example.com
-      ADMIN_PASSWORD: change-me-now
-      ADMIN_PASSCODE: dev-passcode-change-me
+      DB_NAME: ${DB_NAME:-pmub_analysis_dev}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in backend/.env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?Set ADMIN_EMAIL in backend/.env}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in backend/.env}
+      ADMIN_PASSCODE: ${ADMIN_PASSCODE:?Set ADMIN_PASSCODE in backend/.env}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
-      GEMINI_TIMEOUT_SECONDS: "180"
-      CORS_ORIGINS: http://localhost:8081,http://192.168.50.131:8081,http://localhost:5179,http://192.168.50.131:5179
+      GEMINI_TIMEOUT_SECONDS: ${GEMINI_TIMEOUT_SECONDS:-180}
+      GEMINI_MAX_RETRIES: ${GEMINI_MAX_RETRIES:-2}
+      GEMINI_RETRY_BACKOFF_SECONDS: ${GEMINI_RETRY_BACKOFF_SECONDS:-4}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8081,http://localhost:5179}
     ports:
       - "8003:8001"
     depends_on:

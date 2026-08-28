@@ -1,5 +1,6 @@
 param(
-  [string]$HostAddress = "192.168.50.131",
+  [Parameter(Mandatory = $true)]
+  [string]$HostAddress,
   [int]$FrontendPort = 8081,
   [int]$BackendPort = 8003,
   [int]$AdminPort = 5179,
@@ -11,6 +12,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $frontendDir = Join-Path $repoRoot "frontend"
+$backendEnv = Join-Path $repoRoot "backend\.env"
 $logDir = "C:\tmp"
 $frontendOut = Join-Path $logDir "pmub-analysis-frontend.out.log"
 $frontendErr = Join-Path $logDir "pmub-analysis-frontend.err.log"
@@ -24,9 +26,15 @@ if ($LASTEXITCODE -ne 0) {
   throw "Docker Desktop is not running or is not accessible. Start Docker Desktop, wait until it is ready, and run this script again."
 }
 
+if (-not (Test-Path $backendEnv)) {
+  throw "Missing $backendEnv. Create it from backend/.env.analysis.example and restore secrets securely."
+}
+
+$env:CORS_ORIGINS = "http://localhost:${FrontendPort},http://${HostAddress}:${FrontendPort},http://localhost:${AdminPort},http://${HostAddress}:${AdminPort}"
+
 Push-Location $repoRoot
 try {
-  docker compose -f docker-compose.analysis.yml up -d --build
+  docker compose --env-file $backendEnv -f docker-compose.analysis.yml up -d --build
   if ($LASTEXITCODE -ne 0) {
     throw "Unable to start the analysis Docker services. Review the Compose output above."
   }

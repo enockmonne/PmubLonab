@@ -193,6 +193,17 @@ From the repository root, replace `<NEW_LAN_IP>` with that address:
 .\scripts\check-analysis-dev.ps1 -HostAddress "<NEW_LAN_IP>"
 ```
 
+On macOS or Linux, use the equivalent portable scripts:
+
+```bash
+./scripts/start-analysis-dev.sh --host-address "<NEW_LAN_IP>" --restart-frontend
+./scripts/check-analysis-dev.sh --host-address "<NEW_LAN_IP>"
+```
+
+Both launchers require `backend/.env`, recreated securely from
+`backend/.env.analysis.example`. They derive local CORS origins from the supplied
+LAN address, so no address should be hard-coded in Compose.
+
 Expected URLs:
 
 ```text
@@ -211,6 +222,13 @@ Local admin URL:
 
 ```text
 http://<NEW_LAN_IP>:5179
+```
+
+On macOS or Linux, the admin command is the same after changing directories:
+
+```bash
+cd admin-web
+npm run dev -- --host 0.0.0.0 --port 5179
 ```
 
 ## 10. Validation After Migration
@@ -232,6 +250,12 @@ npm run build
 Set-Location ..
 git diff --check
 git status --short
+```
+
+On macOS or Linux, replace the first command with:
+
+```bash
+./scripts/check-analysis-dev.sh --host-address "<NEW_LAN_IP>"
 ```
 
 If Python is not installed locally, skip `python -m py_compile`; the Docker/API check still validates backend startup.
