@@ -10,19 +10,33 @@ import {
   Settings as SettingsIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getSelectedProduct, PRODUCTS } from '@/lib/product';
 
-const navItems = [
+const coreNavItems = [
   { to: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { to: '/upload', label: 'Upload PDF', icon: UploadCloud },
   { to: '/archive-import', label: 'Import LONAB', icon: DownloadCloud },
   { to: '/races', label: 'Courses', icon: Trophy },
   { to: '/announcements', label: 'Annonces', icon: Megaphone },
-  { to: '/beta-access', label: 'Accès beta', icon: KeyRound },
-  { to: '/logs', label: 'Activité', icon: History },
-  { to: '/settings', label: 'Paramètres', icon: SettingsIcon },
+  { to: '/beta-access', label: 'Acces beta', icon: KeyRound },
+  { to: '/logs', label: 'Activite', icon: History },
+  { to: '/settings', label: 'Parametres', icon: SettingsIcon },
+];
+
+const analysisNavItems = [
+  { to: '/analysis/dashboard', label: 'Analyse', icon: LayoutDashboard },
+  { to: '/analysis/upload', label: 'Upload PDF', icon: UploadCloud },
+  { to: '/analysis/archive-import', label: 'Import LONAB', icon: DownloadCloud },
+  { to: '/analysis/races', label: 'Corpus courses', icon: Trophy },
+  { to: '/analysis/logs', label: 'Activite', icon: History },
+  { to: '/analysis/settings', label: 'Parametres', icon: SettingsIcon },
 ];
 
 export default function Sidebar() {
+  const selectedProduct = getSelectedProduct() || 'core';
+  const product = PRODUCTS[selectedProduct];
+  const navItems = selectedProduct === 'analysis' ? analysisNavItems : coreNavItems;
+
   return (
     <aside className="w-60 shrink-0 border-r border-border bg-bg-surface flex flex-col">
       <div className="h-14 px-4 flex items-center gap-2 border-b border-border">
@@ -30,9 +44,9 @@ export default function Sidebar() {
           H
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold text-fg">PMU'B Admin</span>
+          <span className="text-sm font-semibold text-fg">{product.shortName} Admin</span>
           <span className="text-[10px] text-fg-subtle uppercase tracking-wider">
-            Le Journal Hippique
+            {selectedProduct === 'analysis' ? 'Recherche' : 'Le Journal Hippique'}
           </span>
         </div>
       </div>
@@ -56,7 +70,7 @@ export default function Sidebar() {
         ))}
       </nav>
       <div className="p-3 border-t border-border">
-        <p className="text-[11px] text-fg-subtle">v1.0.0 · Admin Web</p>
+        <p className="text-[11px] text-fg-subtle">v1.0.0 - Admin Web</p>
       </div>
     </aside>
   );

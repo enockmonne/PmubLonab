@@ -1931,6 +1931,11 @@ async def admin_status(
             "status": llm_health["status"],
             "error": llm_health["error"],
         },
+        "environment": {
+            "app_env": os.environ.get("APP_ENV", "development"),
+            "app_product": os.environ.get("APP_PRODUCT", "core"),
+            "db_name": os.environ.get("DB_NAME", ""),
+        },
         "admin": admin_user or {"email": me.get("email"), "role": me.get("role")},
     }
 
