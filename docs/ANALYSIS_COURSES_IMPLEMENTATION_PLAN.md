@@ -73,6 +73,30 @@ Start by reusing the existing race endpoints and linked-document summaries.
 Avoid new backend work until the frontend data contract is mapped and a specific
 gap is demonstrated.
 
+### Pre-Coding Contract Review
+
+The read-only contract review completed on 2026-08-29 confirmed:
+
+- The `Courses` tab still renders the original `programmes.tsx` experience and
+  does not yet branch on `IS_ANALYSIS_APP`.
+- `GET /api/races` already supplies document identity, basic race metadata,
+  programme/result linkage, arrival previews, and a top payout.
+- `GET /api/races/{race_id}` supplies the full programme or result document,
+  including runners, official-result fields, payouts, `npo`, and parse quality.
+- A linked programme/result pair can be grouped from the existing linked IDs,
+  while preserving both source documents.
+
+The review also demonstrated these minimal API gaps:
+
+- Add `discipline`, `distance_m`, and `parse_quality` to each list summary.
+- Add optional date-range and discipline/race-type list filters.
+- Add an optional linkage-state filter for linked, programme-only, and
+  result-only discovery.
+
+These changes must remain backward compatible. Linked detail documents can be
+loaded through the existing detail endpoint using the linked IDs, so a new
+combined-detail endpoint is not required for the first slice.
+
 Required list fields:
 
 - `race_id`
@@ -102,11 +126,13 @@ analytics service for this first slice.
 
 ## Implementation Slices
 
-1. Map the existing Courses route, race API response, and reusable components.
-2. Build the Analysis race list with grouped linkage and limited-data states.
-3. Add search and coverage filters.
-4. Add race detail with official arrival, payouts, and provenance.
-5. Add any minimal backward-compatible backend fields proven necessary.
+1. Add the verified backward-compatible list fields and filters, with API tests.
+2. Add an `IS_ANALYSIS_APP` branch and a dedicated `AnalysisCoursesScreen` while
+   preserving the original product's `programmes.tsx` behavior.
+3. Build the Analysis race list with grouped linkage and limited-data states.
+4. Add search and coverage filters.
+5. Add race detail with official arrival, payouts, `npo`, and provenance by
+   loading linked documents through the existing detail endpoint.
 6. Validate mobile/web rendering against the representative linked pair and an
    unmatched sample record.
 
@@ -135,6 +161,6 @@ analytics service for this first slice.
 
 ## Review Gate Before Coding
 
-Before implementation begins, review this plan against the current route and API
-contracts. Record any required backend response change explicitly; otherwise
-keep the first code slice frontend-only.
+Completed on 2026-08-29. The route and API findings are recorded above. Coding
+may begin with the minimal backward-compatible list contract extension; no new
+service or combined-detail endpoint is justified for this slice.
