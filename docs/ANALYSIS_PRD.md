@@ -1,6 +1,23 @@
 # PMU'B/LONAB/Analysis PRD
 
-Last updated: 2026-07-10
+Last updated: 2026-08-29
+
+## Current Validated State
+
+The laptop migration and local Analysis environment are complete. The validated
+baseline now includes:
+
+- Isolated local frontend, API, MongoDB, containers, and database.
+- Portable Windows and macOS/Linux development launchers and checkers.
+- Working Analysis admin login, product selection, and upload workflow.
+- Purpose-built `Recherche`, `Chevaux`, and `Sources` screens.
+- A representative programme/result pair imported, parsed, automatically linked,
+  and reflected in horse and source statistics.
+- Draft PR #88 with passing backend, frontend, and admin CI checks.
+
+The next product-development slice is the purpose-built historical `Courses`
+screen. Its implementation plan is documented in
+`docs/ANALYSIS_COURSES_IMPLEMENTATION_PLAN.md`.
 
 ## Product Summary
 

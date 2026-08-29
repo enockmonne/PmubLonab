@@ -1,6 +1,6 @@
 # PMU'B/LONAB/Analysis Technical Design
 
-Last updated: 2026-07-10
+Last updated: 2026-08-29
 
 ## System Shape
 
@@ -151,6 +151,31 @@ Analysis tabs:
 - `Analyses`: statistical context and summaries.
 
 The first implementation uses the same underlying route files where practical, then replaces each tab with purpose-built screens.
+
+Current purpose-built screens:
+
+- `Recherche`
+- `Chevaux`
+- `Sources`
+
+The next replacement is `Courses`. See
+`docs/ANALYSIS_COURSES_IMPLEMENTATION_PLAN.md` for its scope, data contract,
+states, and acceptance criteria.
+
+## Validated Local Development Boundary
+
+The migration baseline was revalidated on macOS with:
+
+- Frontend on `8081`.
+- API on `8003` in `pmub_analysis_api`.
+- MongoDB on `27018` in `pmub_analysis_mongo`.
+- Database `pmub_analysis_dev`.
+- Credentials loaded from ignored `backend/.env` rather than Compose defaults.
+- CORS derived from the LAN address supplied to the launcher.
+- Matching programme/result PDFs automatically linked by the existing backend.
+
+Windows uses `scripts/start-analysis-dev.ps1` and
+`scripts/check-analysis-dev.ps1`. macOS/Linux uses the matching `.sh` scripts.
 
 ## Analysis Admin
 

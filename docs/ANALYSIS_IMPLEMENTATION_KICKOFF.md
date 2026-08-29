@@ -1,6 +1,17 @@
 # PMU'B/LONAB/Analysis Implementation Kickoff
 
-Last updated: 2026-07-08
+Last updated: 2026-08-29
+
+## Post-Migration Update
+
+The migration gate is complete. Local Analysis services, credentials, admin
+selection, frontend screens, CI, and representative programme/result parsing
+have been validated on the new laptop. Portable macOS/Linux scripts now mirror
+the Windows workflow.
+
+The next implementation slice is no longer environment bootstrap. It is the
+purpose-built historical `Courses` screen described in
+`docs/ANALYSIS_COURSES_IMPLEMENTATION_PLAN.md`.
 
 ## Current Branch Snapshot
 

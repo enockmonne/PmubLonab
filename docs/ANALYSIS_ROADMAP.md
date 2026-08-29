@@ -1,6 +1,6 @@
 # PMU'B/LONAB/Analysis Roadmap
 
-Last updated: 2026-07-10
+Last updated: 2026-08-29
 
 ## Roadmap Principles
 
@@ -12,7 +12,7 @@ Last updated: 2026-07-10
 
 ## Phase 1: Product Boundary And Docs
 
-Status: in progress.
+Status: complete.
 
 Goals:
 
@@ -35,14 +35,15 @@ Done:
 - Analysis frontend product flag and tab labels.
 - Admin status environment diagnostics.
 
-Remaining:
+Validated after laptop migration:
 
-- Commit and push the first analysis setup.
-- Decide timing for separate Render services.
+- Portable Windows and macOS/Linux local tooling.
+- Isolated Analysis credentials, containers, ports, and database.
+- Draft PR #88 remains open with passing CI.
 
 ## Phase 2: Research Landing And Search
 
-Status: in progress.
+Status: complete for the initial research landing.
 
 Goal: make the first tab feel like a research tool, not just an archive list.
 
@@ -72,13 +73,16 @@ Verification:
 
 ## Phase 3: Horse Intelligence
 
+Status: in progress.
+
 Goal: make `Chevaux` the first deep research workflow.
 
 Build:
 
-- Horse search/list.
-- Horse profile by name.
-- Last appearances.
+- Done: horse search/list and historical leaderboard.
+- Done: linked-result win/top-3 rates with coverage context.
+- Horse profile by name and deeper drilldown.
+- Last appearances and filters.
 - Win/top-3 rate when linked official results exist.
 - Performance by distance/type/discipline when data exists.
 - Jockey/trainer context.
@@ -91,6 +95,8 @@ Backend:
 - Normalized horse names and aliases.
 
 ## Phase 4: Historical Race Explorer
+
+Status: next.
 
 Goal: make `Courses` useful for comparing historical race contexts.
 
@@ -108,13 +114,19 @@ Backend:
 - Similarity fields and scoring.
 - Better metadata correction support if parsed fields are inconsistent.
 
+Implementation control document:
+
+- `docs/ANALYSIS_COURSES_IMPLEMENTATION_PLAN.md`
+
 ## Phase 5: Source And Media Performance
+
+Status: in progress.
 
 Goal: make `Sources` show evidence-backed pronostic performance.
 
 Build:
 
-- Source leaderboard.
+- Done: initial source leaderboard with evaluated-race counts and methodology.
 - Source detail pages.
 - Evaluation counts.
 - Top pick win/top-3 metrics.
@@ -129,6 +141,8 @@ Backend:
 - Add source detail drilldown.
 
 ## Phase 6: Historical Ingest And Data Quality
+
+Status: in progress at representative-dataset validation.
 
 Goal: safely expand the analysis database.
 
@@ -147,6 +161,7 @@ Build:
 
 Milestones:
 
+- Done: one matching programme/result pair parsed and automatically linked.
 - Recent 3 months.
 - Recent 6 months.
 - Recent 12 months.
@@ -218,8 +233,8 @@ Possible packaging:
 
 ## Near-Term Next Steps
 
-1. Commit the first docs/product-boundary slice.
-2. Build the `Recherche` tab as a true research landing.
-3. Review existing `/api/search` and add any missing search fields.
-4. Add a horse-profile backend endpoint if existing screens cannot support the `Chevaux` workflow cleanly.
-5. Prepare analysis Render service configuration after the first user-visible analysis screen is ready.
+1. Build the purpose-built `Courses` screen from the focused implementation plan.
+2. Validate it against the linked August 26, 2026 programme/result pair.
+3. Add deeper horse and source drilldowns after the race explorer is stable.
+4. Import a small multi-date dataset before attempting bulk historical ingestion.
+5. Provision the separate Analysis Render staging services and Atlas database.
