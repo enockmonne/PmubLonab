@@ -12,10 +12,20 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
+import { IS_ANALYSIS_APP } from "../../src/product";
+import AnalysisCourseDetailScreen from "../../src/AnalysisCourseDetailScreen";
 
 type Race = any;
 
 export default function RaceDetail() {
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  if (IS_ANALYSIS_APP && from === "analysis-courses") {
+    return <AnalysisCourseDetailScreen />;
+  }
+  return <CoreRaceDetail />;
+}
+
+function CoreRaceDetail() {
   const { race_id, from } = useLocalSearchParams<{ race_id: string; from?: string }>();
   const [race, setRace] = useState<Race | null>(null);
   const [loading, setLoading] = useState(true);

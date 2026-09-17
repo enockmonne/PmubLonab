@@ -50,6 +50,7 @@ export interface DashboardStats {
   current_race?: { race_id: string; name: string; date_text?: string; location?: string } | null;
   last_upload?: { race_id: string; name: string; date_text?: string; created_at?: string; doc_type?: string } | null;
   llm: { status: string; error?: string | null };
+  environment?: { app_env: string; app_product: string; db_name: string };
   admin: { email: string; role: string; last_login_at?: string };
 }
 

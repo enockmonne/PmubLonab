@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL } from "../src/theme";
+import { PRODUCT_HOME_TITLE, PRODUCT_OVERLINE } from "../src/product";
 import ArrestCountdown from "../src/ArrestCountdown";
 import AnnouncementBanner from "../src/AnnouncementBanner";
 import { readCache, writeCache } from "../src/storageCache";
@@ -118,8 +119,8 @@ export default function Landing() {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Masthead */}
         <View style={styles.masthead}>
-          <Text style={styles.mastheadOverline}>Le Journal Hippique</Text>
-          <Text style={styles.mastheadTitle}>PMU&apos;B</Text>
+          <Text style={styles.mastheadOverline}>{PRODUCT_OVERLINE}</Text>
+          <Text style={styles.mastheadTitle}>{PRODUCT_HOME_TITLE}</Text>
           <View style={styles.mastheadRule} />
           <Text style={styles.tagline}>
             Analyses, pronostics et résultats officiels

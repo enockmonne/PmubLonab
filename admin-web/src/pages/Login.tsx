@@ -13,7 +13,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) navigate('/dashboard', { replace: true });
+    if (isAuthenticated()) navigate('/products', { replace: true });
   }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,7 +28,7 @@ export default function Login() {
       setToken(data.token);
       setUser(data.user);
       toast.success(`Bienvenue, ${data.user.email}`);
-      navigate('/dashboard', { replace: true });
+      navigate('/products', { replace: true });
     } catch (err) {
       toast.error(apiError(err));
     } finally {
