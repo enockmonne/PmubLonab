@@ -7,9 +7,9 @@ import logging
 import time
 import unicodedata
 from html import unescape
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Header, Query, Request
@@ -1151,22 +1151,61 @@ async def list_races(
     q: Optional[str] = None,
     location: Optional[str] = None,
     doc_type: Optional[str] = None,
+    date_from: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    date_to: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    discipline: Optional[str] = None,
+    race_type: Optional[str] = None,
+    linkage_state: Optional[Literal["linked", "programme_only", "result_only"]] = None,
     has_results: Optional[bool] = None,
     limit: int = Query(20, ge=1, le=500),
     skip: int = Query(0, ge=0),
 ):
-    query: Dict[str, Any] = {}
+    clauses: List[Dict[str, Any]] = []
     if q:
         rx = {"$regex": re.escape(q), "$options": "i"}
-        query["$or"] = [{"name": rx}, {"location": rx}, {"race_id": rx}]
+        clauses.append({"$or": [{"name": rx}, {"location": rx}, {"race_id": rx}]})
     if location:
-        query["location"] = {"$regex": re.escape(location), "$options": "i"}
+        clauses.append({"location": {"$regex": re.escape(location), "$options": "i"}})
     if doc_type in ("programme", "result"):
-        query["doc_type"] = doc_type
+        clauses.append({"doc_type": doc_type})
+    if date_from or date_to:
+        date_filter: Dict[str, str] = {}
+        if date_from:
+            date_filter["$gte"] = date_from
+        if date_to:
+            day_after = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+            date_filter["$lt"] = day_after.strftime("%Y-%m-%d")
+        clauses.append({"date_iso": date_filter})
+    if discipline:
+        clauses.append({
+            "discipline": {"$regex": f"^{re.escape(discipline)}$", "$options": "i"}
+        })
+    if race_type:
+        clauses.append({
+            "race_type": {"$regex": f"^{re.escape(race_type)}$", "$options": "i"}
+        })
+    if linkage_state == "linked":
+        clauses.append({
+            "$or": [
+                {"linked_programme_ids.0": {"$exists": True}},
+                {"linked_result_ids.0": {"$exists": True}},
+            ]
+        })
+    elif linkage_state == "programme_only":
+        clauses.append({
+            "doc_type": "programme",
+            "linked_result_ids.0": {"$exists": False},
+        })
+    elif linkage_state == "result_only":
+        clauses.append({
+            "doc_type": "result",
+            "linked_programme_ids.0": {"$exists": False},
+        })
     if has_results is True:
-        query["previous_results.finishing_order.0"] = {"$exists": True}
+        clauses.append({"previous_results.finishing_order.0": {"$exists": True}})
     elif has_results is False:
-        query["previous_results.finishing_order.0"] = {"$exists": False}
+        clauses.append({"previous_results.finishing_order.0": {"$exists": False}})
+    query: Dict[str, Any] = {"$and": clauses} if clauses else {}
     total = await db.races.count_documents(query)
     cursor = db.races.find(query, {"_id": 0}).sort("date_iso", -1).skip(skip).limit(limit)
     races = await cursor.to_list(length=limit)
@@ -1204,7 +1243,9 @@ async def list_races(
             "meeting_label": r.get("meeting_label", ""),
             "course_label": r.get("course_label", ""),
             "race_type": r.get("race_type", ""),
+            "discipline": r.get("discipline", ""),
             "start_mode": r.get("start_mode", ""),
+            "distance_m": r.get("distance_m", 0),
             "date_text": r.get("date_text"),
             "date_iso": r.get("date_iso"),
             "location": r.get("location"),
@@ -1212,6 +1253,7 @@ async def list_races(
             "runners": r.get("runners"),
             "prize_fcfa": r.get("prize_fcfa"),
             "is_current": r.get("is_current", False),
+            "parse_quality": r.get("parse_quality", {}),
             "linked_programme_ids": r.get("linked_programme_ids", []),
             "linked_result_ids": r.get("linked_result_ids", []),
             "linked_programmes_count": len(r.get("linked_programme_ids", []) or []),
