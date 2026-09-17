@@ -24,6 +24,8 @@ import {
   setSelectedProgrammeId,
   subscribeSelectedProgramme,
 } from "../../src/programmeSelection";
+import { IS_ANALYSIS_APP } from "../../src/product";
+import AnalysisCoursesScreen from "../../src/AnalysisCoursesScreen";
 
 // French locale
 LocaleConfig.locales["fr"] = {
@@ -95,6 +97,14 @@ type ProgrammesCache = {
 const PROGRAMMES_CACHE_KEY = "pmub.programmes.v3";
 
 export default function RaceScreen() {
+  if (IS_ANALYSIS_APP) {
+    return <AnalysisCoursesScreen />;
+  }
+
+  return <CoreRaceScreen />;
+}
+
+function CoreRaceScreen() {
   const [data, setData] = useState<RaceData | null>(null);
   const [programmes, setProgrammes] = useState<ProgrammeSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);

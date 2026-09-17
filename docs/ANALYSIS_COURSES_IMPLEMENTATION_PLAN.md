@@ -2,6 +2,8 @@
 
 Last updated: 2026-08-29
 
+Implementation status: completed and locally validated on 2026-09-17.
+
 ## Objective
 
 Replace the reused `Courses` tab with a French-first historical race explorer.
@@ -164,3 +166,15 @@ analytics service for this first slice.
 Completed on 2026-08-29. The route and API findings are recorded above. Coding
 may begin with the minimal backward-compatible list contract extension; no new
 service or combined-detail endpoint is justified for this slice.
+
+## Implementation Validation
+
+- The original PMU'B `programmes.tsx` behavior remains behind the product boundary.
+- Analysis mode renders a dedicated grouped Courses list and dossier detail.
+- The linked August 26 pair renders as one course with both source document IDs.
+- Official arrival `6-10-1-4-13`, non-partant `11`, seven payouts, and 14 runners
+  were visually verified from the imported documents.
+- Text search and linked/programme-only/result-only filters were verified.
+- Desktop and 390×844 mobile web layouts were visually checked.
+- Frontend typecheck/lint, admin build, backend compile/unit tests, Compose
+  validation, and diff checks passed.

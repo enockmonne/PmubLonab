@@ -96,21 +96,23 @@ Backend:
 
 ## Phase 4: Historical Race Explorer
 
-Status: next.
+Status: complete for the initial historical explorer.
 
 Goal: make `Courses` useful for comparing historical race contexts.
 
 Build:
 
-- Historical race list with filters.
-- Filters for date, location, race type, discipline, and doc type.
-- Programme/result linkage indicators.
-- Similar race lookup prototype.
-- Race detail with PDF-derived provenance.
+- Done: searchable historical race list.
+- Done: linked, programme-only, and result-only coverage filters.
+- Done: programme/result grouping with preserved document provenance.
+- Done: official arrival, non-partants, payouts, runners, and parse warnings.
+- Done: responsive Analysis-only list and dossier views.
+- API-ready: date, race-type/discipline, and location filtering for future UI expansion.
+- Later: similar-race lookup after the historical corpus is large enough.
 
 Backend:
 
-- Filterable race endpoint improvements.
+- Done: backward-compatible filterable race endpoint improvements.
 - Similarity fields and scoring.
 - Better metadata correction support if parsed fields are inconsistent.
 
