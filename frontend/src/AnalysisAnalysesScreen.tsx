@@ -57,14 +57,12 @@ type HorseStats = {
 
 type AnalysisData = {
   races: RaceSummary[];
-  totalDocuments: number;
   tipsters: TipsterStats;
   horses: HorseStats;
 };
 
 const EMPTY_DATA: AnalysisData = {
   races: [],
-  totalDocuments: 0,
   tipsters: {},
   horses: {},
 };
@@ -88,7 +86,6 @@ export default function AnalysisAnalysesScreen() {
       ]);
       setData({
         races: races.races || [],
-        totalDocuments: races.total || 0,
         tipsters,
         horses,
       });
@@ -177,8 +174,6 @@ export default function AnalysisAnalysesScreen() {
             </View>
 
             <View style={styles.metrics}>
-              <Metric label="Documents" value={data.totalDocuments} icon="documents-outline" />
-              <Metric label="Paires liées" value={evidence.linkedPairs} icon="link-outline" />
               <Metric label="Courses évaluées" value={evidence.eligible} icon="checkmark-done-outline" />
               <Metric label="Courses exclues" value={excluded} icon="remove-circle-outline" />
             </View>
@@ -290,7 +285,7 @@ function horseFinding(horse: HorseLeader | undefined, evaluated: number) {
 function Metric({ label, value, icon }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap }) {
   return (
     <View style={styles.metricCard}>
-      <Ionicons name={icon} size={18} color={theme.colors.gold} />
+      <Ionicons name={icon} size={16} color={theme.colors.gold} />
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
@@ -386,10 +381,10 @@ const styles = StyleSheet.create({
   readinessKicker: { color: theme.colors.gold, fontSize: 10, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase" },
   readinessTitle: { marginTop: 2, color: "#fff", fontFamily: theme.fonts.serifBlack, fontSize: 24 },
   readinessBody: { marginTop: 3, color: "rgba(255,255,255,0.74)", fontSize: 12, lineHeight: 17 },
-  metrics: { marginTop: 10, paddingHorizontal: 16, flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  metricCard: { width: "48%", minHeight: 108, padding: 14, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  metricValue: { marginTop: 8, color: theme.colors.textPrimary, fontFamily: theme.fonts.serifBlack, fontSize: 28 },
-  metricLabel: { marginTop: 2, color: theme.colors.textSecondary, fontSize: 10, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" },
+  metrics: { marginTop: 10, paddingHorizontal: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  metricCard: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  metricValue: { color: theme.colors.textPrimary, fontFamily: theme.fonts.serifBlack, fontSize: 18, lineHeight: 24 },
+  metricLabel: { color: theme.colors.textSecondary, fontSize: 12, fontWeight: "600" },
   sectionHeader: { marginTop: 27, marginBottom: 12, paddingHorizontal: 20 },
   sectionKicker: { color: theme.colors.gold, fontSize: 10, fontWeight: "800", letterSpacing: 1.8, textTransform: "uppercase" },
   sectionTitle: { marginTop: 4, color: theme.colors.textPrimary, fontFamily: theme.fonts.serifBlack, fontSize: 25, lineHeight: 30 },
