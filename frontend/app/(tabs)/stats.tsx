@@ -16,6 +16,8 @@ import { buildRaceInsight, type RaceInsightData } from "../../src/raceInsight";
 import { buildMediaInsight, type MediaInsightData } from "../../src/mediaInsight";
 import { readCache, writeCache } from "../../src/storageCache";
 import { fetchJson } from "../../src/apiClient";
+import AnalysisAnalysesScreen from "../../src/AnalysisAnalysesScreen";
+import { IS_ANALYSIS_APP } from "../../src/product";
 
 type Tipster = {
   source: string;
@@ -76,7 +78,11 @@ type StatsCache = {
 
 const STATS_CACHE_KEY = "pmub.stats.v1";
 
-export default function StatsScreen() {
+export default function StatsRoute() {
+  return IS_ANALYSIS_APP ? <AnalysisAnalysesScreen /> : <CoreStatsScreen />;
+}
+
+function CoreStatsScreen() {
   const [leaderboard, setLeaderboard] = useState<Tipster[]>([]);
   const [horseLeaders, setHorseLeaders] = useState<HorseLeader[]>([]);
   const [horseStatsMethodology, setHorseStatsMethodology] = useState("");
