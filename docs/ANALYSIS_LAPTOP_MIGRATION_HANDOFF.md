@@ -72,19 +72,13 @@ The launcher defaults to the old laptop LAN address `192.168.50.131`. The new la
 
 ### Analysis Staging
 
-The following services are declared in `render.yaml`:
+The earlier plan for separate `pmublonab-analysis-staging-*` services was superseded on 2026-09-21. Analysis now targets the existing staging services and URLs:
 
-- `pmublonab-analysis-staging-api`
-- `pmublonab-analysis-staging-web`
-- `pmublonab-analysis-staging-admin`
+- Web: `https://pmublonab-staging-web.onrender.com`
+- Admin: `https://pmublonab-staging-admin.onrender.com`
+- API: `https://pmublonab-staging-api.onrender.com`
 
-On 2026-08-08, all three expected analysis staging URLs returned `404 Not Found`. Treat analysis staging as not provisioned or not currently available:
-
-- `https://pmublonab-analysis-staging-api.onrender.com`
-- `https://pmublonab-analysis-staging-web.onrender.com`
-- `https://pmublonab-analysis-staging-admin.onrender.com`
-
-The original app staging services are separate and must not be used as the Analysis backend or database.
+The Analysis experience replaces the original staging experience. The API uses `DB_NAME=pmub_analysis_staging`; the prior `pmub_staging` database remains separate and must not be deleted or reused.
 
 ## 5. Files That Do Not Move Through Git
 
@@ -279,14 +273,14 @@ Confirm manually:
 - A new Docker volume starts with an empty Analysis database. Empty research results can mean data has not been restored/imported, not that the UI is broken.
 - OneDrive-backed development folders can cause cache and filesystem problems; keep the active clone outside OneDrive.
 - Do not merge PR #88 merely to complete the laptop migration. The merge/product-repository decision is separate.
-- Analysis Render services require separate secrets and a separate MongoDB database before deployment.
+- Analysis staging requires its secrets and the separate `pmub_analysis_staging` database before deployment.
 
 ## 12. Immediate Next Work
 
 1. Complete and validate the migration on the new laptop.
 2. Decide whether PR #88 should remain an isolated long-lived branch, merge into `main`, or move to a separate repository.
-3. Provision the three Analysis Render staging services and configure secrets.
-4. Create or select the separate Analysis MongoDB Atlas database/cluster.
+3. Update the three existing staging services for Analysis and configure secrets.
+4. Create or select the isolated `pmub_analysis_staging` MongoDB database.
 5. Implement the Analysis-specific `Courses` screen.
 6. Implement the Analysis-specific `Analyses` screen.
 7. Import a small, representative historical PDF dataset and validate search/statistics quality.

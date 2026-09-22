@@ -171,18 +171,15 @@ Do not copy production secrets into the repo.
 - Add this plan.
 - Add new handoff prompt.
 - Decide first screen/tabs for the analysis product.
-- Decide if the branch should be deployed to separate Render services immediately or after first UI changes.
+- Done: Analysis will replace the original experience on the existing staging services and URLs.
 
 ### Phase 2: Environment Separation
 
 - Add analysis env examples.
 - Add `APP_PRODUCT` or equivalent product flag.
 - Add explicit database naming support if needed.
-- Prepare separate MongoDB Atlas database/cluster.
-- Prepare separate Render services:
-  - analysis API
-  - analysis web
-  - analysis admin
+- Use the isolated `pmub_analysis_staging` MongoDB database.
+- Reuse the existing staging API, web, and admin services for Analysis.
 
 ### Phase 3: Admin Product Selection
 
@@ -246,7 +243,7 @@ Every AI summary should cite or derive from stored raw PDF data and avoid direct
 
 1. Use `.\scripts\start-analysis-dev.ps1` and `.\scripts\check-analysis-dev.ps1` before frontend work. If `8081` is already occupied, use `.\scripts\start-analysis-dev.ps1 -RestartFrontend`.
 2. Keep local analysis work on frontend `8081`, backend `8003`, and analysis MongoDB `27018`.
-3. Use Render services named `pmublonab-analysis-staging-*` as the stable review/demo environment.
+3. Use the existing `pmublonab-staging-*` services as the stable Analysis review/demo environment.
 4. Configure analysis staging secrets in Render before first deployment:
    - `MONGO_URL`
    - `ADMIN_EMAIL`
@@ -257,4 +254,4 @@ Every AI summary should cite or derive from stored raw PDF data and avoid direct
 6. Continue replacing analysis tabs:
    - `Courses`
    - `Analyses`
-7. Plan separate MongoDB Atlas setup for analysis staging/production data.
+7. Keep Analysis staging data in `pmub_analysis_staging`; plan separate production data before production launch.

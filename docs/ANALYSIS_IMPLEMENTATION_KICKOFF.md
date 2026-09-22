@@ -116,7 +116,7 @@ Extend later:
 4. Done: add analysis admin route group that initially reuses upload/import/log pages.
 5. Done: introduce the first analysis frontend tab structure without deleting original screens.
 6. Done: add lightweight backend health/config response fields for `APP_PRODUCT` and `DB_NAME` visibility in admin diagnostics.
-7. Next: prepare separate Render service names after the first UI split is visible.
+7. Superseded: reuse the existing staging service names and URLs for Analysis, with an isolated Analysis database.
 8. In progress: replace reused analysis tabs with purpose-built research screens one at a time.
    - Done: `Recherche` now has an analysis-specific research landing backed by existing races/search APIs.
 
@@ -124,6 +124,7 @@ Extend later:
 
 - Do not point analysis services at the current staging or production MongoDB database.
 - Do not copy secrets into docs or env examples.
-- Do not change original staging service URLs unless intentionally deploying the analysis branch.
+- The Analysis branch intentionally replaces the original experience at the existing staging URLs.
+- Keep `pmub_analysis_staging` separate from the prior `pmub_staging` database.
 - Avoid direct betting recommendations in UI copy and generated summaries.
 - Keep French-first labels and states.

@@ -239,4 +239,4 @@ Possible packaging:
 2. Validate it against the linked August 26, 2026 programme/result pair.
 3. Add deeper horse and source drilldowns after the race explorer is stable.
 4. Import a small multi-date dataset before attempting bulk historical ingestion.
-5. Provision the separate Analysis Render staging services and Atlas database.
+5. Deploy Analysis to the existing staging services, using the isolated `pmub_analysis_staging` database.

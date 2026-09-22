@@ -64,13 +64,13 @@ Do not modify the current production/staging app behavior unless the branch expl
 Do not include secrets in docs.
 ```
 
-## Current Known Staging Links For The Original App
+## Current Analysis Staging Targets
 
 - Web: https://pmublonab-staging-web.onrender.com
 - Admin: https://pmublonab-staging-admin.onrender.com
 - API: https://pmublonab-staging-api.onrender.com
 
-These are for the original app. The analysis app should get separate services/URLs when deployment begins.
+As of 2026-09-21, these existing staging services and URLs are the deployment target for Analysis. The Analysis experience replaces the original staging experience; production is unaffected.
 
 ## Analysis Dev And Staging Guardrails
 
@@ -95,10 +95,8 @@ Expected local URLs:
 
 Do not use the legacy `pmub_api` container on port `8001` for analysis work unless it has been recreated from this worktree. That container may belong to another checkout.
 
-Analysis staging services are declared in `render.yaml` with separate names:
+Analysis staging uses the existing `pmublonab-staging-api`, `pmublonab-staging-web`, and `pmublonab-staging-admin` services declared in `render.yaml`.
 
-- API: `pmublonab-analysis-staging-api`
-- Web: `pmublonab-analysis-staging-web`
-- Admin: `pmublonab-analysis-staging-admin`
+The API must use `DB_NAME=pmub_analysis_staging`. Do not point it at the prior `pmub_staging` database.
 
 Staging should be the stable review/demo environment. Active coding should still happen locally, then be pushed and deployed to analysis staging.

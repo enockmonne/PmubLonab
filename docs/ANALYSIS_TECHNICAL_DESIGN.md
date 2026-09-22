@@ -1,6 +1,6 @@
 # PMU'B/LONAB/Analysis Technical Design
 
-Last updated: 2026-08-29
+Last updated: 2026-09-21
 
 ## System Shape
 
@@ -10,7 +10,7 @@ PMU'B/LONAB/Analysis starts from the existing PmubLonab architecture:
 - Frontend: Expo React Native / web with Expo Router.
 - Admin web: Vite React app.
 - PDF parsing: Gemini-based pipeline for now.
-- Deployment target: separate Render services when analysis deploys.
+- Deployment target: the existing three staging services and URLs, repurposed for Analysis.
 
 The first implementation keeps the same codebase and branch while introducing explicit product boundaries.
 
@@ -46,7 +46,7 @@ Backend analysis example:
 APP_ENV=analysis-staging
 APP_PRODUCT=analysis
 MONGO_URL=<analysis mongo url>
-DB_NAME=pmublonab_analysis
+DB_NAME=pmub_analysis_staging
 JWT_SECRET=<analysis-only secret>
 ADMIN_EMAIL=<admin email>
 ADMIN_PASSWORD=<analysis-only password>
@@ -79,8 +79,8 @@ Required separation:
 
 - Separate `MONGO_URL` or at minimum separate database name.
 - Separate `JWT_SECRET`.
-- Separate Render services.
-- Separate CORS origins.
+- Existing staging services and URLs are reused for Analysis; duplicate Analysis service declarations are not maintained.
+- CORS is limited to the active staging web/admin URLs and approved local development origins.
 - Separate admin password/secret values.
 
 Optional later separation:
@@ -89,6 +89,16 @@ Optional later separation:
 - Separate MongoDB cluster.
 - Separate parser credentials or quota pool.
 - Separate storage bucket if original PDFs are retained.
+
+## Staging Deployment Decision
+
+As of 2026-09-21, Analysis replaces the original product experience at the existing staging URLs:
+
+- Web: `https://pmublonab-staging-web.onrender.com`
+- Admin: `https://pmublonab-staging-admin.onrender.com`
+- API: `https://pmublonab-staging-api.onrender.com`
+
+The existing API service uses `DB_NAME=pmub_analysis_staging`. The prior `pmub_staging` database is not reused or deleted. Production remains unchanged.
 
 ## Reused Backend Services
 
