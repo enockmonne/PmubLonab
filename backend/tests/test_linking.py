@@ -1,18 +1,49 @@
 import os
+import asyncio
+
+import pytest
+from fastapi import HTTPException
 
 os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
 os.environ.setdefault("DB_NAME", "pmub_test")
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 
+import server
 from server import (
     canonical_pronostic_source,
     normalize_odds,
     normalize_weekly_best,
     odds_for_horse,
+    order_programme_result_pair,
     official_results_for_race,
     score_programme_result_match,
 )
+
+
+class FakeRaceCursor:
+    def __init__(self, documents):
+        self.documents = documents
+
+    async def to_list(self, length):
+        return self.documents[:length]
+
+
+class FakeRaceCollection:
+    def __init__(self, documents):
+        self.documents = documents
+        self.updates = []
+
+    def find(self, *_args, **_kwargs):
+        return FakeRaceCursor(self.documents)
+
+    async def update_one(self, query, update):
+        self.updates.append((query, update))
+
+
+class FakeDatabase:
+    def __init__(self, documents):
+        self.races = FakeRaceCollection(documents)
 
 
 def test_programme_result_match_scores_same_date():
@@ -47,6 +78,109 @@ def test_programme_result_match_rejects_different_date():
     }
 
     assert score_programme_result_match(programme, result) < 5
+
+
+def test_order_programme_result_pair_accepts_either_order():
+    programme = {"race_id": "programme-1", "doc_type": "programme"}
+    result = {"race_id": "result-1", "doc_type": "result"}
+
+    assert order_programme_result_pair(result, programme) == (programme, result)
+
+
+def test_order_programme_result_pair_rejects_same_document_type():
+    with pytest.raises(HTTPException) as exc:
+        order_programme_result_pair(
+            {"race_id": "programme-1", "doc_type": "programme"},
+            {"race_id": "programme-2", "doc_type": "programme"},
+        )
+
+    assert exc.value.status_code == 400
+
+
+def test_manual_link_is_symmetric_and_rebuild_safe(monkeypatch):
+    fake_db = FakeDatabase([
+        {"race_id": "programme-1", "doc_type": "programme", "name": "Programme"},
+        {"race_id": "result-1", "doc_type": "result", "name": "Resultat"},
+    ])
+    monkeypatch.setattr(server, "db", fake_db)
+
+    result = asyncio.run(
+        server.set_manual_programme_result_link("programme-1", "result-1", True)
+    )
+
+    assert result["linked"] is True
+    assert fake_db.races.updates == [
+        (
+            {"race_id": "programme-1"},
+            {
+                "$addToSet": {
+                    "linked_result_ids": "result-1",
+                    "manual_linked_result_ids": "result-1",
+                },
+                "$pull": {"excluded_link_ids": "result-1"},
+            },
+        ),
+        (
+            {"race_id": "result-1"},
+            {
+                "$addToSet": {
+                    "linked_programme_ids": "programme-1",
+                    "manual_linked_programme_ids": "programme-1",
+                },
+                "$pull": {"excluded_link_ids": "programme-1"},
+            },
+        ),
+    ]
+
+
+def test_manual_unlink_excludes_pair_from_automatic_relinking(monkeypatch):
+    fake_db = FakeDatabase([
+        {"race_id": "programme-1", "doc_type": "programme", "name": "Programme"},
+        {"race_id": "result-1", "doc_type": "result", "name": "Resultat"},
+    ])
+    monkeypatch.setattr(server, "db", fake_db)
+
+    result = asyncio.run(
+        server.set_manual_programme_result_link("result-1", "programme-1", False)
+    )
+
+    assert result["linked"] is False
+    assert fake_db.races.updates[0][1]["$addToSet"] == {
+        "excluded_link_ids": "result-1"
+    }
+    assert fake_db.races.updates[1][1]["$addToSet"] == {
+        "excluded_link_ids": "programme-1"
+    }
+
+
+@pytest.mark.parametrize("exclusion_side", ["programme", "result"])
+def test_automatic_linking_respects_manual_exclusion(monkeypatch, exclusion_side):
+    result_document = {
+        "race_id": "result-1",
+        "doc_type": "result",
+        "name": "Prix Test",
+        "date_iso": "2026-08-26",
+        "location": "Deauville",
+    }
+    programme = {
+        "race_id": "programme-1",
+        "doc_type": "programme",
+        "name": "Prix Test",
+        "date_iso": "2026-08-26",
+        "location": "Deauville",
+    }
+    if exclusion_side == "programme":
+        programme["excluded_link_ids"] = ["result-1"]
+    else:
+        result_document["excluded_link_ids"] = ["programme-1"]
+
+    fake_db = FakeDatabase([result_document])
+    monkeypatch.setattr(server, "db", fake_db)
+
+    links = asyncio.run(server.link_related_programme_results(programme))
+
+    assert links == {"linked_programmes": [], "linked_results": []}
+    assert fake_db.races.updates == []
 
 
 def test_official_results_prefers_linked_result_for_programme():

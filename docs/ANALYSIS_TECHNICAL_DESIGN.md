@@ -121,7 +121,7 @@ Extend next:
 - Similar race lookup endpoint.
 - Parse quality review endpoints.
 - Import retry/filter endpoints.
-- Admin correction endpoints for race metadata and links.
+- Admin correction endpoints for race metadata.
 
 ## Search And Indexing Plan
 
@@ -196,6 +196,7 @@ Current implementation:
 - Analysis admin routes live under `/analysis`.
 - Analysis dashboard explains the analysis product focus.
 - Upload/import/races/logs/settings are reused under the analysis area.
+- Race administration supports audited manual programme/result linking and unlinking.
 
 Next admin work:
 
@@ -203,7 +204,7 @@ Next admin work:
 - Add parse-quality review.
 - Add imported/skipped/error filters.
 - Add retry action for failed PDFs.
-- Add manual programme/result link correction.
+- Done: add manual programme/result link correction that survives automatic rebuilds.
 - Add data coverage summaries.
 
 ## AI And Parsing Strategy

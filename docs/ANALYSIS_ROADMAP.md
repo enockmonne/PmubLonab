@@ -1,6 +1,6 @@
 # PMU'B/LONAB/Analysis Roadmap
 
-Last updated: 2026-08-29
+Last updated: 2026-09-23
 
 ## Roadmap Principles
 
@@ -159,11 +159,12 @@ Build:
 - Retry failed imports.
 - Parse quality screen.
 - Missing-field review.
-- Programme/result linking review.
+- Done: programme/result linking review and manual correction in the Analysis admin.
 
 Milestones:
 
 - Done: one matching programme/result pair parsed and automatically linked.
+- Done: manual programme/result links and exclusions survive automatic link rebuilds.
 - Recent 3 months.
 - Recent 6 months.
 - Recent 12 months.
@@ -235,8 +236,8 @@ Possible packaging:
 
 ## Near-Term Next Steps
 
-1. Build the purpose-built `Courses` screen from the focused implementation plan.
-2. Validate it against the linked August 26, 2026 programme/result pair.
-3. Add deeper horse and source drilldowns after the race explorer is stable.
-4. Import a small multi-date dataset before attempting bulk historical ingestion.
-5. Deploy Analysis to the existing staging services, using the isolated `pmub_analysis_staging` database.
+1. Import a small multi-date programme/result dataset before attempting bulk historical ingestion.
+2. Review automatic links and correct mismatches from the Analysis admin.
+3. Add deeper horse and source drilldowns now that the race explorer is stable.
+4. Add parse-quality review and retry tools for failed or incomplete imports.
+5. Expand to recent 3-, 6-, and 12-month historical coverage in measured stages.

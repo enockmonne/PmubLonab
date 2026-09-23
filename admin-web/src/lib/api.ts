@@ -161,6 +161,15 @@ export interface RaceLinkSummary {
   linked_results: string[];
 }
 
+export interface ManualRaceLinkResponse {
+  ok: boolean;
+  programme_id: string;
+  programme_name?: string;
+  result_id: string;
+  result_name?: string;
+  linked: boolean;
+}
+
 export interface LonabImportPreviewItem {
   title: string;
   page_url: string;
@@ -252,7 +261,16 @@ export const Admin = {
       documents_scanned: number;
       programmes_linked: number;
       results_linked: number;
+      manual_links_restored: number;
     }>('/admin/races/link-related'),
+  createRaceLink: (race_id: string, target_race_id: string) =>
+    api.post<ManualRaceLinkResponse>(`/admin/races/${encodeURIComponent(race_id)}/links`, {
+      target_race_id,
+    }),
+  deleteRaceLink: (race_id: string, target_race_id: string) =>
+    api.delete<ManualRaceLinkResponse>(`/admin/races/${encodeURIComponent(race_id)}/links`, {
+      data: { target_race_id },
+    }),
   previewLonabArchive: (payload: {
     source_url: string;
     max_pages: number;

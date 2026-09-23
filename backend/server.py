@@ -427,12 +427,15 @@ async def link_related_programme_results(doc: Dict[str, Any]) -> Dict[str, Any]:
             "doc_type": opposite,
             "date_iso": {"$regex": f"^{re.escape(date_iso)}"},
         },
-        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1},
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1, "excluded_link_ids": 1},
     ).to_list(length=25)
 
+    excluded_ids = set(doc.get("excluded_link_ids") or [])
     linked_ids = [
         candidate["race_id"] for candidate in candidates
-        if score_programme_result_match(doc, candidate) >= 5
+        if candidate["race_id"] not in excluded_ids
+        and race_id not in set(candidate.get("excluded_link_ids") or [])
+        and score_programme_result_match(doc, candidate) >= 5
     ]
     if not linked_ids:
         return {"linked_programmes": [], "linked_results": []}
@@ -459,15 +462,107 @@ async def link_related_programme_results(doc: Dict[str, Any]) -> Dict[str, Any]:
     return {"linked_programmes": linked_ids, "linked_results": []}
 
 
+def order_programme_result_pair(
+    left: Optional[Dict[str, Any]],
+    right: Optional[Dict[str, Any]],
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    """Validate and order two documents as (programme, result)."""
+    if not left or not right:
+        raise HTTPException(status_code=404, detail="Document introuvable")
+    if left.get("race_id") == right.get("race_id"):
+        raise HTTPException(status_code=400, detail="Un document ne peut pas etre lie a lui-meme")
+    types = {left.get("doc_type"), right.get("doc_type")}
+    if types != {"programme", "result"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Une liaison doit associer un programme et un resultat",
+        )
+    return (left, right) if left.get("doc_type") == "programme" else (right, left)
+
+
+async def set_manual_programme_result_link(
+    race_id: str,
+    target_race_id: str,
+    linked: bool,
+) -> Dict[str, Any]:
+    """Create or remove a symmetric, rebuild-safe programme/result link."""
+    documents = await db.races.find(
+        {"race_id": {"$in": [race_id, target_race_id]}},
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1},
+    ).to_list(length=2)
+    by_id = {document.get("race_id"): document for document in documents}
+    programme, result = order_programme_result_pair(
+        by_id.get(race_id),
+        by_id.get(target_race_id),
+    )
+    programme_id = programme["race_id"]
+    result_id = result["race_id"]
+
+    if linked:
+        await db.races.update_one(
+            {"race_id": programme_id},
+            {
+                "$addToSet": {
+                    "linked_result_ids": result_id,
+                    "manual_linked_result_ids": result_id,
+                },
+                "$pull": {"excluded_link_ids": result_id},
+            },
+        )
+        await db.races.update_one(
+            {"race_id": result_id},
+            {
+                "$addToSet": {
+                    "linked_programme_ids": programme_id,
+                    "manual_linked_programme_ids": programme_id,
+                },
+                "$pull": {"excluded_link_ids": programme_id},
+            },
+        )
+    else:
+        await db.races.update_one(
+            {"race_id": programme_id},
+            {
+                "$pull": {
+                    "linked_result_ids": result_id,
+                    "manual_linked_result_ids": result_id,
+                },
+                "$addToSet": {"excluded_link_ids": result_id},
+            },
+        )
+        await db.races.update_one(
+            {"race_id": result_id},
+            {
+                "$pull": {
+                    "linked_programme_ids": programme_id,
+                    "manual_linked_programme_ids": programme_id,
+                },
+                "$addToSet": {"excluded_link_ids": programme_id},
+            },
+        )
+
+    return {
+        "programme_id": programme_id,
+        "programme_name": programme.get("name"),
+        "result_id": result_id,
+        "result_name": result.get("name"),
+        "linked": linked,
+    }
+
+
 async def rebuild_programme_result_links() -> Dict[str, int]:
     """Re-run automatic programme/result linking for existing stored documents."""
+    manual_programmes = await db.races.find(
+        {"manual_linked_result_ids.0": {"$exists": True}},
+        {"_id": 0, "race_id": 1, "manual_linked_result_ids": 1},
+    ).to_list(length=2000)
     await db.races.update_many(
         {},
         {"$unset": {"linked_programme_ids": "", "linked_result_ids": ""}},
     )
     docs = await db.races.find(
         {"doc_type": {"$in": ["programme", "result"]}},
-        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1},
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1, "excluded_link_ids": 1},
     ).sort("date_iso", -1).to_list(length=2000)
     linked_programmes = 0
     linked_results = 0
@@ -478,10 +573,24 @@ async def rebuild_programme_result_links() -> Dict[str, int]:
                 linked_programmes += 1
             else:
                 linked_results += 1
+
+    manual_links_restored = 0
+    for programme in manual_programmes:
+        for result_id in programme.get("manual_linked_result_ids") or []:
+            try:
+                await set_manual_programme_result_link(programme["race_id"], result_id, True)
+                manual_links_restored += 1
+            except HTTPException:
+                logger.warning(
+                    "Could not restore manual race link programme=%s result=%s",
+                    programme.get("race_id"),
+                    result_id,
+                )
     return {
         "documents_scanned": len(docs),
         "programmes_linked": linked_programmes,
         "results_linked": linked_results,
+        "manual_links_restored": manual_links_restored,
     }
 
 
@@ -1636,6 +1745,10 @@ class LonabArchiveImportPayload(BaseModel):
     pdf_urls: List[str]
 
 
+class ManualRaceLinkPayload(BaseModel):
+    target_race_id: str
+
+
 @api_router.post("/admin/imports/lonab/preview")
 async def admin_lonab_archive_preview(
     payload: LonabArchivePreviewPayload,
@@ -1854,6 +1967,32 @@ async def admin_link_related_races(
     return {"ok": True, **result}
 
 
+@api_router.post("/admin/races/{race_id}/links")
+async def admin_create_race_link(
+    race_id: str,
+    payload: ManualRaceLinkPayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    result = await set_manual_programme_result_link(race_id, payload.target_race_id, True)
+    await _log_admin_action(me.get("email"), "race.link_manual", result)
+    return {"ok": True, **result}
+
+
+@api_router.delete("/admin/races/{race_id}/links")
+async def admin_delete_race_link(
+    race_id: str,
+    payload: ManualRaceLinkPayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    result = await set_manual_programme_result_link(race_id, payload.target_race_id, False)
+    await _log_admin_action(me.get("email"), "race.unlink_manual", result)
+    return {"ok": True, **result}
+
+
 @api_router.post("/admin/races/upload")
 async def admin_upload_race(
     file: UploadFile = File(...),
@@ -1921,10 +2060,19 @@ async def admin_delete_race(
     res = await db.races.delete_one({"race_id": race_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Course introuvable")
+    await db.races.update_many(
+        {},
+        {
+            "$pull": {
+                "linked_programme_ids": race_id,
+                "linked_result_ids": race_id,
+                "manual_linked_programme_ids": race_id,
+                "manual_linked_result_ids": race_id,
+                "excluded_link_ids": race_id,
+            },
+        },
+    )
     await _log_admin_action(me.get("email"), "race.delete", {"race_id": race_id})
-    return {"ok": True}
-    if res.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Course introuvable")
     return {"ok": True}
 
 
