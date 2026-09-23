@@ -31,7 +31,6 @@ type HorseStats = { leaderboard?: { name: string }[] };
 
 type DashboardData = {
   races: RaceSummary[];
-  total: number;
   horseCount: number;
 };
 
@@ -69,7 +68,7 @@ const QUICK_PATHS: {
 
 export default function AnalysisDashboardScreen() {
   const router = useRouter();
-  const [data, setData] = useState<DashboardData>({ races: [], total: 0, horseCount: 0 });
+  const [data, setData] = useState<DashboardData>({ races: [], horseCount: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -85,7 +84,6 @@ export default function AnalysisDashboardScreen() {
       ]);
       setData({
         races: racePayload.races || [],
-        total: racePayload.total || 0,
         horseCount: horsePayload.leaderboard?.length || 0,
       });
     } catch (error) {
@@ -103,8 +101,6 @@ export default function AnalysisDashboardScreen() {
 
   const coverage = useMemo(() => {
     const programmes = data.races.filter((race) => (race.doc_type || "programme") === "programme");
-    const results = data.races.filter((race) => race.doc_type === "result");
-    const linked = programmes.filter((race) => (race.linked_results_count || 0) > 0).length;
     const toReview = data.races.filter((race) => {
       const unlinked =
         race.doc_type === "result"
@@ -112,7 +108,7 @@ export default function AnalysisDashboardScreen() {
           : (race.linked_results_count || 0) === 0;
       return unlinked || (race.parse_quality?.warnings?.length || 0) > 0;
     }).length;
-    return { programmes: programmes.length, results: results.length, linked, toReview };
+    return { programmes: programmes.length, toReview };
   }, [data.races]);
 
   const recent = useMemo(() => data.races.slice(0, 4), [data.races]);
@@ -149,9 +145,7 @@ export default function AnalysisDashboardScreen() {
         ) : null}
 
         <View style={styles.metrics}>
-          <Metric label="Documents" value={data.total} icon="documents-outline" />
           <Metric label="Programmes" value={coverage.programmes} icon="newspaper-outline" />
-          <Metric label="Paires liées" value={coverage.linked} icon="link-outline" />
           <Metric label="Chevaux suivis" value={data.horseCount} icon="people-outline" />
         </View>
 
@@ -256,7 +250,7 @@ export default function AnalysisDashboardScreen() {
 function Metric({ label, value, icon }: { label: string; value: number; icon: keyof typeof Ionicons.glyphMap }) {
   return (
     <View style={styles.metricCard}>
-      <Ionicons name={icon} size={18} color={theme.colors.gold} />
+      <Ionicons name={icon} size={16} color={theme.colors.gold} />
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
@@ -272,10 +266,10 @@ const styles = StyleSheet.create({
   lead: { marginTop: 9, color: theme.colors.textSecondary, fontSize: 14, lineHeight: 21, maxWidth: 650 },
   notice: { marginHorizontal: 16, marginBottom: 14, padding: 12, flexDirection: "row", gap: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
   noticeText: { flex: 1, color: theme.colors.textSecondary, fontSize: 13, fontWeight: "700" },
-  metrics: { paddingHorizontal: 16, flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  metricCard: { width: "48%", minHeight: 112, padding: 14, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  metricValue: { marginTop: 9, color: theme.colors.textPrimary, fontFamily: theme.fonts.serifBlack, fontSize: 28, lineHeight: 31 },
-  metricLabel: { marginTop: 3, color: theme.colors.textSecondary, fontSize: 11, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" },
+  metrics: { paddingHorizontal: 16, flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  metricCard: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  metricValue: { color: theme.colors.textPrimary, fontFamily: theme.fonts.serifBlack, fontSize: 18, lineHeight: 24 },
+  metricLabel: { color: theme.colors.textSecondary, fontSize: 12, fontWeight: "600" },
   reviewCard: { marginHorizontal: 16, marginTop: 12, padding: 16, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: theme.colors.brand },
   reviewIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
   reviewCopy: { flex: 1 },
