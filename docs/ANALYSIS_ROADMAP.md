@@ -73,7 +73,7 @@ Verification:
 
 ## Phase 3: Horse Intelligence
 
-Status: in progress.
+Status: complete for the initial searchable horse profile.
 
 Goal: make `Chevaux` the first deep research workflow.
 
@@ -81,17 +81,17 @@ Build:
 
 - Done: horse search/list and historical leaderboard.
 - Done: linked-result win/top-3 rates with coverage context.
-- Horse profile by name and deeper drilldown.
-- Last appearances and filters.
-- Win/top-3 rate when linked official results exist.
-- Performance by distance/type/discipline when data exists.
-- Jockey/trainer context.
-- Limited-data explanation.
+- Done: horse profile by normalized name with a historical appearance drilldown.
+- Done: appearance filters by result coverage and discipline.
+- Done: win/top-3 rates when linked official results exist.
+- Done: race context including distance, type/discipline, and location when available.
+- Done: observed jockey and trainer context.
+- Done: explicit coverage and limited-data explanation.
 
 Backend:
 
-- Horse profile endpoint.
-- Aggregates from linked official result records.
+- Done: horse profile endpoint.
+- Done: aggregates from linked official result records without hiding programme-only appearances.
 - Normalized horse names and aliases.
 
 ## Phase 4: Historical Race Explorer

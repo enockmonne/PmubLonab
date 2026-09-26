@@ -18,10 +18,12 @@ import { API_URL, theme } from "./theme";
 type HorseLeader = {
   name: string;
   runs: number;
+  evaluated_runs?: number;
   wins: number;
   top3: number;
   win_rate: number;
   top3_rate: number;
+  coverage_rate?: number;
   latest_date?: string;
   latest_race_id?: string;
   latest_race_name?: string;
@@ -38,9 +40,9 @@ type HorseStatsResponse = {
 type SortMode = "top3" | "wins" | "runs";
 
 const SORTS: { key: SortMode; label: string }[] = [
+  { key: "runs", label: "Apparitions" },
   { key: "top3", label: "Top 3" },
   { key: "wins", label: "Victoires" },
-  { key: "runs", label: "Courses" },
 ];
 
 export default function AnalysisChevauxScreen() {
@@ -50,7 +52,7 @@ export default function AnalysisChevauxScreen() {
   const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
   const [methodology, setMethodology] = useState("");
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortMode>("top3");
+  const [sort, setSort] = useState<SortMode>("runs");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -116,7 +118,7 @@ export default function AnalysisChevauxScreen() {
               <Text style={styles.overline}>Profils historiques</Text>
               <Text style={styles.title}>Chevaux</Text>
               <Text style={styles.lead}>
-                Classement base sur les arrivees officielles reliees. Les taux doivent etre lus avec la couverture disponible.
+                Retrouvez les chevaux présents dans les programmes importés et consultez leur historique disponible.
               </Text>
             </View>
 
@@ -129,8 +131,8 @@ export default function AnalysisChevauxScreen() {
 
             <View style={styles.metricsGrid}>
               <Metric label="Chevaux" value={leaders.length} icon="ribbon-outline" />
-              <Metric label="Courses evaluees" value={evaluatedRaces} icon="flag-outline" />
-              <Metric label="Resultats lies" value={linkedResultsUsed} icon="git-compare-outline" />
+              <Metric label="Courses évaluées" value={evaluatedRaces} icon="flag-outline" />
+              <Metric label="Résultats liés" value={linkedResultsUsed} icon="git-compare-outline" />
               <Metric label="Avec victoire" value={summary.winners} icon="trophy-outline" />
             </View>
 
@@ -178,9 +180,9 @@ export default function AnalysisChevauxScreen() {
             ) : null}
 
             <View style={styles.listIntro}>
-              <Text style={styles.sectionKicker}>Classement</Text>
+              <Text style={styles.sectionKicker}>Répertoire</Text>
               <Text style={styles.sectionTitle}>
-                {query.trim() ? `${filtered.length} resultat${filtered.length > 1 ? "s" : ""}` : "Chevaux suivis"}
+                {query.trim() ? `${filtered.length} résultat${filtered.length > 1 ? "s" : ""}` : "Chevaux répertoriés"}
               </Text>
             </View>
           </View>
@@ -189,14 +191,13 @@ export default function AnalysisChevauxScreen() {
           loading ? null : (
             <View style={styles.empty}>
               <Ionicons name="ribbon-outline" size={32} color={theme.colors.textSecondary} />
-              <Text style={styles.emptyText}>Aucun cheval trouve avec les resultats disponibles.</Text>
+              <Text style={styles.emptyText}>Aucun cheval trouvé dans les programmes disponibles.</Text>
             </View>
           )
         }
-        renderItem={({ item, index }) => (
+        renderItem={({ item }) => (
           <HorseRow
             item={item}
-            rank={index + 1}
             onPress={() => router.push(`/horse-history/${encodeURIComponent(item.name)}`)}
           />
         )}
@@ -230,26 +231,28 @@ function Metric({
   );
 }
 
-function HorseRow({ item, rank, onPress }: { item: HorseLeader; rank: number; onPress: () => void }) {
+function HorseRow({ item, onPress }: { item: HorseLeader; onPress: () => void }) {
+  const evaluatedRuns = item.evaluated_runs || 0;
+  const coverageRate = item.coverage_rate ?? 0;
   return (
     <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.rankBox}>
-        <Text style={styles.rankText}>{rank}</Text>
+        <Ionicons name="ribbon-outline" size={18} color="#fff" />
       </View>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.horseName} numberOfLines={1}>{item.name}</Text>
         <Text style={styles.horseMeta} numberOfLines={1}>
-          {item.latest_race_name || "Derniere course non renseignee"}
+          {item.latest_race_name || "Dernière course non renseignée"}
         </Text>
         <View style={styles.statLine}>
           <Badge label={`${item.runs} course${item.runs > 1 ? "s" : ""}`} />
-          <Badge label={`${item.wins} victoire${item.wins > 1 ? "s" : ""}`} />
-          <Badge label={`${item.top3} top 3`} />
+          <Badge label={`${evaluatedRuns} évaluée${evaluatedRuns > 1 ? "s" : ""}`} />
+          <Badge label={`${coverageRate}% couvert`} />
         </View>
       </View>
       <View style={styles.rateBox}>
-        <Text style={styles.rateValue}>{item.top3_rate}%</Text>
-        <Text style={styles.rateLabel}>Top 3</Text>
+        <Text style={styles.rateValue}>{evaluatedRuns ? `${item.top3_rate}%` : "—"}</Text>
+        <Text style={styles.rateLabel}>{evaluatedRuns ? "Top 3" : "Sans résultat"}</Text>
       </View>
       <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
     </TouchableOpacity>
@@ -436,7 +439,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 36,
   },
-  rankText: { color: "#fff", fontSize: 14, fontWeight: "900" },
   horseName: { color: theme.colors.textPrimary, fontSize: 15, fontWeight: "900" },
   horseMeta: { color: theme.colors.textSecondary, fontSize: 11, marginTop: 2 },
   statLine: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },

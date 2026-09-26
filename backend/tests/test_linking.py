@@ -11,6 +11,8 @@ os.environ.setdefault("JWT_SECRET", "test-secret")
 
 import server
 from server import (
+    build_horse_leaderboard,
+    build_horse_profile,
     canonical_pronostic_source,
     normalize_odds,
     normalize_weekly_best,
@@ -181,6 +183,118 @@ def test_automatic_linking_respects_manual_exclusion(monkeypatch, exclusion_side
 
     assert links == {"linked_programmes": [], "linked_results": []}
     assert fake_db.races.updates == []
+
+
+def historical_horse_documents():
+    return [
+        {
+            "race_id": "programme-2",
+            "doc_type": "programme",
+            "name": "Prix Deux",
+            "date_iso": "2026-08-27",
+            "date_text": "Jeudi 27 aout 2026",
+            "location": "Deauville",
+            "discipline": "Plat",
+            "distance_m": 1600,
+            "linked_result_ids": ["result-2"],
+            "horses": [
+                {"number": 4, "name": " Etoile   du Faso ", "jockey": "A. Test", "trainer": "B. Test"},
+                {"number": 7, "name": "Autre Cheval", "jockey": "C. Test", "trainer": "D. Test"},
+            ],
+        },
+        {
+            "race_id": "result-2",
+            "doc_type": "result",
+            "previous_results": {"finishing_order": [7, 4], "npo": []},
+        },
+        {
+            "race_id": "programme-1",
+            "doc_type": "programme",
+            "name": "Prix Un",
+            "date_iso": "2026-08-20",
+            "location": "Vincennes",
+            "race_type": "Trot",
+            "horses": [
+                {"number": 2, "name": "ETOILE DU FASO", "jockey": "A. Test", "trainer": "E. Test"},
+                {"number": 8, "name": "Sans Resultat", "jockey": "F. Test", "trainer": "G. Test"},
+            ],
+        },
+    ]
+
+
+def test_horse_leaderboard_keeps_unevaluated_horses_visible():
+    result = build_horse_leaderboard(historical_horse_documents())
+    by_name = {horse["name"]: horse for horse in result["leaderboard"]}
+
+    assert set(by_name) == {"ETOILE DU FASO", "AUTRE CHEVAL", "SANS RESULTAT"}
+    assert by_name["ETOILE DU FASO"]["runs"] == 2
+    assert by_name["ETOILE DU FASO"]["evaluated_runs"] == 1
+    assert by_name["ETOILE DU FASO"]["top3_rate"] == 100.0
+    assert by_name["ETOILE DU FASO"]["coverage_rate"] == 50.0
+    assert by_name["SANS RESULTAT"]["evaluated_runs"] == 0
+
+
+def test_horse_profile_explains_coverage_and_context():
+    profile = build_horse_profile("etoile du faso", historical_horse_documents())
+
+    assert profile is not None
+    assert profile["name"] == "ETOILE DU FASO"
+    assert profile["stats"] == {
+        "total_appearances": 2,
+        "total_runs_with_result": 1,
+        "evaluated_appearances": 1,
+        "wins": 0,
+        "places_top3": 1,
+        "win_rate": 0.0,
+        "place_rate": 100.0,
+        "coverage_rate": 50.0,
+    }
+    assert profile["appearances"][0]["finishing_pos"] == 2
+    assert profile["appearances"][0]["result_status"] == "evaluated"
+    assert profile["appearances"][1]["result_status"] == "unavailable"
+    assert profile["contexts"]["jockeys"] == [{"name": "A. Test", "appearances": 2}]
+    assert profile["contexts"]["trainers"] == [
+        {"name": "B. Test", "appearances": 1},
+        {"name": "E. Test", "appearances": 1},
+    ]
+
+
+def test_horse_profile_excludes_non_runner_from_evaluated_rates():
+    documents = historical_horse_documents()
+    documents[1]["previous_results"]["finishing_order"] = [7]
+    documents[1]["previous_results"]["npo"] = [4]
+
+    profile = build_horse_profile("ETOILE DU FASO", documents)
+
+    assert profile is not None
+    assert profile["stats"]["evaluated_appearances"] == 0
+    assert profile["stats"]["coverage_rate"] == 0.0
+    assert profile["appearances"][0]["result_status"] == "non_runner"
+
+
+def test_horse_profile_does_not_treat_programme_previous_results_as_current():
+    documents = [
+        {
+            "race_id": "programme-1",
+            "doc_type": "programme",
+            "name": "Course actuelle",
+            "date_iso": "2026-08-27",
+            "horses": [{"number": 4, "name": "Cheval Test"}],
+            "previous_results": {
+                "race_name": "Course de la semaine precedente",
+                "finishing_order": [4, 2, 8],
+            },
+        },
+    ]
+
+    leaderboard = build_horse_leaderboard(documents)["leaderboard"]
+    profile = build_horse_profile("Cheval Test", documents)
+
+    assert leaderboard[0]["evaluated_runs"] == 0
+    assert leaderboard[0]["wins"] == 0
+    assert profile is not None
+    assert profile["stats"]["evaluated_appearances"] == 0
+    assert profile["appearances"][0]["result_status"] == "unavailable"
 
 
 def test_official_results_prefers_linked_result_for_programme():

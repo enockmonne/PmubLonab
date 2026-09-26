@@ -1447,11 +1447,15 @@ async def global_search(q: str = Query(..., min_length=2)):
 
 # ---------- Stats ----------
 
-@api_router.get("/stats/horses")
-async def horses_leaderboard():
-    """Horse leaderboard based on official linked or embedded results."""
-    races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
-    races_by_id = {r.get("race_id"): r for r in races if r.get("race_id")}
+
+def normalized_horse_name(value: Any) -> str:
+    """Return the stable display/matching key used by historical horse views."""
+    return " ".join(str(value or "").strip().upper().split())
+
+
+def build_horse_leaderboard(races: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build an appearance-first leaderboard without hiding incomplete history."""
+    races_by_id = {race.get("race_id"): race for race in races if race.get("race_id")}
     horse_stats: Dict[str, Dict[str, Any]] = {}
     evaluated_race_ids: set[str] = set()
     linked_results_used = 0
@@ -1460,116 +1464,198 @@ async def horses_leaderboard():
         if race.get("doc_type", "programme") != "programme" or not race.get("horses"):
             continue
         result_context = official_results_for_race(race, races_by_id)
-        order = (result_context["results"] or {}).get("finishing_order", []) or []
-        if not order:
-            continue
-        if result_context["source"] == "linked_result":
+        results = result_context.get("results") or {}
+        has_linked_result = result_context.get("source") == "linked_result"
+        order = (results.get("finishing_order", []) or []) if has_linked_result else []
+        non_runners = set(results.get("npo", []) or [])
+        if order:
+            evaluated_race_ids.add(race.get("race_id", ""))
             linked_results_used += 1
-        evaluated_race_ids.add(race.get("race_id", ""))
-        horses_by_number = {
-            h.get("number"): h
-            for h in race.get("horses", [])
-            if h.get("number") is not None and h.get("name")
-        }
-        for idx, horse_number in enumerate(order):
-            horse = horses_by_number.get(horse_number)
-            if not horse:
+
+        for horse in race.get("horses", []) or []:
+            name = normalized_horse_name(horse.get("name"))
+            if not name:
                 continue
-            name = (horse.get("name") or "").strip().upper()
+            number = horse.get("number")
+            finishing_position = order.index(number) + 1 if number in order else None
             entry = horse_stats.setdefault(
                 name,
                 {
                     "name": name,
                     "runs": 0,
+                    "evaluated_runs": 0,
                     "wins": 0,
                     "top3": 0,
                     "latest_date": race.get("date_iso", ""),
                     "latest_race_id": race.get("race_id"),
                     "latest_race_name": race.get("name"),
-                    "latest_position": None,
+                    "latest_position": finishing_position,
                 },
             )
-            position = idx + 1
             entry["runs"] += 1
-            if position == 1:
-                entry["wins"] += 1
-            if position <= 3:
-                entry["top3"] += 1
+            if order and number not in non_runners:
+                entry["evaluated_runs"] += 1
+                if finishing_position == 1:
+                    entry["wins"] += 1
+                if finishing_position is not None and finishing_position <= 3:
+                    entry["top3"] += 1
             if (race.get("date_iso") or "") >= (entry.get("latest_date") or ""):
                 entry["latest_date"] = race.get("date_iso", "")
                 entry["latest_race_id"] = race.get("race_id")
                 entry["latest_race_name"] = race.get("name")
-                entry["latest_position"] = position
+                entry["latest_position"] = finishing_position
 
     leaderboard = []
     for entry in horse_stats.values():
-        runs = entry["runs"] or 1
+        evaluated_runs = entry["evaluated_runs"]
+        appearances = entry["runs"]
         leaderboard.append({
             **entry,
-            "win_rate": round((entry["wins"] / runs) * 100, 1),
-            "top3_rate": round((entry["top3"] / runs) * 100, 1),
+            "win_rate": round((entry["wins"] / evaluated_runs) * 100, 1) if evaluated_runs else 0,
+            "top3_rate": round((entry["top3"] / evaluated_runs) * 100, 1) if evaluated_runs else 0,
+            "coverage_rate": round((evaluated_runs / appearances) * 100, 1) if appearances else 0,
         })
-    leaderboard.sort(key=lambda h: (-h["top3_rate"], -h["wins"], -h["top3"], -h["runs"], h["name"]))
+    leaderboard.sort(
+        key=lambda horse: (
+            -horse["top3_rate"],
+            -horse["wins"],
+            -horse["top3"],
+            -horse["evaluated_runs"],
+            -horse["runs"],
+            horse["name"],
+        )
+    )
     return {
         "leaderboard": leaderboard,
         "evaluated_races": len([race_id for race_id in evaluated_race_ids if race_id]),
         "linked_results_used": linked_results_used,
-        "methodology": "Classement base sur les arrivees officielles reliees aux programmes; seuls les chevaux retrouves dans les partants du programme sont inclus.",
+        "methodology": (
+            "Tous les chevaux extraits des programmes sont affichés. Les taux de victoire et de top 3 "
+            "utilisent uniquement les apparitions couvertes par un résultat officiel; les non-partants "
+            "sont exclus du calcul."
+        ),
     }
 
 
-@api_router.get("/stats/horses/{name}")
-async def horse_history(name: str):
-    """Aggregate a horse's history across all races in DB."""
-    target = name.upper().strip()
-    all_races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
-    races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
-    appearances = []
+def build_horse_profile(name: str, races: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Build a searchable horse profile from programme documents and official results."""
+    target = normalized_horse_name(name)
+    races_by_id = {race.get("race_id"): race for race in races if race.get("race_id")}
+    appearances: List[Dict[str, Any]] = []
     wins = 0
-    places = 0  # top 3
-    total_runs = 0
-    for r in all_races:
-        prev = official_results_for_race(r, races_by_id)["results"]
-        order = prev.get("finishing_order", []) or []
-        # Find horse by name in this race's roster
-        horse = next((h for h in r.get("horses", []) if (h.get("name") or "").upper() == target), None)
+    top3 = 0
+    evaluated_runs = 0
+
+    for race in races:
+        if race.get("doc_type", "programme") != "programme":
+            continue
+        horse = next(
+            (
+                item for item in race.get("horses", []) or []
+                if normalized_horse_name(item.get("name")) == target
+            ),
+            None,
+        )
         if not horse:
             continue
-        finishing_pos = None
-        if order and horse.get("number") in order:
-            finishing_pos = order.index(horse["number"]) + 1
+
+        result_context = official_results_for_race(race, races_by_id)
+        results = result_context.get("results") or {}
+        has_linked_result = result_context.get("source") == "linked_result"
+        order = (results.get("finishing_order", []) or []) if has_linked_result else []
+        non_runners = set(results.get("npo", []) or [])
+        number = horse.get("number")
+        finishing_position = order.index(number) + 1 if number in order else None
+        if number in non_runners:
+            result_status = "non_runner"
+        elif order:
+            result_status = "evaluated"
+            evaluated_runs += 1
+            if finishing_position == 1:
+                wins += 1
+            if finishing_position is not None and finishing_position <= 3:
+                top3 += 1
+        else:
+            result_status = "unavailable"
+
         appearances.append({
-            "race_id": r["race_id"],
-            "race_name": r.get("name"),
-            "date_text": r.get("date_text"),
-            "date_iso": r.get("date_iso"),
-            "location": r.get("location"),
-            "number": horse.get("number"),
+            "race_id": race.get("race_id"),
+            "race_name": race.get("name"),
+            "date_text": race.get("date_text"),
+            "date_iso": race.get("date_iso"),
+            "location": race.get("location"),
+            "meeting_label": race.get("meeting_label"),
+            "race_type": race.get("race_type"),
+            "discipline": race.get("discipline") or race.get("race_type"),
+            "distance_m": race.get("distance_m"),
+            "number": number,
             "jockey": horse.get("jockey"),
             "trainer": horse.get("trainer"),
+            "owner": horse.get("owner"),
             "perf": horse.get("perf"),
-            "finishing_pos": finishing_pos,
+            "finishing_pos": finishing_position,
+            "result_status": result_status,
+            "result_source": result_context.get("source") if order else None,
+            "result_race_id": result_context.get("result_race_id") if order else None,
         })
-        if finishing_pos is not None:
-            total_runs += 1
-            if finishing_pos == 1:
-                wins += 1
-            if finishing_pos <= 3:
-                places += 1
+
     if not appearances:
-        raise HTTPException(status_code=404, detail="Cheval introuvable dans l'historique")
+        return None
+
+    def count_context(field: str) -> List[Dict[str, Any]]:
+        counts: Dict[str, int] = {}
+        for appearance in appearances:
+            value = " ".join(str(appearance.get(field) or "").strip().split())
+            if value:
+                counts[value] = counts.get(value, 0) + 1
+        return [
+            {"name": value, "appearances": count}
+            for value, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
+
+    total_appearances = len(appearances)
     return {
         "name": target,
         "appearances": appearances,
         "stats": {
-            "total_appearances": len(appearances),
-            "total_runs_with_result": total_runs,
+            "total_appearances": total_appearances,
+            "total_runs_with_result": evaluated_runs,
+            "evaluated_appearances": evaluated_runs,
             "wins": wins,
-            "places_top3": places,
-            "win_rate": round((wins / total_runs) * 100, 1) if total_runs else 0,
-            "place_rate": round((places / total_runs) * 100, 1) if total_runs else 0,
+            "places_top3": top3,
+            "win_rate": round((wins / evaluated_runs) * 100, 1) if evaluated_runs else 0,
+            "place_rate": round((top3 / evaluated_runs) * 100, 1) if evaluated_runs else 0,
+            "coverage_rate": round((evaluated_runs / total_appearances) * 100, 1),
         },
+        "contexts": {
+            "jockeys": count_context("jockey"),
+            "trainers": count_context("trainer"),
+            "disciplines": count_context("discipline"),
+            "locations": count_context("location"),
+        },
+        "methodology": (
+            "Le profil rassemble les apparitions retrouvées dans les programmes importés. "
+            "Les taux utilisent seulement les apparitions disposant d'un résultat officiel; "
+            "une absence de résultat est affichée comme une limite de couverture."
+        ),
     }
+
+
+@api_router.get("/stats/horses")
+async def horses_leaderboard():
+    """Horse directory with result coverage and historical rates."""
+    races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
+    return build_horse_leaderboard(races)
+
+
+@api_router.get("/stats/horses/{name}")
+async def horse_history(name: str):
+    """Return a searchable horse profile across imported programme documents."""
+    all_races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
+    profile = build_horse_profile(name, all_races)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Cheval introuvable dans l'historique")
+    return profile
 
 
 @api_router.get("/stats/tipsters")
