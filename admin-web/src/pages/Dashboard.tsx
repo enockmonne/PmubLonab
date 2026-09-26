@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowUpRight,
+  Server,
+  Search,
 } from 'lucide-react';
 import { Admin, DashboardStats, apiError } from '@/lib/api';
 import StatCard from '@/components/StatCard';
@@ -41,9 +43,24 @@ export default function Dashboard() {
   return (
     <div>
       <PageHeader
-        title="Tableau de bord"
-        subtitle={`Connecté en tant que ${data.admin.email}`}
+        title="PMU'B/LONAB Analysis"
+        subtitle={`Recherche historique et administration des données · ${data.admin.email}`}
       />
+
+      <div className="mb-6 rounded-lg border border-accent/30 bg-accent/10 p-5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-md bg-accent text-white">
+            <Search size={18} />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-fg">Recherche historique explicable</h2>
+            <p className="mt-1 max-w-2xl text-sm text-fg-muted">
+              Transformez les PDF PMU'B/LONAB en données recherchables, comparables et auditables,
+              sans recommandation directe de pari.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard label="Total courses" value={data.stats.total_races} icon={Trophy} />
@@ -126,6 +143,31 @@ export default function Dashboard() {
             <p className="text-xs text-danger/80 mt-2 font-mono break-all">{data.llm.error}</p>
           )}
         </div>
+
+        {data.environment && (
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-fg uppercase tracking-wide">
+                Environnement
+              </h2>
+              <Server size={14} className="text-fg-subtle" />
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-fg-muted">Produit</span>
+                <span className="font-mono text-xs text-fg">{data.environment.app_product}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-fg-muted">Env</span>
+                <span className="font-mono text-xs text-fg">{data.environment.app_env}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-fg-muted">Base</span>
+                <span className="truncate font-mono text-xs text-fg">{data.environment.db_name}</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Compte admin */}
         <div className="card p-5">

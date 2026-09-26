@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, Search, Star, Trash2, RefreshCw, Filter } from 'lucide-react';
+import { Link, Search, Star, Trash2, RefreshCw, Filter, Unlink, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Admin, Race, apiError } from '@/lib/api';
 import PageHeader from '@/components/PageHeader';
@@ -15,6 +15,9 @@ export default function Races() {
   const [linking, setLinking] = useState(false);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<DocFilter>('all');
+  const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
+  const [targetRaceId, setTargetRaceId] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -77,12 +80,45 @@ export default function Races() {
     setLinking(true);
     try {
       const { data } = await Admin.linkRelatedRaces();
-      toast.success(`${data.programmes_linked + data.results_linked} document(s) lie(s)`);
+      toast.success(
+        `${data.programmes_linked + data.results_linked} document(s) lié(s)`
+        + (data.manual_links_restored ? ` · ${data.manual_links_restored} correction(s) conservée(s)` : ''),
+      );
       await load();
     } catch (err) {
       toast.error(apiError(err));
     } finally {
       setLinking(false);
+    }
+  };
+
+  const handleCreateLink = async () => {
+    if (!editingRaceId || !targetRaceId) return;
+    setLinkBusy(true);
+    try {
+      await Admin.createRaceLink(editingRaceId, targetRaceId);
+      toast.success('Liaison programme/résultat enregistrée');
+      setTargetRaceId('');
+      await load();
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const handleDeleteLink = async (targetRaceIdToRemove: string) => {
+    if (!editingRaceId) return;
+    if (!window.confirm('Retirer cette liaison programme/résultat ?')) return;
+    setLinkBusy(true);
+    try {
+      await Admin.deleteRaceLink(editingRaceId, targetRaceIdToRemove);
+      toast.success('Liaison retirée');
+      await load();
+    } catch (err) {
+      toast.error(apiError(err));
+    } finally {
+      setLinkBusy(false);
     }
   };
 
@@ -92,6 +128,20 @@ export default function Races() {
     ...(race.linked_programmes || []),
     ...(race.linked_results || []),
   ];
+  const editingRace = races.find((race) => race.race_id === editingRaceId) || null;
+  const editingLinkedIds = new Set(editingRace ? linkedTargets(editingRace).map((race) => race.race_id) : []);
+  const linkCandidates = editingRace
+    ? races
+        .filter((race) => race.race_id !== editingRace.race_id)
+        .filter((race) => race.doc_type !== editingRace.doc_type)
+        .filter((race) => !editingLinkedIds.has(race.race_id))
+        .sort((a, b) => {
+          const aSameDate = Boolean(a.date_iso && a.date_iso === editingRace.date_iso);
+          const bSameDate = Boolean(b.date_iso && b.date_iso === editingRace.date_iso);
+          if (aSameDate !== bSameDate) return aSameDate ? -1 : 1;
+          return (b.date_iso || '').localeCompare(a.date_iso || '');
+        })
+    : [];
 
   return (
     <div>
@@ -101,7 +151,7 @@ export default function Races() {
         action={
           <div className="flex gap-2">
             <button onClick={handleLinkRelated} disabled={linking} className="btn-secondary">
-              <Link size={14} /> {linking ? 'Liaison...' : 'Lier'}
+              <Link size={14} /> {linking ? 'Actualisation…' : 'Actualiser les liaisons auto'}
             </button>
             <button onClick={load} className="btn-secondary">
               <RefreshCw size={14} /> Actualiser
@@ -173,7 +223,7 @@ export default function Races() {
                               <div key={linked.race_id} className="text-xs text-fg-subtle flex items-center gap-1">
                                 <Link size={12} className="text-accent" />
                                 <span>
-                                  Lie a {linked.doc_type === 'result' ? 'resultat' : 'programme'}: {linked.name || linked.race_id}
+                                  Lié au {linked.doc_type === 'result' ? 'résultat' : 'programme'} : {linked.name || linked.race_id}
                                 </span>
                               </div>
                             ))}
@@ -210,6 +260,17 @@ export default function Races() {
                         </button>
                       )}
                       <button
+                        onClick={() => {
+                          setEditingRaceId(r.race_id);
+                          setTargetRaceId('');
+                        }}
+                        className="btn-secondary"
+                        title="Gérer les liaisons programme/résultat"
+                      >
+                        <Link size={14} />
+                        Liens
+                      </button>
+                      <button
                         onClick={() => handleDelete(r.race_id, r.name)}
                         disabled={busyId === r.race_id}
                         className="btn-danger"
@@ -225,6 +286,87 @@ export default function Races() {
           </table>
         </div>
       </div>
+
+      {editingRace && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="card w-full max-w-2xl max-h-[85vh] overflow-y-auto p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-accent">Correction manuelle</p>
+                <h2 className="mt-1 text-xl font-semibold text-fg">Liaisons programme/résultat</h2>
+                <p className="mt-1 text-sm text-fg-muted">{editingRace.name}</p>
+                <p className="mt-1 text-xs font-mono text-fg-subtle">{editingRace.race_id}</p>
+              </div>
+              <button
+                className="btn-ghost p-2"
+                onClick={() => setEditingRaceId(null)}
+                aria-label="Fermer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <p className="label">Liaisons actuelles</p>
+              {linkedTargets(editingRace).length ? (
+                <div className="space-y-2">
+                  {linkedTargets(editingRace).map((linked) => (
+                    <div key={linked.race_id} className="flex items-center justify-between gap-3 rounded-md border border-border bg-bg-elevated p-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-fg">{linked.name || linked.race_id}</p>
+                        <p className="mt-1 text-xs text-fg-subtle">
+                          {linked.doc_type === 'result' ? 'Résultat' : 'Programme'} · {linked.date_text || linked.date_iso || 'Date inconnue'}
+                        </p>
+                      </div>
+                      <button
+                        className="btn-danger shrink-0"
+                        disabled={linkBusy}
+                        onClick={() => handleDeleteLink(linked.race_id)}
+                      >
+                        <Unlink size={14} /> Retirer
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-md border border-dashed border-border p-4 text-sm text-fg-muted">
+                  Aucune liaison enregistrée.
+                </p>
+              )}
+            </div>
+
+            <div className="mt-5 border-t border-border pt-5">
+              <label htmlFor="target-race" className="label">Ajouter une liaison</label>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <select
+                  id="target-race"
+                  value={targetRaceId}
+                  onChange={(event) => setTargetRaceId(event.target.value)}
+                  className="input flex-1"
+                >
+                  <option value="">Sélectionner {editingRace.doc_type === 'result' ? 'un programme' : 'un résultat'}…</option>
+                  {linkCandidates.map((candidate) => (
+                    <option key={candidate.race_id} value={candidate.race_id}>
+                      {candidate.date_iso === editingRace.date_iso ? 'Même date · ' : ''}
+                      {candidate.name} · {candidate.date_text || candidate.date_iso || 'Date inconnue'}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="btn-primary"
+                  disabled={!targetRaceId || linkBusy}
+                  onClick={handleCreateLink}
+                >
+                  <Link size={14} /> {linkBusy ? 'Enregistrement…' : 'Lier'}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-fg-subtle">
+                Les documents de la même date apparaissent en premier. Cette correction sera conservée lors des prochaines liaisons automatiques.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

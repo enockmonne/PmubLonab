@@ -1,6 +1,6 @@
-# PMU'B Admin Web
+# PMU'B/LONAB Analysis Admin Web
 
-Dashboard d'administration autonome pour Le Journal Hippique PMU'B.
+Dashboard d'administration unifié pour la recherche historique PMU'B/LONAB Analysis.
 
 ## Stack
 - Vite + React 18 + TypeScript

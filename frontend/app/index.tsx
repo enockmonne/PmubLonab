@@ -13,11 +13,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL } from "../src/theme";
+import { IS_ANALYSIS_APP, PRODUCT_HOME_TITLE, PRODUCT_OVERLINE } from "../src/product";
 import ArrestCountdown from "../src/ArrestCountdown";
 import AnnouncementBanner from "../src/AnnouncementBanner";
+import AnalysisDashboardScreen from "../src/AnalysisDashboardScreen";
 import { readCache, writeCache } from "../src/storageCache";
 
-const ONBOARDING_KEY = "pmub_onboarded_v1";
+const ONBOARDING_KEY = IS_ANALYSIS_APP
+  ? "pmub_analysis_onboarded_v1"
+  : "pmub_onboarded_v1";
 const HOME_BOOTSTRAP_CACHE_KEY = "pmub.home.bootstrap.v1";
 const BOOTSTRAP_TIMEOUT_MS = 8000;
 
@@ -68,6 +72,7 @@ export default function Landing() {
   }, [router]);
 
   useEffect(() => {
+    if (IS_ANALYSIS_APP) return;
     let mounted = true;
     (async () => {
       const cached = await readCache<HomeBootstrap>(HOME_BOOTSTRAP_CACHE_KEY);
@@ -108,18 +113,25 @@ export default function Landing() {
     };
   }, []);
 
-  return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      {redirecting ? (
+  if (redirecting) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator color={theme.colors.brand} />
         </View>
-      ) : (
+      </SafeAreaView>
+    );
+  }
+
+  if (IS_ANALYSIS_APP) return <AnalysisDashboardScreen />;
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Masthead */}
         <View style={styles.masthead}>
-          <Text style={styles.mastheadOverline}>Le Journal Hippique</Text>
-          <Text style={styles.mastheadTitle}>PMU&apos;B</Text>
+          <Text style={styles.mastheadOverline}>{PRODUCT_OVERLINE}</Text>
+          <Text style={styles.mastheadTitle}>{PRODUCT_HOME_TITLE}</Text>
           <View style={styles.mastheadRule} />
           <Text style={styles.tagline}>
             Analyses, pronostics et résultats officiels
@@ -239,7 +251,6 @@ export default function Landing() {
           Le Journal Hippique · PMU&apos;B · Burkina Faso
         </Text>
       </ScrollView>
-      )}
     </SafeAreaView>
   );
 }

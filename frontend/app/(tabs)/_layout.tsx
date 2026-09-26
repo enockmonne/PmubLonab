@@ -1,6 +1,30 @@
 import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
+import { IS_ANALYSIS_APP } from "../../src/product";
+
+type TabConfig = {
+  name: string;
+  title: string;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  inactiveIcon: keyof typeof Ionicons.glyphMap;
+};
+
+const CORE_TABS: TabConfig[] = [
+  { name: "programmes", title: "Programme", activeIcon: "newspaper", inactiveIcon: "newspaper-outline" },
+  { name: "partants", title: "Partants", activeIcon: "list", inactiveIcon: "list-outline" },
+  { name: "pronostics", title: "Pronos", activeIcon: "analytics", inactiveIcon: "analytics-outline" },
+  { name: "archives", title: "Recherche", activeIcon: "albums", inactiveIcon: "albums-outline" },
+  { name: "stats", title: "Stats", activeIcon: "stats-chart", inactiveIcon: "stats-chart-outline" },
+];
+
+const ANALYSIS_TABS: TabConfig[] = [
+  { name: "archives", title: "Recherche", activeIcon: "search", inactiveIcon: "search-outline" },
+  { name: "partants", title: "Chevaux", activeIcon: "people", inactiveIcon: "people-outline" },
+  { name: "programmes", title: "Courses", activeIcon: "flag", inactiveIcon: "flag-outline" },
+  { name: "pronostics", title: "Sources", activeIcon: "newspaper", inactiveIcon: "newspaper-outline" },
+  { name: "stats", title: "Analyses", activeIcon: "stats-chart", inactiveIcon: "stats-chart-outline" },
+];
 
 function HeaderHome() {
   const router = useRouter();
@@ -19,6 +43,8 @@ function HeaderHome() {
 }
 
 export default function TabsLayout() {
+  const tabs = IS_ANALYSIS_APP ? ANALYSIS_TABS : CORE_TABS;
+
   return (
     <Tabs
       screenOptions={{
@@ -66,84 +92,27 @@ export default function TabsLayout() {
           textTransform: "uppercase",
           marginTop: 3,
         },
-        tabBarIcon: ({ focused, color, size }) => null,
+        tabBarIcon: () => null,
       }}
     >
-      <Tabs.Screen
-        name="programmes"
-        options={{
-          title: "Programme",
-          tabBarIcon: ({ focused, color }) => (
-            <ActiveIconWrap focused={focused}>
-              <Ionicons
-                name={focused ? "newspaper" : "newspaper-outline"}
-                size={20}
-                color={focused ? "#FFFFFF" : color}
-              />
-            </ActiveIconWrap>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="partants"
-        options={{
-          title: "Partants",
-          tabBarIcon: ({ focused, color }) => (
-            <ActiveIconWrap focused={focused}>
-              <Ionicons
-                name={focused ? "list" : "list-outline"}
-                size={20}
-                color={focused ? "#FFFFFF" : color}
-              />
-            </ActiveIconWrap>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="pronostics"
-        options={{
-          title: "Pronos",
-          tabBarIcon: ({ focused, color }) => (
-            <ActiveIconWrap focused={focused}>
-              <Ionicons
-                name={focused ? "analytics" : "analytics-outline"}
-                size={20}
-                color={focused ? "#FFFFFF" : color}
-              />
-            </ActiveIconWrap>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="archives"
-        options={{
-          title: "Recherche",
-          tabBarIcon: ({ focused, color }) => (
-            <ActiveIconWrap focused={focused}>
-              <Ionicons
-                name={focused ? "albums" : "albums-outline"}
-                size={20}
-                color={focused ? "#FFFFFF" : color}
-              />
-            </ActiveIconWrap>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="stats"
-        options={{
-          title: "Stats",
-          tabBarIcon: ({ focused, color }) => (
-            <ActiveIconWrap focused={focused}>
-              <Ionicons
-                name={focused ? "stats-chart" : "stats-chart-outline"}
-                size={20}
-                color={focused ? "#FFFFFF" : color}
-              />
-            </ActiveIconWrap>
-          ),
-        }}
-      />
+      {tabs.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.title,
+            tabBarIcon: ({ focused, color }) => (
+              <ActiveIconWrap focused={focused}>
+                <Ionicons
+                  name={focused ? tab.activeIcon : tab.inactiveIcon}
+                  size={20}
+                  color={focused ? "#FFFFFF" : color}
+                />
+              </ActiveIconWrap>
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

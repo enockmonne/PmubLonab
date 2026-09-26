@@ -28,6 +28,9 @@ class TestRacesList:
         assert seeded is not None, "seeded race not found in list"
         assert seeded["is_current"] is True
         assert seeded["has_results"] is True
+        assert seeded["discipline"] == "Plat"
+        assert seeded["distance_m"] == 2400
+        assert isinstance(seeded["parse_quality"], dict)
 
     def test_list_filter_q_pavillon(self, api):
         r = api.get(f"{BASE_URL}/api/races", params={"q": "pavillon"}, timeout=30)
@@ -46,6 +49,52 @@ class TestRacesList:
         assert seeded is not None, "seeded race with previous results not found"
         assert seeded["has_results"] is True
         assert seeded["finishing_order"][:5] == [4, 14, 3, 9, 16]
+
+    @pytest.mark.parametrize("field,value", [("discipline", "plat"), ("race_type", "PLAT")])
+    def test_list_filter_race_classification(self, api, field, value):
+        r = api.get(f"{BASE_URL}/api/races", params={field: value}, timeout=30)
+        assert r.status_code == 200
+        data = r.json()
+        seeded = next((x for x in data["races"] if x["race_id"] == SEED_RACE_ID), None)
+        assert seeded is not None
+
+    def test_list_filter_date_range(self, api):
+        included = api.get(
+            f"{BASE_URL}/api/races",
+            params={"date_from": "2026-04-12", "date_to": "2026-04-12"},
+            timeout=30,
+        )
+        assert included.status_code == 200
+        assert any(x["race_id"] == SEED_RACE_ID for x in included.json()["races"])
+
+        excluded = api.get(
+            f"{BASE_URL}/api/races",
+            params={"date_from": "2026-04-13"},
+            timeout=30,
+        )
+        assert excluded.status_code == 200
+        assert all(x["race_id"] != SEED_RACE_ID for x in excluded.json()["races"])
+
+    def test_list_filter_programme_only(self, api):
+        r = api.get(
+            f"{BASE_URL}/api/races",
+            params={"linkage_state": "programme_only"},
+            timeout=30,
+        )
+        assert r.status_code == 200
+        data = r.json()
+        seeded = next((x for x in data["races"] if x["race_id"] == SEED_RACE_ID), None)
+        assert seeded is not None
+        assert seeded["doc_type"] == "programme"
+        assert seeded["linked_results_count"] == 0
+
+    def test_list_rejects_invalid_linkage_state(self, api):
+        r = api.get(
+            f"{BASE_URL}/api/races",
+            params={"linkage_state": "unknown"},
+            timeout=30,
+        )
+        assert r.status_code == 422
 
 
 # -------- /api/races/{id} and /api/races/current --------
@@ -144,7 +193,9 @@ class TestTipsters:
         assert r.status_code == 200
         data = r.json()
         lb = data["leaderboard"]
-        assert isinstance(lb, list) and len(lb) >= 1
+        assert isinstance(lb, list)
+        assert "excluded" in data
+        assert "methodology" in data
         for entry in lb:
             for k in ("source", "evaluated_races", "top_pick_wins", "top3_rate", "win_rate"):
                 assert k in entry, f"missing key {k} in {entry}"
