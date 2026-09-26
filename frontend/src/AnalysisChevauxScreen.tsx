@@ -5,7 +5,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -14,6 +13,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchJson } from "./apiClient";
 import { API_URL, theme } from "./theme";
+import ResearchSearchField from "./ResearchSearchField";
 
 type HorseLeader = {
   name: string;
@@ -136,26 +136,14 @@ export default function AnalysisChevauxScreen() {
               <Metric label="Avec victoire" value={summary.winners} icon="trophy-outline" />
             </View>
 
-            <View style={styles.searchPanel}>
-              <Text style={styles.searchLabel}>Trouver un cheval</Text>
-              <View style={styles.searchWrap}>
-                <Ionicons name="search" size={17} color={theme.colors.textSecondary} />
-                <TextInput
-                  testID="analysis-horse-search"
-                  value={query}
-                  onChangeText={setQuery}
-                  style={styles.searchInput}
-                  placeholder="Nom du cheval..."
-                  placeholderTextColor={theme.colors.textSecondary}
-                  autoCorrect={false}
-                />
-                {query.length > 0 ? (
-                  <TouchableOpacity onPress={() => setQuery("")} hitSlop={10}>
-                    <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-            </View>
+            <ResearchSearchField
+              testID="analysis-horse-search"
+              value={query}
+              onChangeText={setQuery}
+              label="Trouver un cheval"
+              placeholder="Nom du cheval…"
+              style={styles.searchPanel}
+            />
 
             <View style={styles.sortWrap}>
               {SORTS.map((item) => (
@@ -334,37 +322,8 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   searchPanel: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
     marginHorizontal: 16,
     marginTop: 14,
-    padding: 12,
-  },
-  searchLabel: {
-    color: theme.colors.gold,
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    textTransform: "uppercase",
-  },
-  searchWrap: {
-    alignItems: "center",
-    backgroundColor: theme.colors.bg,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 46,
-    paddingHorizontal: 12,
-  },
-  searchInput: {
-    color: theme.colors.textPrimary,
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 20,
-    minWidth: 0,
   },
   sortWrap: {
     flexDirection: "row",

@@ -5,7 +5,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -13,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Href, useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { API_URL, theme } from "./theme";
+import ResearchSearchField from "./ResearchSearchField";
 
 type RaceSummary = {
   race_id: string;
@@ -35,6 +35,7 @@ type SearchResult = {
   horses: { name: string; appearances: number; latest_race_id: string; latest_date: string }[];
   jockeys: { name: string; appearances: number }[];
   trainers: { name: string; appearances: number }[];
+  sources: { source: string; appearances: number }[];
 };
 
 type QuickPath = {
@@ -168,29 +169,15 @@ export default function AnalysisRechercheScreen() {
               </Text>
             </View>
 
-            <View style={styles.searchPanel}>
-              <Text style={styles.searchLabel}>Recherche historique</Text>
-              <View style={styles.searchWrap}>
-                <Ionicons name="search" size={17} color={theme.colors.textSecondary} />
-                <TextInput
-                  testID="analysis-search"
-                  value={query}
-                  onChangeText={setQuery}
-                  style={styles.searchInput}
-                  placeholder="Cheval, jockey, entraineur, source, course..."
-                  placeholderTextColor={theme.colors.textSecondary}
-                  autoCorrect={false}
-                />
-                {query.length > 0 ? (
-                  <TouchableOpacity onPress={() => setQuery("")} hitSlop={10}>
-                    <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              <Text style={styles.searchHint}>
-                Entrez au moins 2 caracteres. Les resultats restent des indices de recherche, pas des conseils de pari.
-              </Text>
-            </View>
+            <ResearchSearchField
+              testID="analysis-search"
+              value={query}
+              onChangeText={setQuery}
+              label="Recherche historique"
+              placeholder="Cheval, jockey, entraîneur, source, course…"
+              hint="Entrez au moins 2 caractères. Les résultats sont des pistes documentaires, pas des conseils de pari."
+              style={styles.searchPanel}
+            />
 
             {notice ? (
               <View style={styles.notice}>
@@ -242,6 +229,14 @@ export default function AnalysisRechercheScreen() {
                 loading={searching}
                 onOpenHorse={(name) => router.push(`/horse-history/${encodeURIComponent(name)}`)}
                 onOpenRace={(id) => router.push(`/race/${id}`)}
+                onOpenPerson={(role, name) => router.push({
+                  pathname: "/person-history/[role]/[name]",
+                  params: { role, name },
+                } as never)}
+                onOpenSource={(source) => router.push({
+                  pathname: "/source-history/[source]",
+                  params: { source },
+                } as never)}
               />
             )}
           </View>
@@ -318,11 +313,15 @@ function SearchResults({
   loading,
   onOpenHorse,
   onOpenRace,
+  onOpenPerson,
+  onOpenSource,
 }: {
   data: SearchResult | null;
   loading: boolean;
   onOpenHorse: (name: string) => void;
   onOpenRace: (id: string) => void;
+  onOpenPerson: (role: "jockey" | "trainer", name: string) => void;
+  onOpenSource: (source: string) => void;
 }) {
   if (loading && !data) {
     return <ActivityIndicator style={{ marginTop: 24 }} color={theme.colors.brand} />;
@@ -331,7 +330,7 @@ function SearchResults({
   if (!data) return null;
 
   const hasAny =
-    data.horses.length + data.races.length + data.jockeys.length + data.trainers.length > 0;
+    data.horses.length + data.races.length + data.jockeys.length + data.trainers.length + (data.sources?.length || 0) > 0;
 
   if (!hasAny) {
     return (
@@ -380,6 +379,7 @@ function SearchResults({
               icon="person-outline"
               title={item.name}
               meta={`${item.appearances} apparition${item.appearances > 1 ? "s" : ""}`}
+              onPress={() => onOpenPerson("jockey", item.name)}
             />
           ))}
         </ResultGroup>
@@ -392,6 +392,20 @@ function SearchResults({
               icon="briefcase-outline"
               title={item.name}
               meta={`${item.appearances} partant${item.appearances > 1 ? "s" : ""}`}
+              onPress={() => onOpenPerson("trainer", item.name)}
+            />
+          ))}
+        </ResultGroup>
+      ) : null}
+      {data.sources?.length > 0 ? (
+        <ResultGroup title="Sources">
+          {data.sources.map((item) => (
+            <SearchRow
+              key={`source-${item.source}`}
+              icon="newspaper-outline"
+              title={item.source}
+              meta={`${item.appearances} course${item.appearances > 1 ? "s" : ""}`}
+              onPress={() => onOpenSource(item.source)}
             />
           ))}
         </ResultGroup>
@@ -459,43 +473,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   searchPanel: {
-    backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
     marginHorizontal: 16,
     marginTop: 10,
-    padding: 12,
-  },
-  searchLabel: {
-    color: theme.colors.gold,
-    fontSize: 10,
-    fontWeight: "900",
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    textTransform: "uppercase",
-  },
-  searchWrap: {
-    alignItems: "center",
-    backgroundColor: theme.colors.bg,
-    borderColor: theme.colors.border,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 46,
-    paddingHorizontal: 12,
-  },
-  searchInput: {
-    color: theme.colors.textPrimary,
-    flex: 1,
-    fontSize: 15,
-    lineHeight: 20,
-    minWidth: 0,
-  },
-  searchHint: {
-    color: theme.colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 8,
   },
   notice: {
     alignItems: "center",

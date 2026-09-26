@@ -5,7 +5,6 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -14,6 +13,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchJson } from "./apiClient";
 import { API_URL, formatFCFA, theme } from "./theme";
+import ResearchSearchField from "./ResearchSearchField";
 
 type Coverage = "all" | "linked" | "programme_only" | "result_only";
 
@@ -127,23 +127,14 @@ export default function AnalysisCoursesScreen() {
               </Text>
             </View>
 
-            <View style={styles.searchPanel}>
-              <View style={styles.searchRow}>
-                <Ionicons name="search" size={17} color={theme.colors.textSecondary} />
-                <TextInput
-                  testID="analysis-courses-search"
-                  value={query}
-                  onChangeText={setQuery}
-                  style={styles.searchInput}
-                  placeholder="Course, hippodrome ou discipline..."
-                  placeholderTextColor={theme.colors.textSecondary}
-                />
-                {query ? (
-                  <TouchableOpacity onPress={() => setQuery("")} hitSlop={10}>
-                    <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                ) : null}
-              </View>
+            <ResearchSearchField
+              testID="analysis-courses-search"
+              value={query}
+              onChangeText={setQuery}
+              label="Rechercher les courses"
+              placeholder="Course, hippodrome ou discipline…"
+              style={styles.searchPanel}
+            >
               <View style={styles.filters}>
                 {COVERAGE.map((item) => (
                   <TouchableOpacity
@@ -158,7 +149,7 @@ export default function AnalysisCoursesScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
+            </ResearchSearchField>
 
             {notice ? <Text style={styles.notice}>{notice}</Text> : null}
             <View style={styles.resultHeader}>
@@ -294,13 +285,11 @@ const styles = StyleSheet.create({
   overline: { fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: theme.colors.gold, fontWeight: "800" },
   title: { fontFamily: theme.fonts.serifBlack, fontSize: 38, color: theme.colors.textPrimary, marginTop: 4 },
   lead: { fontSize: 14, lineHeight: 21, color: theme.colors.textSecondary, marginTop: 6, maxWidth: 620 },
-  searchPanel: { borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, padding: 12 },
-  searchRow: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.bg, paddingHorizontal: 12 },
-  searchInput: { flex: 1, minHeight: 44, color: theme.colors.textPrimary, fontSize: 14 },
+  searchPanel: { marginBottom: 2 },
   filters: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 10 },
-  filter: { paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surfaceAlt },
-  filterActive: { borderColor: theme.colors.brand, backgroundColor: theme.colors.brand },
-  filterText: { fontSize: 11, fontWeight: "700", color: theme.colors.textSecondary },
+  filter: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: "rgba(255,255,255,0.28)", backgroundColor: "rgba(255,255,255,0.08)" },
+  filterActive: { borderColor: theme.colors.accent, backgroundColor: theme.colors.accent },
+  filterText: { fontSize: 11, fontWeight: "700", color: theme.colors.brandMuted },
   filterTextActive: { color: "#fff" },
   notice: { marginTop: 12, color: theme.colors.gold, fontSize: 12 },
   resultHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 22, marginBottom: 10 },

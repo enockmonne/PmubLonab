@@ -242,8 +242,11 @@ export default function Landing() {
             style={styles.secBtn}
             onPress={() => router.push("/search")}
           >
-            <Ionicons name="search" size={18} color={theme.colors.brand} />
+            <View style={styles.searchIcon}>
+              <Ionicons name="search" size={18} color="#FFFFFF" />
+            </View>
             <Text style={styles.secBtnText}>Rechercher un cheval, jockey...</Text>
+            <Ionicons name="arrow-forward" size={17} color={theme.colors.brandMuted} />
           </TouchableOpacity>
         </View>
 
@@ -411,13 +414,29 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.brandStrong,
+    borderRadius: 16,
+    backgroundColor: theme.colors.brand,
+    paddingHorizontal: 12,
+    shadowColor: theme.colors.brandStrong,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  searchIcon: {
+    alignItems: "center",
+    backgroundColor: theme.colors.accent,
+    borderRadius: 9,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
   },
   secBtnText: {
+    flex: 1,
     fontSize: 13,
     fontWeight: "700",
-    color: theme.colors.textPrimary,
+    color: "#FFFFFF",
     letterSpacing: 0.5,
   },
   footer: {

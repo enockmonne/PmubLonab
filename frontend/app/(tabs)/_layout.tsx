@@ -2,6 +2,7 @@ import { Tabs, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
 import { IS_ANALYSIS_APP } from "../../src/product";
+import { theme } from "../../src/theme";
 
 type TabConfig = {
   name: string;
@@ -50,31 +51,31 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: true,
         headerStyle: {
-          backgroundColor: "#FAF9F6",
+          backgroundColor: theme.colors.surface,
           borderBottomWidth: 1,
-          borderBottomColor: "#E5E3D8",
+          borderBottomColor: theme.colors.border,
         },
         headerTitleStyle: {
           fontSize: 13,
           fontWeight: "800",
           letterSpacing: 2,
           textTransform: "uppercase",
-          color: "#0A2E1A",
+          color: theme.colors.brand,
         },
         headerTitleAlign: "center",
         headerShadowVisible: false,
         headerLeft: () => <HeaderHome />,
         headerLeftContainerStyle: { paddingLeft: 12 },
-        tabBarActiveTintColor: "#0A2E1A",
-        tabBarInactiveTintColor: "#6F6F6F",
+        tabBarActiveTintColor: theme.colors.brand,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: "#F1EFE7",
-          borderTopColor: "#C8B88A",
+          backgroundColor: theme.colors.surface,
+          borderTopColor: theme.colors.border,
           borderTopWidth: 2,
           paddingTop: 9,
           height: 76,
           paddingBottom: 11,
-          shadowColor: "#0A2E1A",
+          shadowColor: theme.colors.brandStrong,
           shadowOpacity: 0.12,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: -4 },
@@ -83,7 +84,7 @@ export default function TabsLayout() {
         tabBarItemStyle: {
           paddingHorizontal: 2,
           borderLeftWidth: 1,
-          borderLeftColor: "#DDD7C5",
+          borderLeftColor: theme.colors.border,
         },
         tabBarLabelStyle: {
           fontSize: 10,
@@ -138,7 +139,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: "#0A2E1A",
+    backgroundColor: theme.colors.brand,
     borderRadius: 999,
   },
   homeText: {
@@ -156,11 +157,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#E1DAC7",
-    backgroundColor: "#FAF9F6",
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.bg,
   },
   iconWrapActive: {
-    backgroundColor: "#0A2E1A",
-    borderColor: "#C8B88A",
+    backgroundColor: theme.colors.brand,
+    borderColor: theme.colors.accent,
   },
 });

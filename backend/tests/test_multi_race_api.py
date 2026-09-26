@@ -163,6 +163,7 @@ class TestSearch:
         data = r.json()
         jockey_names = [j["name"] for j in data["jockeys"]]
         assert any("Pouchin" in n for n in jockey_names), f"No jockey with Pouchin found: {jockey_names}"
+        assert "sources" in data and isinstance(data["sources"], list)
 
     def test_search_too_short_422(self, api):
         r = api.get(f"{BASE_URL}/api/search", params={"q": "x"}, timeout=30)
@@ -185,6 +186,24 @@ class TestHorseStats:
         r = api.get(f"{BASE_URL}/api/stats/horses/NON_EXISTENT_HORSE_ZZZ", timeout=30)
         assert r.status_code == 404
 
+
+# -------- /api/stats/people/{role}/{name} --------
+class TestPersonStats:
+    def test_jockey_profile_is_clickable_search_destination(self, api):
+        search = api.get(f"{BASE_URL}/api/search", params={"q": "Pouchin"}, timeout=30)
+        assert search.status_code == 200
+        jockeys = search.json()["jockeys"]
+        assert jockeys
+
+        profile = api.get(
+            f"{BASE_URL}/api/stats/people/jockey/{requests.utils.quote(jockeys[0]['name'])}",
+            timeout=30,
+        )
+        assert profile.status_code == 200
+        data = profile.json()
+        assert data["role"] == "jockey"
+        assert data["appearances"]
+        assert data["stats"]["total_appearances"] >= 1
 
 # -------- /api/stats/tipsters --------
 class TestTipsters:

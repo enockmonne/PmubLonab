@@ -1487,7 +1487,9 @@ async def global_search(q: str = Query(..., min_length=2)):
     horse_hits: Dict[str, dict] = {}
     jockey_hits: Dict[str, int] = {}
     trainer_hits: Dict[str, int] = {}
+    source_hits: Dict[str, Dict[str, Any]] = {}
     ql = q.lower()
+    normalized_query = normalize_match_text(q)
     for r in all_races:
         for h in r.get("horses", []) or []:
             if ql in (h.get("name") or "").lower():
@@ -1501,11 +1503,31 @@ async def global_search(q: str = Query(..., min_length=2)):
                 jockey_hits[h["jockey"]] = jockey_hits.get(h["jockey"], 0) + 1
             if ql in (h.get("trainer") or "").lower():
                 trainer_hits[h["trainer"]] = trainer_hits.get(h["trainer"], 0) + 1
+        sources_seen_in_race: set[str] = set()
+        for prediction in r.get("predictions", []) or []:
+            raw_source = str(prediction.get("source") or "").strip()
+            source_key, source_label = canonical_pronostic_source(raw_source)
+            if (
+                raw_source
+                and normalized_query
+                and (
+                    normalized_query in normalize_match_text(raw_source)
+                    or normalized_query in source_key
+                )
+                and source_key not in sources_seen_in_race
+            ):
+                entry = source_hits.setdefault(
+                    source_key,
+                    {"source": source_label, "appearances": 0},
+                )
+                entry["appearances"] += 1
+                sources_seen_in_race.add(source_key)
     return {
         "races": race_hits,
         "horses": list(horse_hits.values())[:20],
         "jockeys": [{"name": k, "appearances": v} for k, v in sorted(jockey_hits.items(), key=lambda x: -x[1])[:15]],
         "trainers": [{"name": k, "appearances": v} for k, v in sorted(trainer_hits.items(), key=lambda x: -x[1])[:15]],
+        "sources": sorted(source_hits.values(), key=lambda item: (-item["appearances"], item["source"]))[:15],
     }
 
 
@@ -1933,6 +1955,110 @@ async def tipster_profile(source: str):
     return profile
 
 
+def build_person_profile(
+    role: str,
+    name: str,
+    races: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Build a historical jockey or trainer profile from programme documents."""
+    field = "jockey" if role == "jockey" else "trainer" if role == "trainer" else None
+    if not field:
+        return None
+
+    target = normalize_match_text(name)
+    races_by_id = {race.get("race_id"): race for race in races if race.get("race_id")}
+    appearances: List[Dict[str, Any]] = []
+    observed_names: set[str] = set()
+    horses_seen: set[str] = set()
+    race_ids: set[str] = set()
+
+    for race in races:
+        if race.get("doc_type", "programme") != "programme":
+            continue
+        result_context = official_results_for_race(race, races_by_id)
+        order: List[int] = []
+        if result_context.get("source") == "linked_result":
+            order = _clean_prediction_picks(
+                (result_context.get("results") or {}).get("finishing_order")
+            )
+
+        for horse in race.get("horses", []) or []:
+            observed_name = str(horse.get(field) or "").strip()
+            if not observed_name or normalize_match_text(observed_name) != target:
+                continue
+            observed_names.add(observed_name)
+            horse_name = normalized_horse_name(horse.get("name"))
+            if horse_name:
+                horses_seen.add(horse_name)
+            number = horse.get("number")
+            try:
+                horse_number = int(number)
+            except (TypeError, ValueError):
+                horse_number = None
+            finishing_position = (
+                order.index(horse_number) + 1
+                if horse_number is not None and horse_number in order
+                else None
+            )
+            race_id = race.get("race_id")
+            if race_id:
+                race_ids.add(race_id)
+            appearances.append({
+                "race_id": race_id,
+                "race_name": race.get("name"),
+                "date_iso": race.get("date_iso"),
+                "date_text": race.get("date_text"),
+                "location": race.get("location") or race.get("meeting_label"),
+                "discipline": race.get("discipline") or race.get("race_type"),
+                "distance_m": race.get("distance_m"),
+                "horse_name": horse_name,
+                "horse_number": horse_number,
+                "finishing_position": finishing_position,
+                "result_status": "evaluated" if order else "missing_official_result",
+                "result_race_id": result_context.get("result_race_id") if order else None,
+            })
+
+    if not appearances:
+        return None
+
+    appearances.sort(
+        key=lambda item: (
+            item.get("date_iso") or "",
+            item.get("race_id") or "",
+            item.get("horse_number") or 0,
+        ),
+        reverse=True,
+    )
+    evaluated = [item for item in appearances if item["result_status"] == "evaluated"]
+    wins = sum(1 for item in evaluated if item["finishing_position"] == 1)
+    top3 = sum(
+        1
+        for item in evaluated
+        if item["finishing_position"] is not None and item["finishing_position"] <= 3
+    )
+    display_name = sorted(observed_names, key=lambda value: (len(value), value))[0]
+
+    return {
+        "role": role,
+        "name": display_name,
+        "aliases": sorted(observed_names),
+        "stats": {
+            "total_appearances": len(appearances),
+            "races": len(race_ids),
+            "horses": len(horses_seen),
+            "evaluated_appearances": len(evaluated),
+            "wins": wins,
+            "top3": top3,
+            "coverage_rate": round((len(evaluated) / len(appearances)) * 100, 1),
+        },
+        "appearances": appearances,
+        "methodology": (
+            "Ce profil regroupe les apparitions extraites des programmes. Les positions utilisées "
+            "proviennent uniquement des documents de résultat officiels reliés."
+        ),
+    }
+
+
 @api_router.get("/stats/people")
 async def people_leaderboard():
     """Top jockeys & entraîneurs based on top-3 finishes across all races.
@@ -2004,6 +2130,17 @@ async def people_leaderboard():
         "jockeys": build(jockey_stats),
         "trainers": build(trainer_stats),
     }
+
+
+@api_router.get("/stats/people/{role}/{name}")
+async def person_profile(role: str, name: str):
+    if role not in {"jockey", "trainer"}:
+        raise HTTPException(status_code=422, detail="Role invalide")
+    races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    profile = build_person_profile(role, name, races)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Personne introuvable dans l'historique")
+    return profile
 
 
 # ---------- Admin ----------

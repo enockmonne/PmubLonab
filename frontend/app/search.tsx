@@ -3,19 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Keyboard,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { theme, API_URL } from "../src/theme";
+import ResearchSearchField from "../src/ResearchSearchField";
 
 type HorseHit = {
   kind: "horse";
@@ -176,7 +175,10 @@ export default function SearchScreen() {
       {item.kind === "person" && (
         <TouchableOpacity
           style={styles.row}
-          onPress={() => router.push(`/horse/${item.horses[0]}`)}
+          onPress={() => router.push({
+            pathname: "/person-history/[role]/[name]",
+            params: { role: item.role, name: item.name },
+          } as never)}
         >
           <View style={[styles.iconBox, styles.iconBoxPerson]}>
             <Ionicons
@@ -251,28 +253,14 @@ export default function SearchScreen() {
           <Text style={styles.title}>Tout explorer</Text>
         </View>
 
-        <View style={styles.searchWrap}>
-          <Ionicons name="search" size={18} color={theme.colors.textSecondary} />
-          <TextInput
-            testID="global-search-input"
-            style={styles.input}
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Cheval, jockey, entraîneur, course, date..."
-            placeholderTextColor={theme.colors.textSecondary}
-            returnKeyType="search"
-            onSubmitEditing={() => Keyboard.dismiss()}
-          />
-          {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery("")} hitSlop={8}>
-              <Ionicons
-                name="close-circle"
-                size={18}
-                color={theme.colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
+        <ResearchSearchField
+          testID="global-search-input"
+          value={query}
+          onChangeText={setQuery}
+          label="Recherche universelle"
+          placeholder="Cheval, jockey, entraîneur, course, date…"
+          style={styles.searchPanel}
+        />
 
         {query.length > 0 && (
           <View style={styles.countsRow}>
@@ -380,24 +368,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     marginTop: 2,
   },
-  searchWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
+  searchPanel: {
     marginHorizontal: 16,
     marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.surface,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    lineHeight: 20,
-    color: theme.colors.textPrimary,
-    paddingVertical: 2,
   },
   countsRow: {
     paddingHorizontal: 16,

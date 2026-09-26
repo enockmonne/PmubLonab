@@ -14,6 +14,7 @@ from server import (
     build_corpus_quality_summary,
     build_horse_leaderboard,
     build_horse_profile,
+    build_person_profile,
     build_tipster_leaderboard,
     build_tipster_profile,
     canonical_pronostic_source,
@@ -529,6 +530,56 @@ def test_tipster_profile_keeps_excluded_races_visible():
 
 def test_tipster_profile_returns_none_for_unknown_source():
     assert build_tipster_profile("Source absente", []) is None
+
+
+def test_person_profile_links_jockey_appearances_to_official_results():
+    documents = [
+        {
+            "race_id": "programme-linked",
+            "doc_type": "programme",
+            "name": "Prix lie",
+            "date_iso": "2026-09-25",
+            "location": "Vincennes",
+            "linked_result_ids": ["result-linked"],
+            "horses": [
+                {"number": 4, "name": "Cheval Quatre", "jockey": "M. Guyon"},
+            ],
+        },
+        {
+            "race_id": "result-linked",
+            "doc_type": "result",
+            "previous_results": {"finishing_order": [4, 7, 2]},
+        },
+        {
+            "race_id": "programme-pending",
+            "doc_type": "programme",
+            "name": "Prix en attente",
+            "date_iso": "2026-09-26",
+            "horses": [
+                {"number": 2, "name": "Cheval Deux", "jockey": "M. GUYON"},
+            ],
+        },
+    ]
+
+    profile = build_person_profile("jockey", "m. guyon", documents)
+
+    assert profile is not None
+    assert profile["role"] == "jockey"
+    assert profile["stats"] == {
+        "total_appearances": 2,
+        "races": 2,
+        "horses": 2,
+        "evaluated_appearances": 1,
+        "wins": 1,
+        "top3": 1,
+        "coverage_rate": 50.0,
+    }
+    assert profile["appearances"][0]["result_status"] == "missing_official_result"
+    assert profile["appearances"][1]["finishing_position"] == 1
+
+
+def test_person_profile_rejects_unknown_role():
+    assert build_person_profile("owner", "M. Guyon", []) is None
 
 
 def test_normalize_odds_keeps_known_tables_and_values():
