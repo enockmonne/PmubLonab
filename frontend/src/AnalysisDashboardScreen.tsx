@@ -22,9 +22,6 @@ type RaceSummary = {
   date_iso?: string;
   location?: string;
   meeting_label?: string;
-  linked_programmes_count?: number;
-  linked_results_count?: number;
-  parse_quality?: { warnings?: string[] };
 };
 
 type HorseStats = { leaderboard?: { name: string }[] };
@@ -99,17 +96,10 @@ export default function AnalysisDashboardScreen() {
     load();
   }, [load]);
 
-  const coverage = useMemo(() => {
-    const programmes = data.races.filter((race) => (race.doc_type || "programme") === "programme");
-    const toReview = data.races.filter((race) => {
-      const unlinked =
-        race.doc_type === "result"
-          ? (race.linked_programmes_count || 0) === 0
-          : (race.linked_results_count || 0) === 0;
-      return unlinked || (race.parse_quality?.warnings?.length || 0) > 0;
-    }).length;
-    return { programmes: programmes.length, toReview };
-  }, [data.races]);
+  const programmeCount = useMemo(
+    () => data.races.filter((race) => (race.doc_type || "programme") === "programme").length,
+    [data.races],
+  );
 
   const recent = useMemo(() => data.races.slice(0, 4), [data.races]);
 
@@ -145,29 +135,9 @@ export default function AnalysisDashboardScreen() {
         ) : null}
 
         <View style={styles.metrics}>
-          <Metric label="Programmes" value={coverage.programmes} icon="newspaper-outline" />
+          <Metric label="Programmes" value={programmeCount} icon="newspaper-outline" />
           <Metric label="Chevaux suivis" value={data.horseCount} icon="people-outline" />
         </View>
-
-        <TouchableOpacity
-          style={styles.reviewCard}
-          activeOpacity={0.86}
-          onPress={() => router.push("/(tabs)/programmes")}
-        >
-          <View style={styles.reviewIcon}>
-            <Ionicons name="shield-checkmark-outline" size={22} color={theme.colors.gold} />
-          </View>
-          <View style={styles.reviewCopy}>
-            <Text style={styles.reviewKicker}>Qualité du corpus</Text>
-            <Text style={styles.reviewTitle}>
-              {coverage.toReview} document{coverage.toReview === 1 ? "" : "s"} à vérifier
-            </Text>
-            <Text style={styles.reviewBody}>
-              Documents non liés ou comportant des avertissements d&apos;extraction.
-            </Text>
-          </View>
-          <Ionicons name="arrow-forward" size={18} color={theme.colors.gold} />
-        </TouchableOpacity>
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionKicker}>Parcours de recherche</Text>
@@ -270,12 +240,6 @@ const styles = StyleSheet.create({
   metricCard: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
   metricValue: { color: theme.colors.textPrimary, fontFamily: theme.fonts.serifBlack, fontSize: 18, lineHeight: 24 },
   metricLabel: { color: theme.colors.textSecondary, fontSize: 12, fontWeight: "600" },
-  reviewCard: { marginHorizontal: 16, marginTop: 12, padding: 16, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: theme.colors.brand },
-  reviewIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.1)" },
-  reviewCopy: { flex: 1 },
-  reviewKicker: { color: theme.colors.gold, fontSize: 10, fontWeight: "800", letterSpacing: 1.5, textTransform: "uppercase" },
-  reviewTitle: { marginTop: 3, color: "#fff", fontSize: 17, fontWeight: "800" },
-  reviewBody: { marginTop: 3, color: "rgba(255,255,255,0.75)", fontSize: 12, lineHeight: 17 },
   sectionHeader: { paddingHorizontal: 20, marginTop: 26, marginBottom: 12 },
   sectionKicker: { color: theme.colors.gold, fontSize: 10, fontWeight: "800", letterSpacing: 1.8, textTransform: "uppercase" },
   sectionTitle: { marginTop: 4, color: theme.colors.textPrimary, fontFamily: theme.fonts.serifBlack, fontSize: 24, lineHeight: 29 },

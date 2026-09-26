@@ -11,6 +11,7 @@ os.environ.setdefault("JWT_SECRET", "test-secret")
 
 import server
 from server import (
+    build_corpus_quality_summary,
     build_horse_leaderboard,
     build_horse_profile,
     build_tipster_leaderboard,
@@ -24,6 +25,40 @@ from server import (
     score_programme_result_match,
     validate_product_database,
 )
+
+
+def test_corpus_quality_summary_counts_unique_documents_to_review():
+    summary = build_corpus_quality_summary([
+        {
+            "doc_type": "programme",
+            "linked_result_ids": ["result-1"],
+            "parse_quality": {"warnings": []},
+        },
+        {
+            "doc_type": "result",
+            "linked_programme_ids": ["programme-1"],
+            "parse_quality": {"warnings": ["Rapports incomplets"]},
+        },
+        {
+            "doc_type": "programme",
+            "linked_result_ids": [],
+            "parse_quality": {"warnings": ["Pronostics absents"]},
+        },
+        {
+            "doc_type": "result",
+            "linked_programme_ids": [],
+            "parse_quality": {"warnings": []},
+        },
+    ])
+
+    assert summary == {
+        "documents_to_review": 3,
+        "unlinked_documents": 2,
+        "documents_with_warnings": 2,
+        "programmes_without_result": 1,
+        "results_without_programme": 1,
+        "clean_documents": 1,
+    }
 
 
 class FakeRaceCursor:

@@ -385,6 +385,45 @@ def build_parse_quality(parsed: Dict[str, Any], doc_type: str) -> Dict[str, Any]
     }
 
 
+def build_corpus_quality_summary(races: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Summarize operational data-quality signals for the admin dashboard."""
+    documents_to_review = 0
+    unlinked_documents = 0
+    documents_with_warnings = 0
+    programmes_without_result = 0
+    results_without_programme = 0
+
+    for race in races:
+        doc_type = race.get("doc_type", "programme")
+        linked_ids = (
+            race.get("linked_programme_ids", [])
+            if doc_type == "result"
+            else race.get("linked_result_ids", [])
+        ) or []
+        is_unlinked = not linked_ids
+        has_warnings = bool((race.get("parse_quality") or {}).get("warnings"))
+
+        if is_unlinked:
+            unlinked_documents += 1
+            if doc_type == "result":
+                results_without_programme += 1
+            else:
+                programmes_without_result += 1
+        if has_warnings:
+            documents_with_warnings += 1
+        if is_unlinked or has_warnings:
+            documents_to_review += 1
+
+    return {
+        "documents_to_review": documents_to_review,
+        "unlinked_documents": unlinked_documents,
+        "documents_with_warnings": documents_with_warnings,
+        "programmes_without_result": programmes_without_result,
+        "results_without_programme": results_without_programme,
+        "clean_documents": max(len(races) - documents_to_review, 0),
+    }
+
+
 def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a parsed LLM output into a race document."""
     race = parsed.get("race") or {}
@@ -2332,6 +2371,17 @@ async def admin_status(
     total_races = await db.races.count_documents({})
     total_programmes = await db.races.count_documents({"doc_type": "programme"})
     total_results = await db.races.count_documents({"doc_type": "result"})
+    corpus_documents = await db.races.find(
+        {},
+        {
+            "_id": 0,
+            "doc_type": 1,
+            "linked_programme_ids": 1,
+            "linked_result_ids": 1,
+            "parse_quality.warnings": 1,
+        },
+    ).to_list(length=None)
+    corpus_quality = build_corpus_quality_summary(corpus_documents)
     current = await db.races.find_one({"is_current": True}, {"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "location": 1})
     last = await db.races.find_one({}, sort=[("created_at", -1)], projection={"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "created_at": 1, "doc_type": 1})
 
@@ -2354,6 +2404,7 @@ async def admin_status(
             "programmes": total_programmes,
             "results": total_results,
         },
+        "corpus_quality": corpus_quality,
         "current_race": current,
         "last_upload": last,
         "llm": {

@@ -47,6 +47,14 @@ export function apiError(error: unknown): string {
 // ----- Endpoints -----
 export interface DashboardStats {
   stats: { total_races: number; programmes: number; results: number };
+  corpus_quality: {
+    documents_to_review: number;
+    unlinked_documents: number;
+    documents_with_warnings: number;
+    programmes_without_result: number;
+    results_without_programme: number;
+    clean_documents: number;
+  };
   current_race?: { race_id: string; name: string; date_text?: string; location?: string } | null;
   last_upload?: { race_id: string; name: string; date_text?: string; created_at?: string; doc_type?: string } | null;
   llm: { status: string; error?: string | null };

@@ -68,6 +68,35 @@ export default function Dashboard() {
         <StatCard label="Résultats" value={data.stats.results} icon={Award} />
       </div>
 
+      <div className="card p-5 mb-6 border-warning/30">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-warning/15 text-warning">
+              <AlertTriangle size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-warning">Qualité du corpus</p>
+              <h2 className="mt-1 text-lg font-semibold text-fg">
+                {data.corpus_quality.documents_to_review} document
+                {data.corpus_quality.documents_to_review === 1 ? '' : 's'} à vérifier
+              </h2>
+              <p className="mt-1 text-sm text-fg-muted">
+                Contrôle opérationnel des liaisons programme–résultat et des avertissements d’extraction.
+              </p>
+            </div>
+          </div>
+          <Link to="/races" className="btn-secondary shrink-0">
+            Examiner le corpus <ArrowUpRight size={14} />
+          </Link>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 lg:grid-cols-4">
+          <QualityMetric label="Non liés" value={data.corpus_quality.unlinked_documents} />
+          <QualityMetric label="Avertissements" value={data.corpus_quality.documents_with_warnings} />
+          <QualityMetric label="Programmes sans résultat" value={data.corpus_quality.programmes_without_result} />
+          <QualityMetric label="Documents propres" value={data.corpus_quality.clean_documents} />
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Course active */}
         <div className="card p-5">
@@ -185,6 +214,15 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function QualityMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-xl font-semibold text-fg">{value}</p>
+      <p className="mt-0.5 text-xs text-fg-muted">{label}</p>
     </div>
   );
 }
