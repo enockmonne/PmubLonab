@@ -121,25 +121,26 @@ Implementation control document:
 
 ## Phase 5: Source And Media Performance
 
-Status: in progress.
+Status: complete for the initial source drilldown.
 
 Goal: make `Sources` show evidence-backed pronostic performance.
 
 Build:
 
 - Done: initial source leaderboard with evaluated-race counts and methodology.
-- Source detail pages.
-- Evaluation counts.
-- Top pick win/top-3 metrics.
-- Base/top selection behavior.
-- Alias normalization visibility.
-- Exclusion notes when official results are missing.
+- Done: source detail pages with a race-by-race audit trail.
+- Done: appearances, evaluated-race counts, and coverage percentage.
+- Done: top-pick win/top-3 metrics.
+- Done: base/top-selection behavior and official-arrival comparison.
+- Done: alias normalization visibility.
+- Done: explicit exclusions when official results or selections are missing.
 
 Backend:
 
-- Improve source normalization.
-- Expand source performance endpoint.
-- Add source detail drilldown.
+- Done: improved source normalization and alias handling.
+- Done: source leaderboard restricted to linked official result documents.
+- Done: expanded source performance calculations and methodology metadata.
+- Done: source detail drilldown endpoint.
 
 ## Phase 6: Historical Ingest And Data Quality
 
@@ -237,6 +238,6 @@ Possible packaging:
 
 1. Import a small multi-date programme/result dataset before attempting bulk historical ingestion.
 2. Review automatic links and correct mismatches from the Analysis admin.
-3. Add deeper horse and source drilldowns now that the race explorer is stable.
-4. Add parse-quality review and retry tools for failed or incomplete imports.
-5. Expand to recent 3-, 6-, and 12-month historical coverage in measured stages.
+3. Add parse-quality review and retry tools for failed or incomplete imports.
+4. Expand to recent 3-, 6-, and 12-month historical coverage in measured stages.
+5. Validate the research workflows with a small bettor pilot before launch packaging.

@@ -193,7 +193,9 @@ class TestTipsters:
         assert r.status_code == 200
         data = r.json()
         lb = data["leaderboard"]
-        assert isinstance(lb, list) and len(lb) >= 1
+        assert isinstance(lb, list)
+        assert "excluded" in data
+        assert "methodology" in data
         for entry in lb:
             for k in ("source", "evaluated_races", "top_pick_wins", "top3_rate", "win_rate"):
                 assert k in entry, f"missing key {k} in {entry}"

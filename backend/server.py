@@ -138,6 +138,7 @@ PRONOSTIC_SOURCE_ALIASES = {
     "zoneturf": "zone turf fr",
     "zoneturf fr": "zone turf fr",
     "leparisien": "le parisien",
+    "parisien": "le parisien",
     "voixdunord": "voix du nord",
 }
 
@@ -150,6 +151,18 @@ def canonical_pronostic_source(source: str) -> tuple[str, str]:
     if key in PRONOSTIC_SOURCE_LABELS:
         return key, PRONOSTIC_SOURCE_LABELS[key]
     return key or "source inconnue", (source or "Source inconnue").strip()
+
+
+def _clean_prediction_picks(values: Any) -> List[int]:
+    picks: List[int] = []
+    for value in values or []:
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            continue
+        if number > 0 and number not in picks:
+            picks.append(number)
+    return picks
 
 
 def score_programme_result_match(left: Dict[str, Any], right: Dict[str, Any]) -> int:
@@ -1670,34 +1683,35 @@ async def horse_history(name: str):
     return profile
 
 
-@api_router.get("/stats/tipsters")
-async def tipsters_leaderboard():
-    """Leaderboard: how often each source's #1 pick finished in top 3."""
-    all_races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+def build_tipster_leaderboard(all_races: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Compare source selections only when a separate official result is linked."""
     races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
     agg: Dict[str, Dict[str, Any]] = {}
     linked_results_used = 0
     evaluated_race_ids: set[str] = set()
     excluded = {"no_predictions": 0, "no_official_results": 0}
     for r in all_races:
+        if r.get("doc_type", "programme") != "programme":
+            continue
         predictions = r.get("predictions", []) or []
         if not predictions:
-            if r.get("doc_type", "programme") == "programme":
-                excluded["no_predictions"] += 1
+            excluded["no_predictions"] += 1
             continue
         result_context = official_results_for_race(r, races_by_id)
+        if result_context["source"] != "linked_result":
+            excluded["no_official_results"] += 1
+            continue
         order = (result_context["results"] or {}).get("finishing_order", []) or []
         if not order:
             excluded["no_official_results"] += 1
             continue
-        if result_context["source"] == "linked_result":
-            linked_results_used += 1
+        linked_results_used += 1
         evaluated_race_ids.add(r.get("race_id", ""))
         winner = order[0]
         top3 = order[:3]
         for p in predictions:
             raw_src = p.get("source")
-            picks = p.get("picks", []) or []
+            picks = _clean_prediction_picks(p.get("picks"))
             if not raw_src or not picks:
                 continue
             src_key, src_label = canonical_pronostic_source(raw_src)
@@ -1747,10 +1761,137 @@ async def tipsters_leaderboard():
         "source_normalization": source_normalization,
         "methodology": {
             "source_metric": "Le classement mesure le numero 1 de chaque source et verifie s'il termine gagnant ou dans le top 3 officiel.",
-            "result_priority": "Les resultats officiels lies sont utilises en priorite; les resultats integres au programme servent seulement de repli.",
-            "exclusion_rule": "Une course est exclue si elle n'a pas de pronostics ou aucun resultat officiel exploitable.",
+            "result_priority": "Seuls les resultats officiels provenant d'un document resultat relie sont utilises.",
+            "exclusion_rule": "Une course est exclue si elle n'a pas de pronostics ou aucun document resultat officiel relie.",
         },
     }
+
+
+def build_tipster_profile(source: str, all_races: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Build inspectable race-by-race evidence for one normalized source."""
+    source_key, source_label = canonical_pronostic_source(source)
+    races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
+    aliases: set[str] = set()
+    appearances: List[Dict[str, Any]] = []
+
+    for race in all_races:
+        if race.get("doc_type", "programme") != "programme":
+            continue
+
+        matches: List[Dict[str, Any]] = []
+        for prediction in race.get("predictions", []) or []:
+            raw_source = str(prediction.get("source") or "").strip()
+            canonical_key, _ = canonical_pronostic_source(raw_source)
+            if raw_source and canonical_key == source_key:
+                matches.append(prediction)
+                aliases.add(raw_source)
+        if not matches:
+            continue
+
+        picks: List[int] = []
+        for prediction in matches:
+            for number in _clean_prediction_picks(prediction.get("picks")):
+                if number not in picks:
+                    picks.append(number)
+
+        result_context = official_results_for_race(race, races_by_id)
+        order = []
+        if result_context["source"] == "linked_result":
+            order = _clean_prediction_picks(
+                (result_context["results"] or {}).get("finishing_order")
+            )
+
+        if not picks:
+            result_status = "missing_selection"
+            exclusion_reason = "Aucune selection exploitable pour cette source."
+        elif not order:
+            result_status = "missing_official_result"
+            exclusion_reason = "Aucun document resultat officiel relie."
+        else:
+            result_status = "evaluated"
+            exclusion_reason = None
+
+        top_pick = picks[0] if picks else None
+        top_pick_position = order.index(top_pick) + 1 if top_pick in order else None
+        horse_names = {
+            horse.get("number"): horse.get("name")
+            for horse in race.get("horses", []) or []
+            if horse.get("number")
+        }
+        appearances.append({
+            "race_id": race.get("race_id"),
+            "race_name": race.get("name"),
+            "date_iso": race.get("date_iso"),
+            "date_text": race.get("date_text"),
+            "location": race.get("location") or race.get("meeting_label"),
+            "discipline": race.get("discipline") or race.get("race_type"),
+            "distance_m": race.get("distance_m"),
+            "raw_sources": sorted({str(item.get("source") or "").strip() for item in matches if item.get("source")}),
+            "picks": picks,
+            "selections": [
+                {"number": number, "horse_name": horse_names.get(number)}
+                for number in picks
+            ],
+            "official_order": order,
+            "result_race_id": result_context.get("result_race_id") if order else None,
+            "result_status": result_status,
+            "exclusion_reason": exclusion_reason,
+            "top_pick": top_pick,
+            "top_pick_position": top_pick_position,
+            "top_pick_won": bool(order and top_pick == order[0]),
+            "top_pick_top3": bool(order and top_pick in order[:3]),
+            "base_in_top3": bool(order and any(number in order[:3] for number in picks[:3])),
+        })
+
+    if not appearances:
+        return None
+
+    appearances.sort(key=lambda item: (item.get("date_iso") or "", item.get("race_id") or ""), reverse=True)
+    evaluated = [item for item in appearances if item["result_status"] == "evaluated"]
+    evaluated_count = len(evaluated)
+    wins = sum(1 for item in evaluated if item["top_pick_won"])
+    top3 = sum(1 for item in evaluated if item["top_pick_top3"])
+    base_top3 = sum(1 for item in evaluated if item["base_in_top3"])
+    display_aliases = sorted(alias for alias in aliases if alias and alias != source_label)
+
+    return {
+        "source": source_label,
+        "aliases": display_aliases,
+        "stats": {
+            "total_appearances": len(appearances),
+            "evaluated_races": evaluated_count,
+            "excluded_races": len(appearances) - evaluated_count,
+            "top_pick_wins": wins,
+            "top_pick_top3": top3,
+            "base_in_top3": base_top3,
+            "win_rate": round((wins / evaluated_count) * 100, 1) if evaluated_count else 0.0,
+            "top3_rate": round((top3 / evaluated_count) * 100, 1) if evaluated_count else 0.0,
+            "coverage_rate": round((evaluated_count / len(appearances)) * 100, 1),
+        },
+        "appearances": appearances,
+        "methodology": (
+            "Le profil compare les selections publiees par cette source aux seuls resultats "
+            "officiels provenant d'un document resultat relie. Les courses sans resultat relie "
+            "restent visibles mais sont exclues des taux."
+        ),
+    }
+
+
+@api_router.get("/stats/tipsters")
+async def tipsters_leaderboard():
+    """Leaderboard: how often each source's #1 pick finished in top 3."""
+    all_races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    return build_tipster_leaderboard(all_races)
+
+
+@api_router.get("/stats/tipsters/{source}")
+async def tipster_profile(source: str):
+    """Return auditable race-by-race evidence for one normalized source."""
+    all_races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    profile = build_tipster_profile(source, all_races)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Source introuvable dans l'historique")
+    return profile
 
 
 @api_router.get("/stats/people")

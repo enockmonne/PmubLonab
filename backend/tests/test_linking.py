@@ -13,6 +13,8 @@ import server
 from server import (
     build_horse_leaderboard,
     build_horse_profile,
+    build_tipster_leaderboard,
+    build_tipster_profile,
     canonical_pronostic_source,
     normalize_odds,
     normalize_weekly_best,
@@ -390,11 +392,108 @@ def test_canonical_pronostic_source_rolls_up_brand_variants():
         "ZoneTurf": ("zone turf fr", "Zone-Turf.fr"),
         "Zone-Turf.fr": ("zone turf fr", "Zone-Turf.fr"),
         "LeParisien": ("le parisien", "Le Parisien"),
+        "PARISIEN": ("le parisien", "Le Parisien"),
         "VoixDuNord": ("voix du nord", "Voix du Nord"),
     }
 
     for raw, expected in cases.items():
         assert canonical_pronostic_source(raw) == expected
+
+
+def test_tipster_leaderboard_requires_linked_official_result():
+    documents = [
+        {
+            "race_id": "programme-linked",
+            "doc_type": "programme",
+            "date_iso": "2026-09-25",
+            "predictions": [{"source": "LE PARISIEN", "picks": [4, 2, 8]}],
+            "previous_results": {"finishing_order": [99, 98, 97]},
+            "linked_result_ids": ["result-linked"],
+        },
+        {
+            "race_id": "result-linked",
+            "doc_type": "result",
+            "previous_results": {"finishing_order": [4, 7, 2]},
+        },
+        {
+            "race_id": "programme-unlinked",
+            "doc_type": "programme",
+            "date_iso": "2026-09-26",
+            "predictions": [{"source": "PARISIEN", "picks": [9, 1, 3]}],
+            "previous_results": {"finishing_order": [9, 1, 3]},
+        },
+    ]
+
+    data = build_tipster_leaderboard(documents)
+
+    assert data["evaluated_races"] == 1
+    assert data["linked_results_used"] == 1
+    assert data["excluded"]["no_official_results"] == 1
+    assert data["leaderboard"] == [{
+        "source": "Le Parisien",
+        "aliases": ["LE PARISIEN"],
+        "evaluated_races": 1,
+        "top_pick_wins": 1,
+        "top_pick_top3": 1,
+        "base_in_top3": 1,
+        "win_rate": 100.0,
+        "top3_rate": 100.0,
+    }]
+
+
+def test_tipster_profile_keeps_excluded_races_visible():
+    documents = [
+        {
+            "race_id": "programme-linked",
+            "doc_type": "programme",
+            "name": "Prix lie",
+            "date_iso": "2026-09-25",
+            "location": "Vincennes",
+            "horses": [{"number": 4, "name": "Cheval Quatre"}],
+            "predictions": [{"source": "LE PARISIEN", "picks": [4, 2, 8]}],
+            "linked_result_ids": ["result-linked"],
+        },
+        {
+            "race_id": "result-linked",
+            "doc_type": "result",
+            "previous_results": {"finishing_order": [4, 7, 2]},
+        },
+        {
+            "race_id": "programme-unlinked",
+            "doc_type": "programme",
+            "name": "Prix en attente",
+            "date_iso": "2026-09-26",
+            "predictions": [{"source": "PARISIEN", "picks": [9, 1, 3]}],
+            "previous_results": {"finishing_order": [9, 1, 3]},
+        },
+    ]
+
+    profile = build_tipster_profile("Le Parisien", documents)
+
+    assert profile is not None
+    assert profile["source"] == "Le Parisien"
+    assert profile["aliases"] == ["LE PARISIEN", "PARISIEN"]
+    assert profile["stats"] == {
+        "total_appearances": 2,
+        "evaluated_races": 1,
+        "excluded_races": 1,
+        "top_pick_wins": 1,
+        "top_pick_top3": 1,
+        "base_in_top3": 1,
+        "win_rate": 100.0,
+        "top3_rate": 100.0,
+        "coverage_rate": 50.0,
+    }
+    assert profile["appearances"][0]["result_status"] == "missing_official_result"
+    assert profile["appearances"][1]["result_status"] == "evaluated"
+    assert profile["appearances"][1]["selections"][0] == {
+        "number": 4,
+        "horse_name": "Cheval Quatre",
+    }
+
+
+def test_tipster_profile_returns_none_for_unknown_source():
+    assert build_tipster_profile("Source absente", []) is None
 
 
 def test_normalize_odds_keeps_known_tables_and_values():

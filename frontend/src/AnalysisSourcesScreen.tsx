@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { fetchJson } from "./apiClient";
 import { API_URL, theme } from "./theme";
@@ -60,6 +61,7 @@ const SORTS: { key: SortMode; label: string }[] = [
 const EMPTY_EXCLUDED = { no_predictions: 0, no_official_results: 0 };
 
 export default function AnalysisSourcesScreen() {
+  const router = useRouter();
   const [leaders, setLeaders] = useState<SourceLeader[]>([]);
   const [evaluatedRaces, setEvaluatedRaces] = useState(0);
   const [linkedResultsUsed, setLinkedResultsUsed] = useState(0);
@@ -196,7 +198,16 @@ export default function AnalysisSourcesScreen() {
             </View>
           </View>
         }
-        renderItem={({ item, index }) => <SourceRow item={item} rank={index + 1} />}
+        renderItem={({ item, index }) => (
+          <SourceRow
+            item={item}
+            rank={index + 1}
+            onPress={() => router.push({
+              pathname: "/source-history/[source]",
+              params: { source: item.source },
+            } as never)}
+          />
+        )}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         ListEmptyComponent={
           loading ? null : (
@@ -235,9 +246,9 @@ function Metric({
   );
 }
 
-function SourceRow({ item, rank }: { item: SourceLeader; rank: number }) {
+function SourceRow({ item, rank, onPress }: { item: SourceLeader; rank: number; onPress: () => void }) {
   return (
-    <View style={styles.row}>
+    <TouchableOpacity style={styles.row} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.rankBox}>
         <Text style={styles.rankText}>{rank}</Text>
       </View>
@@ -260,7 +271,8 @@ function SourceRow({ item, rank }: { item: SourceLeader; rank: number }) {
         <Text style={styles.rateLabel}>Top 3</Text>
         <Text style={styles.winRate}>{item.win_rate}% gagnant</Text>
       </View>
-    </View>
+      <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+    </TouchableOpacity>
   );
 }
 
@@ -319,16 +331,17 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
     borderWidth: 1,
-    flexBasis: "48%",
+    flexBasis: "22%",
     flexGrow: 1,
-    minHeight: 92,
-    padding: 12,
+    minHeight: 72,
+    minWidth: 140,
+    padding: 10,
   },
   metricValue: {
     color: theme.colors.textPrimary,
-    fontSize: 26,
+    fontSize: 21,
     fontWeight: "900",
-    marginTop: 8,
+    marginTop: 5,
   },
   metricLabel: {
     color: theme.colors.textSecondary,
