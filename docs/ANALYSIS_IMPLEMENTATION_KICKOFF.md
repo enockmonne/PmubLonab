@@ -46,26 +46,13 @@ The backend already reads `MONGO_URL`, `DB_NAME`, `JWT_SECRET`, `ADMIN_EMAIL`, `
 
 The plan originally used `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD`; the current code uses `ADMIN_EMAIL` and `ADMIN_PASSWORD`, so the analysis examples keep the existing code contract.
 
-## Admin Product Selection Plan
+## Unified Analysis Admin Decision
 
-Goal: keep one admin login foundation, then route the admin to the correct product area.
-
-First implementation shape:
-
-- After login, show a product selector screen.
-- Product cards:
-  - `PMU'B/LONAB`
-  - `PMU'B/LONAB/Analysis`
-- Selecting `PMU'B/LONAB` routes to the existing dashboard.
-- Selecting `PMU'B/LONAB/Analysis` routes to a new analysis admin dashboard.
-- Keep upload/import available in the analysis area because historical PDF ingest is core to the product.
-
-Implementation notes:
-
-- Add a product selection route in `admin-web/src/App.tsx`.
-- Store the selected product in local storage.
-- Keep protected routes behind the existing auth guard.
-- Do not remove existing admin pages; reuse them from the analysis area where they still apply.
+The initial product-selector plan was implemented and later superseded. Staging
+now presents one `PMU'B/LONAB Analysis` admin backed by the Analysis API and
+database. Login routes directly to the unified dashboard, useful existing admin
+features remain available, and retired `/products` and `/analysis/*` paths
+redirect to canonical routes.
 
 ## First Analysis Frontend Tab Structure
 
@@ -112,8 +99,8 @@ Extend later:
 
 1. Done: add analysis env examples and this kickoff document.
 2. Done: add app/product naming constants for frontend and admin.
-3. Done: add admin product selector after login.
-4. Done: add analysis admin route group that initially reuses upload/import/log pages.
+3. Done, then superseded: add admin product selector after login.
+4. Done, then consolidated: add an Analysis route group and later replace both admin areas with one feature-complete Analysis admin.
 5. Done: introduce the first analysis frontend tab structure without deleting original screens.
 6. Done: add lightweight backend health/config response fields for `APP_PRODUCT` and `DB_NAME` visibility in admin diagnostics.
 7. Superseded: reuse the existing staging service names and URLs for Analysis, with an isolated Analysis database.

@@ -115,9 +115,9 @@ Short term:
 
 - reuse existing admin login/auth system
 - keep current PDF upload/import capability
-- add an admin landing screen after login to choose the product area
-- route current app admin features to the existing admin section
-- route analysis app admin features to a new analysis section
+- reuse the feature-complete admin as the single Analysis admin
+- route login directly to the Analysis dashboard
+- remove duplicate product selection and preserve legacy URLs as redirects
 
 Analysis admin needs:
 
@@ -181,14 +181,14 @@ Do not copy production secrets into the repo.
 - Use the isolated `pmub_analysis_staging` MongoDB database.
 - Reuse the existing staging API, web, and admin services for Analysis.
 
-### Phase 3: Admin Product Selection
+### Phase 3: Unified Analysis Admin
 
 - Keep shared admin login.
-- After successful login, show product selector:
-  - `PMU'B/LONAB`
-  - `PMU'B/LONAB/Analysis`
-- Add analysis admin route group.
-- Keep upload/import available in the analysis area.
+- Route successful login directly to the Analysis dashboard.
+- Rebrand the feature-complete existing admin as `PMU'B/LONAB Analysis`.
+- Keep upload/import, corpus review, activity, settings, announcements, and beta access available.
+- Redirect the retired `/products` and `/analysis/*` URLs.
+- Keep the Analysis API and database boundary unchanged.
 
 ### Phase 4: Analysis-Oriented Frontend
 

@@ -261,7 +261,7 @@ Confirm manually:
 - The API is reached on port `8003`, not the original app's port `8001`.
 - The running containers are `pmub_analysis_api` and `pmub_analysis_mongo`.
 - The backend uses `APP_PRODUCT=analysis` and an analysis-specific `DB_NAME`.
-- Admin login reaches product selection, then the Analysis area.
+- Admin login reaches the unified Analysis dashboard directly; `/products` and `/analysis/*` redirect safely.
 - No secrets or local environment files appear in `git status`.
 
 ## 11. Known Traps

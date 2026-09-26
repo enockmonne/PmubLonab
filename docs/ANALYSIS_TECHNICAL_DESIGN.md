@@ -1,6 +1,6 @@
 # PMU'B/LONAB/Analysis Technical Design
 
-Last updated: 2026-09-21
+Last updated: 2026-09-26
 
 ## System Shape
 
@@ -12,14 +12,17 @@ PMU'B/LONAB/Analysis starts from the existing PmubLonab architecture:
 - PDF parsing: Gemini-based pipeline for now.
 - Deployment target: the existing three staging services and URLs, repurposed for Analysis.
 
-The first implementation keeps the same codebase and branch while introducing explicit product boundaries.
+The implementation keeps the same codebase and branch while making Analysis the
+single staging product. Environment and database boundaries—not duplicate admin
+navigation—separate Analysis from the original production product.
 
 ## Product Boundary
 
 Backend:
 
 - `APP_PRODUCT=analysis` identifies analysis environments.
-- `DB_NAME=pmublonab_analysis` identifies the analysis database.
+- `DB_NAME=pmub_analysis_<environment>` identifies the analysis database.
+- Startup fails when `APP_PRODUCT=analysis` and `DB_NAME` is not analysis-specific.
 - `MONGO_URL` must point to a separate MongoDB Atlas database or cluster.
 - `/api/admin/status` exposes non-secret environment diagnostics for admin verification:
   - `APP_ENV`
@@ -34,9 +37,10 @@ Frontend:
 
 Admin:
 
-- `VITE_API_URL` points to the analysis API for analysis deployments.
-- Existing login is reused.
-- After login, the admin chooses the product area.
+- `VITE_API_URL` points to the Analysis API.
+- Existing login and feature-complete admin pages are reused.
+- Login routes directly to the unified Analysis dashboard.
+- `VITE_APP_PRODUCT=analysis` identifies the admin product mode.
 
 ## Environment Variables
 
@@ -191,11 +195,11 @@ Windows uses `scripts/start-analysis-dev.ps1` and
 
 Current implementation:
 
-- `/products`: product selector after login.
-- Core admin routes remain unchanged.
-- Analysis admin routes live under `/analysis`.
-- Analysis dashboard explains the analysis product focus.
-- Upload/import/races/logs/settings are reused under the analysis area.
+- One Analysis admin experience uses the canonical root routes.
+- `/dashboard` combines operational metrics with the Analysis product focus.
+- Upload, LONAB import, corpus races, announcements, beta access, activity, and settings remain available.
+- `/products` and legacy `/analysis/*` URLs redirect to their canonical equivalents.
+- The removed product selector cannot switch the admin away from the Analysis API.
 - Race administration supports audited manual programme/result linking and unlinking.
 
 Next admin work:
@@ -226,18 +230,18 @@ Future provider fallback:
 
 ## Deployment Shape
 
-Planned analysis services:
+Analysis reuses the existing staging service names and URLs:
 
-- `pmublonab-analysis-api`
-- `pmublonab-analysis-web`
-- `pmublonab-analysis-admin`
+- `pmublonab-staging-api`
+- `pmublonab-staging-web`
+- `pmublonab-staging-admin`
 
 Deploy only after:
 
 - Analysis env vars are configured.
 - Analysis database is ready.
-- Admin product selector and frontend product identity are visible.
-- API/admin status confirms `APP_PRODUCT=analysis` and `DB_NAME=pmublonab_analysis`.
+- Unified admin and frontend Analysis identity are visible.
+- API/admin status confirms `APP_PRODUCT=analysis` and `DB_NAME=pmub_analysis_staging`.
 
 ## Verification
 
@@ -248,7 +252,7 @@ Before merging/deploying analysis changes:
 - `npx tsc --noEmit` in `frontend`.
 - `python -m py_compile backend/server.py`.
 - Backend tests when API behavior changes.
-- Manual check that product selector, analysis admin, and analysis tabs route correctly.
+- Manual check that login reaches the unified dashboard, legacy URLs redirect, and Analysis tabs route correctly.
 
 ## Risks
 

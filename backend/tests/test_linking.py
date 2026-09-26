@@ -20,6 +20,7 @@ from server import (
     order_programme_result_pair,
     official_results_for_race,
     score_programme_result_match,
+    validate_product_database,
 )
 
 
@@ -46,6 +47,19 @@ class FakeRaceCollection:
 class FakeDatabase:
     def __init__(self, documents):
         self.races = FakeRaceCollection(documents)
+
+
+def test_analysis_product_requires_analysis_database_name():
+    with pytest.raises(RuntimeError, match="analysis-specific DB_NAME"):
+        validate_product_database("analysis", "pmub_staging")
+
+
+def test_analysis_product_accepts_analysis_database_name():
+    validate_product_database("analysis", "pmub_analysis_staging")
+
+
+def test_core_product_database_name_is_unchanged():
+    validate_product_database("core", "pmub_production")
 
 
 def test_programme_result_match_scores_same_date():

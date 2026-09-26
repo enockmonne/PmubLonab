@@ -1,11 +1,11 @@
 # PMU'B/LONAB/Analysis Roadmap
 
-Last updated: 2026-09-23
+Last updated: 2026-09-26
 
 ## Roadmap Principles
 
-- Keep the original PMU'B/LONAB app stable.
-- Build analysis as a separate product boundary first, then deepen features.
+- Keep the original PMU'B/LONAB production data and deployment stable.
+- Use one Analysis experience on staging with an explicit environment and database boundary.
 - Prefer small, verifiable slices.
 - Use historical data quality as the gate for advanced analysis.
 - Avoid direct betting recommendations at every phase.
@@ -19,8 +19,7 @@ Goals:
 - Create analysis-specific product docs.
 - Add analysis env examples.
 - Add product flags for backend, frontend, and admin.
-- Add admin product selection after login.
-- Add analysis admin route group.
+- Initially add admin product selection and an Analysis route group, then consolidate them into one admin.
 - Add first analysis frontend tab labels.
 
 Done:
@@ -30,8 +29,8 @@ Done:
 - `backend/.env.analysis.example`
 - `frontend/.env.analysis.example`
 - `admin-web/.env.analysis.example`
-- Admin product selector.
-- Analysis admin dashboard.
+- Done, then superseded: Admin product selector and duplicate Analysis route group.
+- Unified, feature-complete Analysis admin dashboard with legacy route redirects.
 - Analysis frontend product flag and tab labels.
 - Admin status environment diagnostics.
 

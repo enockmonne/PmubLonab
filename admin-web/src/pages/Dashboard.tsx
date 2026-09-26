@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Server,
+  Search,
 } from 'lucide-react';
 import { Admin, DashboardStats, apiError } from '@/lib/api';
 import StatCard from '@/components/StatCard';
@@ -42,9 +43,24 @@ export default function Dashboard() {
   return (
     <div>
       <PageHeader
-        title="Tableau de bord"
-        subtitle={`Connecté en tant que ${data.admin.email}`}
+        title="PMU'B/LONAB Analysis"
+        subtitle={`Recherche historique et administration des données · ${data.admin.email}`}
       />
+
+      <div className="mb-6 rounded-lg border border-accent/30 bg-accent/10 p-5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-md bg-accent text-white">
+            <Search size={18} />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-fg">Recherche historique explicable</h2>
+            <p className="mt-1 max-w-2xl text-sm text-fg-muted">
+              Transformez les PDF PMU'B/LONAB en données recherchables, comparables et auditables,
+              sans recommandation directe de pari.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard label="Total courses" value={data.stats.total_races} icon={Trophy} />

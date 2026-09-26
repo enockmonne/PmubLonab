@@ -1,6 +1,6 @@
 # PMU'B/LONAB/Analysis PRD
 
-Last updated: 2026-08-29
+Last updated: 2026-09-26
 
 ## Current Validated State
 
@@ -9,7 +9,7 @@ baseline now includes:
 
 - Isolated local frontend, API, MongoDB, containers, and database.
 - Portable Windows and macOS/Linux development launchers and checkers.
-- Working Analysis admin login, product selection, and upload workflow.
+- Working unified Analysis admin login, dashboard, and upload workflow.
 - Purpose-built `Recherche`, `Chevaux`, and `Sources` screens.
 - A representative programme/result pair imported, parsed, automatically linked,
   and reflected in horse and source statistics.
@@ -80,12 +80,11 @@ Early releases may reuse existing screens while purpose-built analysis screens a
 
 ## Admin Experience
 
-Admin users share the existing login foundation, then select a product area:
+The staging admin is a single `PMU'B/LONAB Analysis` experience. Login routes
+directly to the Analysis dashboard; there is no product selector or duplicate
+legacy admin area. The admin uses the Analysis API and analysis-specific database.
 
-- `PMU'B/LONAB`
-- `PMU'B/LONAB/Analysis`
-
-Analysis admin must support:
+The unified Analysis admin must support:
 
 - Uploading programme and result PDFs.
 - Importing LONAB archive PDFs.
@@ -94,6 +93,8 @@ Analysis admin must support:
 - Seeing extraction quality and missing fields.
 - Rebuilding or reviewing programme/result links.
 - Preparing historical data for search and analytics.
+- Managing beta access for controlled validation pilots.
+- Showing `APP_ENV`, `APP_PRODUCT`, and `DB_NAME` so the active data boundary is visible.
 
 ## Data Requirements
 

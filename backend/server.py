@@ -41,12 +41,24 @@ from auth import (
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+
+def validate_product_database(app_product: str, db_name: str) -> None:
+    """Fail fast before an Analysis process can access a non-Analysis database."""
+    if app_product.strip().lower() == "analysis" and "analysis" not in db_name.strip().lower():
+        raise RuntimeError(
+            "APP_PRODUCT=analysis requires an analysis-specific DB_NAME; "
+            f"received {db_name!r}."
+        )
+
+
 mongo_url = os.environ['MONGO_URL']
+db_name = os.environ['DB_NAME']
+validate_product_database(os.environ.get("APP_PRODUCT", "core"), db_name)
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[db_name]
 ADMIN_PASSCODE = os.environ.get("ADMIN_PASSCODE")
 
-app = FastAPI(title="Le Journal Hippique API")
+app = FastAPI(title="PMU'B/LONAB Analysis API")
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
