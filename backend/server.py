@@ -852,7 +852,7 @@ def check_admin(passcode: Optional[str]):
 
 @api_router.get("/")
 async def root():
-    return {"message": "Le Journal Hippique — PMU'B API", "ok": True}
+    return {"message": "PMU'B/LONAB Analysis API", "ok": True}
 
 
 # ---------- Announcements (AD3) ----------
