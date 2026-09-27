@@ -31,6 +31,28 @@ python3 scripts/download_lonab_pdfs.py --kind both --limit 5
 The `both` mode alternates programmes and results, so a small batch contains
 both document types when both are available.
 
+## Select a date or date range
+
+Select one publication date:
+
+```bash
+python3 scripts/download_lonab_pdfs.py --kind both --date 2026-09-27 --limit 10
+```
+
+Select an inclusive date range:
+
+```bash
+python3 scripts/download_lonab_pdfs.py \
+  --kind both \
+  --from-date 2026-09-20 \
+  --to-date 2026-09-27 \
+  --limit 10
+```
+
+Add `--download` only after reviewing the preview. Date filtering happens
+before the batch limit. The script searches the listing pages requested with
+`--pages`; increase that value, up to five, when selecting older dates.
+
 ## Download the first batch
 
 ```bash

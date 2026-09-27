@@ -15,6 +15,7 @@ import random
 import re
 import sys
 import time
+import unicodedata
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from html.parser import HTMLParser
@@ -24,7 +25,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from urllib.request import Request, build_opener
 from urllib.robotparser import RobotFileParser
-
 
 BASE_URL = "https://lonab.bf"
 ROBOTS_URL = f"{BASE_URL}/robots.txt"
@@ -41,6 +41,20 @@ MAX_PAGES = 5
 MAX_PDF_BYTES = 25 * 1024 * 1024
 TRANSIENT_STATUSES = {500, 502, 503, 504}
 STOP_STATUSES = {403, 429}
+FRENCH_MONTHS = {
+    "janvier": 1,
+    "fevrier": 2,
+    "mars": 3,
+    "avril": 4,
+    "mai": 5,
+    "juin": 6,
+    "juillet": 7,
+    "aout": 8,
+    "septembre": 9,
+    "octobre": 10,
+    "novembre": 11,
+    "decembre": 12,
+}
 
 
 class DownloaderError(RuntimeError):
@@ -53,6 +67,7 @@ class PdfCandidate:
     url: str
     filename: str
     title: str = ""
+    date_iso: str | None = None
 
 
 @dataclass(frozen=True)
@@ -60,6 +75,7 @@ class DownloadRecord:
     kind: str
     url: str
     filename: str
+    date_iso: str | None
     sha256: str
     size_bytes: int
     downloaded_at: str
@@ -132,11 +148,15 @@ class PoliteClient:
                         f"LONAB returned HTTP {exc.code}{detail}. Stopping the batch; do not bypass the block."
                     ) from exc
                 if exc.code not in TRANSIENT_STATUSES or attempt >= retries:
-                    raise DownloaderError(f"Request failed for {url}: HTTP {exc.code}") from exc
+                    raise DownloaderError(
+                        f"Request failed for {url}: HTTP {exc.code}"
+                    ) from exc
             except URLError as exc:
                 self.last_request_at = time.monotonic()
                 if attempt >= retries:
-                    raise DownloaderError(f"Network error for {url}: {exc.reason}") from exc
+                    raise DownloaderError(
+                        f"Network error for {url}: {exc.reason}"
+                    ) from exc
 
             time.sleep(min(2 ** (attempt + 1), 8))
         raise DownloaderError(f"Request failed for {url}")
@@ -163,6 +183,44 @@ def safe_filename(url: str) -> str:
     return filename[:180]
 
 
+def parse_iso_date(value: str) -> str:
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"invalid date '{value}'; expected YYYY-MM-DD"
+        ) from exc
+
+
+def extract_candidate_date(filename: str, title: str = "", url: str = "") -> str | None:
+    value = " ".join((filename, title, urlparse(url).path))
+    numeric = re.search(r"(?<!\d)(\d{1,2})[-_./](\d{1,2})[-_./](\d{4})(?!\d)", value)
+    if numeric:
+        day, month, year = (int(part) for part in numeric.groups())
+        try:
+            return datetime(year, month, day).date().isoformat()
+        except ValueError:
+            return None
+
+    normalized = unicodedata.normalize("NFKD", value.lower())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    textual = re.search(
+        r"(?<!\d)(\d{1,2})\s+(" + "|".join(FRENCH_MONTHS) + r")\s+(\d{4})(?!\d)",
+        normalized,
+    )
+    if not textual:
+        return None
+    day_text, month_text, year_text = textual.groups()
+    try:
+        return (
+            datetime(int(year_text), FRENCH_MONTHS[month_text], int(day_text))
+            .date()
+            .isoformat()
+        )
+    except ValueError:
+        return None
+
+
 def extract_pdf_candidates(html: str, page_url: str, kind: str) -> list[PdfCandidate]:
     parser = LinkParser()
     parser.feed(html)
@@ -176,8 +234,15 @@ def extract_pdf_candidates(html: str, page_url: str, kind: str) -> list[PdfCandi
         if not parsed.path.lower().endswith(".pdf") or absolute in seen:
             continue
         seen.add(absolute)
+        filename = safe_filename(absolute)
         candidates.append(
-            PdfCandidate(kind=kind, url=absolute, filename=safe_filename(absolute), title=title)
+            PdfCandidate(
+                kind=kind,
+                url=absolute,
+                filename=filename,
+                title=title,
+                date_iso=extract_candidate_date(filename, title, absolute),
+            )
         )
     return candidates
 
@@ -189,6 +254,22 @@ def interleave(groups: Sequence[Sequence[PdfCandidate]]) -> list[PdfCandidate]:
             if index < len(group):
                 merged.append(group[index])
     return merged
+
+
+def filter_candidates_by_date(
+    candidates: Sequence[PdfCandidate],
+    from_date: str | None,
+    to_date: str | None,
+) -> list[PdfCandidate]:
+    if from_date is None and to_date is None:
+        return list(candidates)
+    return [
+        candidate
+        for candidate in candidates
+        if candidate.date_iso is not None
+        and (from_date is None or candidate.date_iso >= from_date)
+        and (to_date is None or candidate.date_iso <= to_date)
+    ]
 
 
 def load_manifest(path: Path) -> dict[str, dict]:
@@ -263,7 +344,9 @@ def discover(
 
 def validate_pdf(body: bytes, content_type: str, url: str) -> None:
     if len(body) > MAX_PDF_BYTES:
-        raise DownloaderError(f"PDF exceeds the {MAX_PDF_BYTES // (1024 * 1024)} MB safety limit: {url}")
+        raise DownloaderError(
+            f"PDF exceeds the {MAX_PDF_BYTES // (1024 * 1024)} MB safety limit: {url}"
+        )
     if not body.startswith(b"%PDF-"):
         raise DownloaderError(
             f"Downloaded content is not a PDF ({content_type or 'unknown type'}): {url}"
@@ -305,6 +388,7 @@ def download_batch(
             kind=candidate.kind,
             url=candidate.url,
             filename=destination.name,
+            date_iso=candidate.date_iso,
             sha256=digest,
             size_bytes=len(body),
             downloaded_at=datetime.now(timezone.utc).isoformat(),
@@ -333,7 +417,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help=f"Maximum PDFs in this run, 1-{MAX_SAFE_BATCH} (default: {DEFAULT_LIMIT}).",
     )
     parser.add_argument(
-        "--pages", type=int, default=1, help=f"Listing pages per category, 1-{MAX_PAGES}."
+        "--pages",
+        type=int,
+        default=1,
+        help=f"Listing pages per category, 1-{MAX_PAGES}.",
+    )
+    parser.add_argument(
+        "--date",
+        type=parse_iso_date,
+        help="Select one publication date in YYYY-MM-DD format.",
+    )
+    parser.add_argument(
+        "--from-date",
+        type=parse_iso_date,
+        help="Inclusive start date in YYYY-MM-DD format.",
+    )
+    parser.add_argument(
+        "--to-date",
+        type=parse_iso_date,
+        help="Inclusive end date in YYYY-MM-DD format.",
     )
     parser.add_argument(
         "--delay",
@@ -354,6 +456,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         parser.error(f"--pages must be between 1 and {MAX_PAGES}")
     if args.delay < 1:
         parser.error("--delay must be at least 1 second")
+    if args.date and (args.from_date or args.to_date):
+        parser.error("--date cannot be combined with --from-date or --to-date")
+    if args.date:
+        args.from_date = args.date
+        args.to_date = args.date
+    if args.from_date and args.to_date and args.from_date > args.to_date:
+        parser.error("--from-date cannot be after --to-date")
     return args
 
 
@@ -363,14 +472,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     client = PoliteClient(delay_seconds=args.delay)
     try:
         robots = load_robots(client)
-        candidates = discover(client, robots, kinds, args.pages)[: args.limit]
+        discovered = discover(client, robots, kinds, args.pages)
+        candidates = filter_candidates_by_date(
+            discovered, args.from_date, args.to_date
+        )[: args.limit]
         if not candidates:
-            print("No PDF links were discovered.")
+            print(
+                "No matching PDF links were discovered. "
+                "If the date is older, increase --pages (maximum 5)."
+            )
             return 0
 
         print(f"Discovered {len(candidates)} PDF(s):")
         for candidate in candidates:
-            print(f"  [{candidate.kind}] {candidate.filename} -> {candidate.url}")
+            date_label = candidate.date_iso or "date unknown"
+            print(
+                f"  [{candidate.kind} | {date_label}] "
+                f"{candidate.filename} -> {candidate.url}"
+            )
 
         if not args.download:
             print("\nDry run only. Add --download to save this batch.")
@@ -386,7 +505,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
-        print("\nStopped by user. Completed files remain recorded in the manifest.", file=sys.stderr)
+        print(
+            "\nStopped by user. Completed files remain recorded in the manifest.",
+            file=sys.stderr,
+        )
         return 130
 
 
