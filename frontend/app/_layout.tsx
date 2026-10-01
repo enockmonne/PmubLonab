@@ -3,12 +3,6 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, ActivityIndicator } from "react-native";
 import {
-  useFonts as usePlayfair,
-  PlayfairDisplay_400Regular_Italic,
-  PlayfairDisplay_700Bold,
-  PlayfairDisplay_900Black,
-} from "@expo-google-fonts/playfair-display";
-import {
   useFonts as useInter,
   Inter_400Regular,
   Inter_700Bold,
@@ -16,30 +10,26 @@ import {
 } from "@expo-google-fonts/inter";
 import { usePushRegistration } from "../src/push";
 import BetaAccessGate from "../src/BetaAccessGate";
+import { theme } from "../src/theme";
 
 export default function RootLayout() {
-  const [serifLoaded] = usePlayfair({
-    PlayfairDisplay_400Regular_Italic,
-    PlayfairDisplay_700Bold,
-    PlayfairDisplay_900Black,
-  });
   const [sansLoaded] = useInter({
     Inter_400Regular,
     Inter_700Bold,
     Inter_900Black,
   });
 
-  if (!serifLoaded || !sansLoaded) {
+  if (!sansLoaded) {
     return (
       <View
         style={{
           flex: 1,
-          backgroundColor: "#FAF9F6",
+          backgroundColor: theme.colors.bg,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <ActivityIndicator color="#0A2E1A" />
+        <ActivityIndicator color={theme.colors.brand} />
       </View>
     );
   }
@@ -61,7 +51,7 @@ function AppStack() {
     <Stack
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#FAF9F6" },
+        contentStyle: { backgroundColor: theme.colors.bg },
       }}
     >
       <Stack.Screen name="index" />
@@ -73,6 +63,8 @@ function AppStack() {
       <Stack.Screen name="horse/[number]" />
       <Stack.Screen name="race/[race_id]" />
       <Stack.Screen name="horse-history/[name]" />
+      <Stack.Screen name="person-history/[role]/[name]" />
+      <Stack.Screen name="source-history/[source]" />
     </Stack>
   );
 }

@@ -17,6 +17,8 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { theme, API_URL } from "../../src/theme";
+import { IS_ANALYSIS_APP } from "../../src/product";
+import AnalysisSourcesScreen from "../../src/AnalysisSourcesScreen";
 import HorseLoader from "../../src/HorseLoader";
 import { haptics } from "../../src/haptics";
 import { readCache, writeCache } from "../../src/storageCache";
@@ -102,6 +104,14 @@ type PronosticsCache = {
 const PRONOSTICS_CACHE_KEY = "pmub.pronostics.v1";
 
 export default function PronosticsScreen() {
+  if (IS_ANALYSIS_APP) {
+    return <AnalysisSourcesScreen />;
+  }
+
+  return <CorePronosticsScreen />;
+}
+
+function CorePronosticsScreen() {
   const [data, setData] = useState<Data | null>(null);
   const [horses, setHorses] = useState<Horse[]>([]);
   const [programmes, setProgrammes] = useState<ProgrammeSummary[]>([]);

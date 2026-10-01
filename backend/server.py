@@ -7,9 +7,9 @@ import logging
 import time
 import unicodedata
 from html import unescape
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Header, Query, Request
@@ -41,12 +41,24 @@ from auth import (
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+
+def validate_product_database(app_product: str, db_name: str) -> None:
+    """Fail fast before an Analysis process can access a non-Analysis database."""
+    if app_product.strip().lower() == "analysis" and "analysis" not in db_name.strip().lower():
+        raise RuntimeError(
+            "APP_PRODUCT=analysis requires an analysis-specific DB_NAME; "
+            f"received {db_name!r}."
+        )
+
+
 mongo_url = os.environ['MONGO_URL']
+db_name = os.environ['DB_NAME']
+validate_product_database(os.environ.get("APP_PRODUCT", "core"), db_name)
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[db_name]
 ADMIN_PASSCODE = os.environ.get("ADMIN_PASSCODE")
 
-app = FastAPI(title="Le Journal Hippique API")
+app = FastAPI(title="PMU'B/LONAB Analysis API")
 api_router = APIRouter(prefix="/api")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -126,6 +138,7 @@ PRONOSTIC_SOURCE_ALIASES = {
     "zoneturf": "zone turf fr",
     "zoneturf fr": "zone turf fr",
     "leparisien": "le parisien",
+    "parisien": "le parisien",
     "voixdunord": "voix du nord",
 }
 
@@ -138,6 +151,18 @@ def canonical_pronostic_source(source: str) -> tuple[str, str]:
     if key in PRONOSTIC_SOURCE_LABELS:
         return key, PRONOSTIC_SOURCE_LABELS[key]
     return key or "source inconnue", (source or "Source inconnue").strip()
+
+
+def _clean_prediction_picks(values: Any) -> List[int]:
+    picks: List[int] = []
+    for value in values or []:
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            continue
+        if number > 0 and number not in picks:
+            picks.append(number)
+    return picks
 
 
 def score_programme_result_match(left: Dict[str, Any], right: Dict[str, Any]) -> int:
@@ -360,6 +385,77 @@ def build_parse_quality(parsed: Dict[str, Any], doc_type: str) -> Dict[str, Any]
     }
 
 
+def build_corpus_quality_summary(races: List[Dict[str, Any]]) -> Dict[str, int]:
+    """Summarize operational data-quality signals for the admin dashboard."""
+    documents_to_review = 0
+    unlinked_documents = 0
+    documents_with_warnings = 0
+    programmes_without_result = 0
+    results_without_programme = 0
+
+    for race in races:
+        doc_type = race.get("doc_type", "programme")
+        linked_ids = (
+            race.get("linked_programme_ids", [])
+            if doc_type == "result"
+            else race.get("linked_result_ids", [])
+        ) or []
+        is_unlinked = not linked_ids
+        has_warnings = bool((race.get("parse_quality") or {}).get("warnings"))
+
+        if is_unlinked:
+            unlinked_documents += 1
+            if doc_type == "result":
+                results_without_programme += 1
+            else:
+                programmes_without_result += 1
+        if has_warnings:
+            documents_with_warnings += 1
+        if is_unlinked or has_warnings:
+            documents_to_review += 1
+
+    return {
+        "documents_to_review": documents_to_review,
+        "unlinked_documents": unlinked_documents,
+        "documents_with_warnings": documents_with_warnings,
+        "programmes_without_result": programmes_without_result,
+        "results_without_programme": results_without_programme,
+        "clean_documents": max(len(races) - documents_to_review, 0),
+    }
+
+
+def build_quality_review_item(race: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the admin-facing quality state for one corpus document."""
+    doc_type = race.get("doc_type", "programme")
+    linked_ids = (
+        race.get("linked_programme_ids", [])
+        if doc_type == "result"
+        else race.get("linked_result_ids", [])
+    ) or []
+    parse_quality = race.get("parse_quality") or {}
+    warnings = parse_quality.get("warnings") or []
+    issues = []
+    if not linked_ids:
+        issues.append("unlinked")
+    if warnings:
+        issues.append("warnings")
+
+    return {
+        "race_id": race.get("race_id"),
+        "name": race.get("name"),
+        "date_text": race.get("date_text"),
+        "date_iso": race.get("date_iso"),
+        "location": race.get("location"),
+        "doc_type": doc_type,
+        "created_at": race.get("created_at"),
+        "parse_quality": parse_quality,
+        "linked_document_ids": linked_ids,
+        "import_source": race.get("import_source"),
+        "issues": issues,
+        "review_status": "review" if issues else "clean",
+    }
+
+
 def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a parsed LLM output into a race document."""
     race = parsed.get("race") or {}
@@ -427,12 +523,15 @@ async def link_related_programme_results(doc: Dict[str, Any]) -> Dict[str, Any]:
             "doc_type": opposite,
             "date_iso": {"$regex": f"^{re.escape(date_iso)}"},
         },
-        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1},
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1, "excluded_link_ids": 1},
     ).to_list(length=25)
 
+    excluded_ids = set(doc.get("excluded_link_ids") or [])
     linked_ids = [
         candidate["race_id"] for candidate in candidates
-        if score_programme_result_match(doc, candidate) >= 5
+        if candidate["race_id"] not in excluded_ids
+        and race_id not in set(candidate.get("excluded_link_ids") or [])
+        and score_programme_result_match(doc, candidate) >= 5
     ]
     if not linked_ids:
         return {"linked_programmes": [], "linked_results": []}
@@ -459,15 +558,107 @@ async def link_related_programme_results(doc: Dict[str, Any]) -> Dict[str, Any]:
     return {"linked_programmes": linked_ids, "linked_results": []}
 
 
+def order_programme_result_pair(
+    left: Optional[Dict[str, Any]],
+    right: Optional[Dict[str, Any]],
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    """Validate and order two documents as (programme, result)."""
+    if not left or not right:
+        raise HTTPException(status_code=404, detail="Document introuvable")
+    if left.get("race_id") == right.get("race_id"):
+        raise HTTPException(status_code=400, detail="Un document ne peut pas etre lie a lui-meme")
+    types = {left.get("doc_type"), right.get("doc_type")}
+    if types != {"programme", "result"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Une liaison doit associer un programme et un resultat",
+        )
+    return (left, right) if left.get("doc_type") == "programme" else (right, left)
+
+
+async def set_manual_programme_result_link(
+    race_id: str,
+    target_race_id: str,
+    linked: bool,
+) -> Dict[str, Any]:
+    """Create or remove a symmetric, rebuild-safe programme/result link."""
+    documents = await db.races.find(
+        {"race_id": {"$in": [race_id, target_race_id]}},
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1},
+    ).to_list(length=2)
+    by_id = {document.get("race_id"): document for document in documents}
+    programme, result = order_programme_result_pair(
+        by_id.get(race_id),
+        by_id.get(target_race_id),
+    )
+    programme_id = programme["race_id"]
+    result_id = result["race_id"]
+
+    if linked:
+        await db.races.update_one(
+            {"race_id": programme_id},
+            {
+                "$addToSet": {
+                    "linked_result_ids": result_id,
+                    "manual_linked_result_ids": result_id,
+                },
+                "$pull": {"excluded_link_ids": result_id},
+            },
+        )
+        await db.races.update_one(
+            {"race_id": result_id},
+            {
+                "$addToSet": {
+                    "linked_programme_ids": programme_id,
+                    "manual_linked_programme_ids": programme_id,
+                },
+                "$pull": {"excluded_link_ids": programme_id},
+            },
+        )
+    else:
+        await db.races.update_one(
+            {"race_id": programme_id},
+            {
+                "$pull": {
+                    "linked_result_ids": result_id,
+                    "manual_linked_result_ids": result_id,
+                },
+                "$addToSet": {"excluded_link_ids": result_id},
+            },
+        )
+        await db.races.update_one(
+            {"race_id": result_id},
+            {
+                "$pull": {
+                    "linked_programme_ids": programme_id,
+                    "manual_linked_programme_ids": programme_id,
+                },
+                "$addToSet": {"excluded_link_ids": programme_id},
+            },
+        )
+
+    return {
+        "programme_id": programme_id,
+        "programme_name": programme.get("name"),
+        "result_id": result_id,
+        "result_name": result.get("name"),
+        "linked": linked,
+    }
+
+
 async def rebuild_programme_result_links() -> Dict[str, int]:
     """Re-run automatic programme/result linking for existing stored documents."""
+    manual_programmes = await db.races.find(
+        {"manual_linked_result_ids.0": {"$exists": True}},
+        {"_id": 0, "race_id": 1, "manual_linked_result_ids": 1},
+    ).to_list(length=2000)
     await db.races.update_many(
         {},
         {"$unset": {"linked_programme_ids": "", "linked_result_ids": ""}},
     )
     docs = await db.races.find(
         {"doc_type": {"$in": ["programme", "result"]}},
-        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1},
+        {"_id": 0, "race_id": 1, "doc_type": 1, "name": 1, "date_iso": 1, "location": 1, "excluded_link_ids": 1},
     ).sort("date_iso", -1).to_list(length=2000)
     linked_programmes = 0
     linked_results = 0
@@ -478,10 +669,24 @@ async def rebuild_programme_result_links() -> Dict[str, int]:
                 linked_programmes += 1
             else:
                 linked_results += 1
+
+    manual_links_restored = 0
+    for programme in manual_programmes:
+        for result_id in programme.get("manual_linked_result_ids") or []:
+            try:
+                await set_manual_programme_result_link(programme["race_id"], result_id, True)
+                manual_links_restored += 1
+            except HTTPException:
+                logger.warning(
+                    "Could not restore manual race link programme=%s result=%s",
+                    programme.get("race_id"),
+                    result_id,
+                )
     return {
         "documents_scanned": len(docs),
         "programmes_linked": linked_programmes,
         "results_linked": linked_results,
+        "manual_links_restored": manual_links_restored,
     }
 
 
@@ -614,6 +819,8 @@ async def ensure_indexes():
     await db.beta_access_uses.create_index([("code", 1), ("device_id", 1)], unique=True)
     await db.beta_access_uses.create_index("code")
     await db.beta_access_uses.create_index([("last_seen_at", -1)])
+    await db.import_attempts.create_index([("provider", 1), ("pdf_url", 1)], unique=True)
+    await db.import_attempts.create_index([("status", 1), ("updated_at", -1)])
 
 
 @app.on_event("startup")
@@ -731,7 +938,7 @@ def check_admin(passcode: Optional[str]):
 
 @api_router.get("/")
 async def root():
-    return {"message": "Le Journal Hippique — PMU'B API", "ok": True}
+    return {"message": "PMU'B/LONAB Analysis API", "ok": True}
 
 
 # ---------- Announcements (AD3) ----------
@@ -1151,22 +1358,61 @@ async def list_races(
     q: Optional[str] = None,
     location: Optional[str] = None,
     doc_type: Optional[str] = None,
+    date_from: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    date_to: Optional[str] = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
+    discipline: Optional[str] = None,
+    race_type: Optional[str] = None,
+    linkage_state: Optional[Literal["linked", "programme_only", "result_only"]] = None,
     has_results: Optional[bool] = None,
     limit: int = Query(20, ge=1, le=500),
     skip: int = Query(0, ge=0),
 ):
-    query: Dict[str, Any] = {}
+    clauses: List[Dict[str, Any]] = []
     if q:
         rx = {"$regex": re.escape(q), "$options": "i"}
-        query["$or"] = [{"name": rx}, {"location": rx}, {"race_id": rx}]
+        clauses.append({"$or": [{"name": rx}, {"location": rx}, {"race_id": rx}]})
     if location:
-        query["location"] = {"$regex": re.escape(location), "$options": "i"}
+        clauses.append({"location": {"$regex": re.escape(location), "$options": "i"}})
     if doc_type in ("programme", "result"):
-        query["doc_type"] = doc_type
+        clauses.append({"doc_type": doc_type})
+    if date_from or date_to:
+        date_filter: Dict[str, str] = {}
+        if date_from:
+            date_filter["$gte"] = date_from
+        if date_to:
+            day_after = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+            date_filter["$lt"] = day_after.strftime("%Y-%m-%d")
+        clauses.append({"date_iso": date_filter})
+    if discipline:
+        clauses.append({
+            "discipline": {"$regex": f"^{re.escape(discipline)}$", "$options": "i"}
+        })
+    if race_type:
+        clauses.append({
+            "race_type": {"$regex": f"^{re.escape(race_type)}$", "$options": "i"}
+        })
+    if linkage_state == "linked":
+        clauses.append({
+            "$or": [
+                {"linked_programme_ids.0": {"$exists": True}},
+                {"linked_result_ids.0": {"$exists": True}},
+            ]
+        })
+    elif linkage_state == "programme_only":
+        clauses.append({
+            "doc_type": "programme",
+            "linked_result_ids.0": {"$exists": False},
+        })
+    elif linkage_state == "result_only":
+        clauses.append({
+            "doc_type": "result",
+            "linked_programme_ids.0": {"$exists": False},
+        })
     if has_results is True:
-        query["previous_results.finishing_order.0"] = {"$exists": True}
+        clauses.append({"previous_results.finishing_order.0": {"$exists": True}})
     elif has_results is False:
-        query["previous_results.finishing_order.0"] = {"$exists": False}
+        clauses.append({"previous_results.finishing_order.0": {"$exists": False}})
+    query: Dict[str, Any] = {"$and": clauses} if clauses else {}
     total = await db.races.count_documents(query)
     cursor = db.races.find(query, {"_id": 0}).sort("date_iso", -1).skip(skip).limit(limit)
     races = await cursor.to_list(length=limit)
@@ -1204,7 +1450,9 @@ async def list_races(
             "meeting_label": r.get("meeting_label", ""),
             "course_label": r.get("course_label", ""),
             "race_type": r.get("race_type", ""),
+            "discipline": r.get("discipline", ""),
             "start_mode": r.get("start_mode", ""),
+            "distance_m": r.get("distance_m", 0),
             "date_text": r.get("date_text"),
             "date_iso": r.get("date_iso"),
             "location": r.get("location"),
@@ -1212,6 +1460,7 @@ async def list_races(
             "runners": r.get("runners"),
             "prize_fcfa": r.get("prize_fcfa"),
             "is_current": r.get("is_current", False),
+            "parse_quality": r.get("parse_quality", {}),
             "linked_programme_ids": r.get("linked_programme_ids", []),
             "linked_result_ids": r.get("linked_result_ids", []),
             "linked_programmes_count": len(r.get("linked_programme_ids", []) or []),
@@ -1272,7 +1521,9 @@ async def global_search(q: str = Query(..., min_length=2)):
     horse_hits: Dict[str, dict] = {}
     jockey_hits: Dict[str, int] = {}
     trainer_hits: Dict[str, int] = {}
+    source_hits: Dict[str, Dict[str, Any]] = {}
     ql = q.lower()
+    normalized_query = normalize_match_text(q)
     for r in all_races:
         for h in r.get("horses", []) or []:
             if ql in (h.get("name") or "").lower():
@@ -1286,21 +1537,45 @@ async def global_search(q: str = Query(..., min_length=2)):
                 jockey_hits[h["jockey"]] = jockey_hits.get(h["jockey"], 0) + 1
             if ql in (h.get("trainer") or "").lower():
                 trainer_hits[h["trainer"]] = trainer_hits.get(h["trainer"], 0) + 1
+        sources_seen_in_race: set[str] = set()
+        for prediction in r.get("predictions", []) or []:
+            raw_source = str(prediction.get("source") or "").strip()
+            source_key, source_label = canonical_pronostic_source(raw_source)
+            if (
+                raw_source
+                and normalized_query
+                and (
+                    normalized_query in normalize_match_text(raw_source)
+                    or normalized_query in source_key
+                )
+                and source_key not in sources_seen_in_race
+            ):
+                entry = source_hits.setdefault(
+                    source_key,
+                    {"source": source_label, "appearances": 0},
+                )
+                entry["appearances"] += 1
+                sources_seen_in_race.add(source_key)
     return {
         "races": race_hits,
         "horses": list(horse_hits.values())[:20],
         "jockeys": [{"name": k, "appearances": v} for k, v in sorted(jockey_hits.items(), key=lambda x: -x[1])[:15]],
         "trainers": [{"name": k, "appearances": v} for k, v in sorted(trainer_hits.items(), key=lambda x: -x[1])[:15]],
+        "sources": sorted(source_hits.values(), key=lambda item: (-item["appearances"], item["source"]))[:15],
     }
 
 
 # ---------- Stats ----------
 
-@api_router.get("/stats/horses")
-async def horses_leaderboard():
-    """Horse leaderboard based on official linked or embedded results."""
-    races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
-    races_by_id = {r.get("race_id"): r for r in races if r.get("race_id")}
+
+def normalized_horse_name(value: Any) -> str:
+    """Return the stable display/matching key used by historical horse views."""
+    return " ".join(str(value or "").strip().upper().split())
+
+
+def build_horse_leaderboard(races: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build an appearance-first leaderboard without hiding incomplete history."""
+    races_by_id = {race.get("race_id"): race for race in races if race.get("race_id")}
     horse_stats: Dict[str, Dict[str, Any]] = {}
     evaluated_race_ids: set[str] = set()
     linked_results_used = 0
@@ -1309,146 +1584,229 @@ async def horses_leaderboard():
         if race.get("doc_type", "programme") != "programme" or not race.get("horses"):
             continue
         result_context = official_results_for_race(race, races_by_id)
-        order = (result_context["results"] or {}).get("finishing_order", []) or []
-        if not order:
-            continue
-        if result_context["source"] == "linked_result":
+        results = result_context.get("results") or {}
+        has_linked_result = result_context.get("source") == "linked_result"
+        order = (results.get("finishing_order", []) or []) if has_linked_result else []
+        non_runners = set(results.get("npo", []) or [])
+        if order:
+            evaluated_race_ids.add(race.get("race_id", ""))
             linked_results_used += 1
-        evaluated_race_ids.add(race.get("race_id", ""))
-        horses_by_number = {
-            h.get("number"): h
-            for h in race.get("horses", [])
-            if h.get("number") is not None and h.get("name")
-        }
-        for idx, horse_number in enumerate(order):
-            horse = horses_by_number.get(horse_number)
-            if not horse:
+
+        for horse in race.get("horses", []) or []:
+            name = normalized_horse_name(horse.get("name"))
+            if not name:
                 continue
-            name = (horse.get("name") or "").strip().upper()
+            number = horse.get("number")
+            finishing_position = order.index(number) + 1 if number in order else None
             entry = horse_stats.setdefault(
                 name,
                 {
                     "name": name,
                     "runs": 0,
+                    "evaluated_runs": 0,
                     "wins": 0,
                     "top3": 0,
                     "latest_date": race.get("date_iso", ""),
                     "latest_race_id": race.get("race_id"),
                     "latest_race_name": race.get("name"),
-                    "latest_position": None,
+                    "latest_position": finishing_position,
                 },
             )
-            position = idx + 1
             entry["runs"] += 1
-            if position == 1:
-                entry["wins"] += 1
-            if position <= 3:
-                entry["top3"] += 1
+            if order and number not in non_runners:
+                entry["evaluated_runs"] += 1
+                if finishing_position == 1:
+                    entry["wins"] += 1
+                if finishing_position is not None and finishing_position <= 3:
+                    entry["top3"] += 1
             if (race.get("date_iso") or "") >= (entry.get("latest_date") or ""):
                 entry["latest_date"] = race.get("date_iso", "")
                 entry["latest_race_id"] = race.get("race_id")
                 entry["latest_race_name"] = race.get("name")
-                entry["latest_position"] = position
+                entry["latest_position"] = finishing_position
 
     leaderboard = []
     for entry in horse_stats.values():
-        runs = entry["runs"] or 1
+        evaluated_runs = entry["evaluated_runs"]
+        appearances = entry["runs"]
         leaderboard.append({
             **entry,
-            "win_rate": round((entry["wins"] / runs) * 100, 1),
-            "top3_rate": round((entry["top3"] / runs) * 100, 1),
+            "win_rate": round((entry["wins"] / evaluated_runs) * 100, 1) if evaluated_runs else 0,
+            "top3_rate": round((entry["top3"] / evaluated_runs) * 100, 1) if evaluated_runs else 0,
+            "coverage_rate": round((evaluated_runs / appearances) * 100, 1) if appearances else 0,
         })
-    leaderboard.sort(key=lambda h: (-h["top3_rate"], -h["wins"], -h["top3"], -h["runs"], h["name"]))
+    leaderboard.sort(
+        key=lambda horse: (
+            -horse["top3_rate"],
+            -horse["wins"],
+            -horse["top3"],
+            -horse["evaluated_runs"],
+            -horse["runs"],
+            horse["name"],
+        )
+    )
     return {
         "leaderboard": leaderboard,
         "evaluated_races": len([race_id for race_id in evaluated_race_ids if race_id]),
         "linked_results_used": linked_results_used,
-        "methodology": "Classement base sur les arrivees officielles reliees aux programmes; seuls les chevaux retrouves dans les partants du programme sont inclus.",
+        "methodology": (
+            "Tous les chevaux extraits des programmes sont affichés. Les taux de victoire et de top 3 "
+            "utilisent uniquement les apparitions couvertes par un résultat officiel; les non-partants "
+            "sont exclus du calcul."
+        ),
     }
 
 
-@api_router.get("/stats/horses/{name}")
-async def horse_history(name: str):
-    """Aggregate a horse's history across all races in DB."""
-    target = name.upper().strip()
-    all_races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
-    races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
-    appearances = []
+def build_horse_profile(name: str, races: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Build a searchable horse profile from programme documents and official results."""
+    target = normalized_horse_name(name)
+    races_by_id = {race.get("race_id"): race for race in races if race.get("race_id")}
+    appearances: List[Dict[str, Any]] = []
     wins = 0
-    places = 0  # top 3
-    total_runs = 0
-    for r in all_races:
-        prev = official_results_for_race(r, races_by_id)["results"]
-        order = prev.get("finishing_order", []) or []
-        # Find horse by name in this race's roster
-        horse = next((h for h in r.get("horses", []) if (h.get("name") or "").upper() == target), None)
+    top3 = 0
+    evaluated_runs = 0
+
+    for race in races:
+        if race.get("doc_type", "programme") != "programme":
+            continue
+        horse = next(
+            (
+                item for item in race.get("horses", []) or []
+                if normalized_horse_name(item.get("name")) == target
+            ),
+            None,
+        )
         if not horse:
             continue
-        finishing_pos = None
-        if order and horse.get("number") in order:
-            finishing_pos = order.index(horse["number"]) + 1
+
+        result_context = official_results_for_race(race, races_by_id)
+        results = result_context.get("results") or {}
+        has_linked_result = result_context.get("source") == "linked_result"
+        order = (results.get("finishing_order", []) or []) if has_linked_result else []
+        non_runners = set(results.get("npo", []) or [])
+        number = horse.get("number")
+        finishing_position = order.index(number) + 1 if number in order else None
+        if number in non_runners:
+            result_status = "non_runner"
+        elif order:
+            result_status = "evaluated"
+            evaluated_runs += 1
+            if finishing_position == 1:
+                wins += 1
+            if finishing_position is not None and finishing_position <= 3:
+                top3 += 1
+        else:
+            result_status = "unavailable"
+
         appearances.append({
-            "race_id": r["race_id"],
-            "race_name": r.get("name"),
-            "date_text": r.get("date_text"),
-            "date_iso": r.get("date_iso"),
-            "location": r.get("location"),
-            "number": horse.get("number"),
+            "race_id": race.get("race_id"),
+            "race_name": race.get("name"),
+            "date_text": race.get("date_text"),
+            "date_iso": race.get("date_iso"),
+            "location": race.get("location"),
+            "meeting_label": race.get("meeting_label"),
+            "race_type": race.get("race_type"),
+            "discipline": race.get("discipline") or race.get("race_type"),
+            "distance_m": race.get("distance_m"),
+            "number": number,
             "jockey": horse.get("jockey"),
             "trainer": horse.get("trainer"),
+            "owner": horse.get("owner"),
             "perf": horse.get("perf"),
-            "finishing_pos": finishing_pos,
+            "finishing_pos": finishing_position,
+            "result_status": result_status,
+            "result_source": result_context.get("source") if order else None,
+            "result_race_id": result_context.get("result_race_id") if order else None,
         })
-        if finishing_pos is not None:
-            total_runs += 1
-            if finishing_pos == 1:
-                wins += 1
-            if finishing_pos <= 3:
-                places += 1
+
     if not appearances:
-        raise HTTPException(status_code=404, detail="Cheval introuvable dans l'historique")
+        return None
+
+    def count_context(field: str) -> List[Dict[str, Any]]:
+        counts: Dict[str, int] = {}
+        for appearance in appearances:
+            value = " ".join(str(appearance.get(field) or "").strip().split())
+            if value:
+                counts[value] = counts.get(value, 0) + 1
+        return [
+            {"name": value, "appearances": count}
+            for value, count in sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+        ]
+
+    total_appearances = len(appearances)
     return {
         "name": target,
         "appearances": appearances,
         "stats": {
-            "total_appearances": len(appearances),
-            "total_runs_with_result": total_runs,
+            "total_appearances": total_appearances,
+            "total_runs_with_result": evaluated_runs,
+            "evaluated_appearances": evaluated_runs,
             "wins": wins,
-            "places_top3": places,
-            "win_rate": round((wins / total_runs) * 100, 1) if total_runs else 0,
-            "place_rate": round((places / total_runs) * 100, 1) if total_runs else 0,
+            "places_top3": top3,
+            "win_rate": round((wins / evaluated_runs) * 100, 1) if evaluated_runs else 0,
+            "place_rate": round((top3 / evaluated_runs) * 100, 1) if evaluated_runs else 0,
+            "coverage_rate": round((evaluated_runs / total_appearances) * 100, 1),
         },
+        "contexts": {
+            "jockeys": count_context("jockey"),
+            "trainers": count_context("trainer"),
+            "disciplines": count_context("discipline"),
+            "locations": count_context("location"),
+        },
+        "methodology": (
+            "Le profil rassemble les apparitions retrouvées dans les programmes importés. "
+            "Les taux utilisent seulement les apparitions disposant d'un résultat officiel; "
+            "une absence de résultat est affichée comme une limite de couverture."
+        ),
     }
 
 
-@api_router.get("/stats/tipsters")
-async def tipsters_leaderboard():
-    """Leaderboard: how often each source's #1 pick finished in top 3."""
-    all_races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+@api_router.get("/stats/horses")
+async def horses_leaderboard():
+    """Horse directory with result coverage and historical rates."""
+    races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
+    return build_horse_leaderboard(races)
+
+
+@api_router.get("/stats/horses/{name}")
+async def horse_history(name: str):
+    """Return a searchable horse profile across imported programme documents."""
+    all_races = await db.races.find({}, {"_id": 0}).sort("date_iso", -1).to_list(length=1000)
+    profile = build_horse_profile(name, all_races)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Cheval introuvable dans l'historique")
+    return profile
+
+
+def build_tipster_leaderboard(all_races: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Compare source selections only when a separate official result is linked."""
     races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
     agg: Dict[str, Dict[str, Any]] = {}
     linked_results_used = 0
     evaluated_race_ids: set[str] = set()
     excluded = {"no_predictions": 0, "no_official_results": 0}
     for r in all_races:
+        if r.get("doc_type", "programme") != "programme":
+            continue
         predictions = r.get("predictions", []) or []
         if not predictions:
-            if r.get("doc_type", "programme") == "programme":
-                excluded["no_predictions"] += 1
+            excluded["no_predictions"] += 1
             continue
         result_context = official_results_for_race(r, races_by_id)
+        if result_context["source"] != "linked_result":
+            excluded["no_official_results"] += 1
+            continue
         order = (result_context["results"] or {}).get("finishing_order", []) or []
         if not order:
             excluded["no_official_results"] += 1
             continue
-        if result_context["source"] == "linked_result":
-            linked_results_used += 1
+        linked_results_used += 1
         evaluated_race_ids.add(r.get("race_id", ""))
         winner = order[0]
         top3 = order[:3]
         for p in predictions:
             raw_src = p.get("source")
-            picks = p.get("picks", []) or []
+            picks = _clean_prediction_picks(p.get("picks"))
             if not raw_src or not picks:
                 continue
             src_key, src_label = canonical_pronostic_source(raw_src)
@@ -1498,9 +1856,240 @@ async def tipsters_leaderboard():
         "source_normalization": source_normalization,
         "methodology": {
             "source_metric": "Le classement mesure le numero 1 de chaque source et verifie s'il termine gagnant ou dans le top 3 officiel.",
-            "result_priority": "Les resultats officiels lies sont utilises en priorite; les resultats integres au programme servent seulement de repli.",
-            "exclusion_rule": "Une course est exclue si elle n'a pas de pronostics ou aucun resultat officiel exploitable.",
+            "result_priority": "Seuls les resultats officiels provenant d'un document resultat relie sont utilises.",
+            "exclusion_rule": "Une course est exclue si elle n'a pas de pronostics ou aucun document resultat officiel relie.",
         },
+    }
+
+
+def build_tipster_profile(source: str, all_races: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Build inspectable race-by-race evidence for one normalized source."""
+    source_key, source_label = canonical_pronostic_source(source)
+    races_by_id = {r.get("race_id"): r for r in all_races if r.get("race_id")}
+    aliases: set[str] = set()
+    appearances: List[Dict[str, Any]] = []
+
+    for race in all_races:
+        if race.get("doc_type", "programme") != "programme":
+            continue
+
+        matches: List[Dict[str, Any]] = []
+        for prediction in race.get("predictions", []) or []:
+            raw_source = str(prediction.get("source") or "").strip()
+            canonical_key, _ = canonical_pronostic_source(raw_source)
+            if raw_source and canonical_key == source_key:
+                matches.append(prediction)
+                aliases.add(raw_source)
+        if not matches:
+            continue
+
+        picks: List[int] = []
+        for prediction in matches:
+            for number in _clean_prediction_picks(prediction.get("picks")):
+                if number not in picks:
+                    picks.append(number)
+
+        result_context = official_results_for_race(race, races_by_id)
+        order = []
+        if result_context["source"] == "linked_result":
+            order = _clean_prediction_picks(
+                (result_context["results"] or {}).get("finishing_order")
+            )
+
+        if not picks:
+            result_status = "missing_selection"
+            exclusion_reason = "Aucune selection exploitable pour cette source."
+        elif not order:
+            result_status = "missing_official_result"
+            exclusion_reason = "Aucun document resultat officiel relie."
+        else:
+            result_status = "evaluated"
+            exclusion_reason = None
+
+        top_pick = picks[0] if picks else None
+        top_pick_position = order.index(top_pick) + 1 if top_pick in order else None
+        horse_names = {
+            horse.get("number"): horse.get("name")
+            for horse in race.get("horses", []) or []
+            if horse.get("number")
+        }
+        appearances.append({
+            "race_id": race.get("race_id"),
+            "race_name": race.get("name"),
+            "date_iso": race.get("date_iso"),
+            "date_text": race.get("date_text"),
+            "location": race.get("location") or race.get("meeting_label"),
+            "discipline": race.get("discipline") or race.get("race_type"),
+            "distance_m": race.get("distance_m"),
+            "raw_sources": sorted({str(item.get("source") or "").strip() for item in matches if item.get("source")}),
+            "picks": picks,
+            "selections": [
+                {"number": number, "horse_name": horse_names.get(number)}
+                for number in picks
+            ],
+            "official_order": order,
+            "result_race_id": result_context.get("result_race_id") if order else None,
+            "result_status": result_status,
+            "exclusion_reason": exclusion_reason,
+            "top_pick": top_pick,
+            "top_pick_position": top_pick_position,
+            "top_pick_won": bool(order and top_pick == order[0]),
+            "top_pick_top3": bool(order and top_pick in order[:3]),
+            "base_in_top3": bool(order and any(number in order[:3] for number in picks[:3])),
+        })
+
+    if not appearances:
+        return None
+
+    appearances.sort(key=lambda item: (item.get("date_iso") or "", item.get("race_id") or ""), reverse=True)
+    evaluated = [item for item in appearances if item["result_status"] == "evaluated"]
+    evaluated_count = len(evaluated)
+    wins = sum(1 for item in evaluated if item["top_pick_won"])
+    top3 = sum(1 for item in evaluated if item["top_pick_top3"])
+    base_top3 = sum(1 for item in evaluated if item["base_in_top3"])
+    display_aliases = sorted(alias for alias in aliases if alias and alias != source_label)
+
+    return {
+        "source": source_label,
+        "aliases": display_aliases,
+        "stats": {
+            "total_appearances": len(appearances),
+            "evaluated_races": evaluated_count,
+            "excluded_races": len(appearances) - evaluated_count,
+            "top_pick_wins": wins,
+            "top_pick_top3": top3,
+            "base_in_top3": base_top3,
+            "win_rate": round((wins / evaluated_count) * 100, 1) if evaluated_count else 0.0,
+            "top3_rate": round((top3 / evaluated_count) * 100, 1) if evaluated_count else 0.0,
+            "coverage_rate": round((evaluated_count / len(appearances)) * 100, 1),
+        },
+        "appearances": appearances,
+        "methodology": (
+            "Le profil compare les selections publiees par cette source aux seuls resultats "
+            "officiels provenant d'un document resultat relie. Les courses sans resultat relie "
+            "restent visibles mais sont exclues des taux."
+        ),
+    }
+
+
+@api_router.get("/stats/tipsters")
+async def tipsters_leaderboard():
+    """Leaderboard: how often each source's #1 pick finished in top 3."""
+    all_races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    return build_tipster_leaderboard(all_races)
+
+
+@api_router.get("/stats/tipsters/{source}")
+async def tipster_profile(source: str):
+    """Return auditable race-by-race evidence for one normalized source."""
+    all_races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    profile = build_tipster_profile(source, all_races)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Source introuvable dans l'historique")
+    return profile
+
+
+def build_person_profile(
+    role: str,
+    name: str,
+    races: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Build a historical jockey or trainer profile from programme documents."""
+    field = "jockey" if role == "jockey" else "trainer" if role == "trainer" else None
+    if not field:
+        return None
+
+    target = normalize_match_text(name)
+    races_by_id = {race.get("race_id"): race for race in races if race.get("race_id")}
+    appearances: List[Dict[str, Any]] = []
+    observed_names: set[str] = set()
+    horses_seen: set[str] = set()
+    race_ids: set[str] = set()
+
+    for race in races:
+        if race.get("doc_type", "programme") != "programme":
+            continue
+        result_context = official_results_for_race(race, races_by_id)
+        order: List[int] = []
+        if result_context.get("source") == "linked_result":
+            order = _clean_prediction_picks(
+                (result_context.get("results") or {}).get("finishing_order")
+            )
+
+        for horse in race.get("horses", []) or []:
+            observed_name = str(horse.get(field) or "").strip()
+            if not observed_name or normalize_match_text(observed_name) != target:
+                continue
+            observed_names.add(observed_name)
+            horse_name = normalized_horse_name(horse.get("name"))
+            if horse_name:
+                horses_seen.add(horse_name)
+            number = horse.get("number")
+            try:
+                horse_number = int(number)
+            except (TypeError, ValueError):
+                horse_number = None
+            finishing_position = (
+                order.index(horse_number) + 1
+                if horse_number is not None and horse_number in order
+                else None
+            )
+            race_id = race.get("race_id")
+            if race_id:
+                race_ids.add(race_id)
+            appearances.append({
+                "race_id": race_id,
+                "race_name": race.get("name"),
+                "date_iso": race.get("date_iso"),
+                "date_text": race.get("date_text"),
+                "location": race.get("location") or race.get("meeting_label"),
+                "discipline": race.get("discipline") or race.get("race_type"),
+                "distance_m": race.get("distance_m"),
+                "horse_name": horse_name,
+                "horse_number": horse_number,
+                "finishing_position": finishing_position,
+                "result_status": "evaluated" if order else "missing_official_result",
+                "result_race_id": result_context.get("result_race_id") if order else None,
+            })
+
+    if not appearances:
+        return None
+
+    appearances.sort(
+        key=lambda item: (
+            item.get("date_iso") or "",
+            item.get("race_id") or "",
+            item.get("horse_number") or 0,
+        ),
+        reverse=True,
+    )
+    evaluated = [item for item in appearances if item["result_status"] == "evaluated"]
+    wins = sum(1 for item in evaluated if item["finishing_position"] == 1)
+    top3 = sum(
+        1
+        for item in evaluated
+        if item["finishing_position"] is not None and item["finishing_position"] <= 3
+    )
+    display_name = sorted(observed_names, key=lambda value: (len(value), value))[0]
+
+    return {
+        "role": role,
+        "name": display_name,
+        "aliases": sorted(observed_names),
+        "stats": {
+            "total_appearances": len(appearances),
+            "races": len(race_ids),
+            "horses": len(horses_seen),
+            "evaluated_appearances": len(evaluated),
+            "wins": wins,
+            "top3": top3,
+            "coverage_rate": round((len(evaluated) / len(appearances)) * 100, 1),
+        },
+        "appearances": appearances,
+        "methodology": (
+            "Ce profil regroupe les apparitions extraites des programmes. Les positions utilisées "
+            "proviennent uniquement des documents de résultat officiels reliés."
+        ),
     }
 
 
@@ -1577,6 +2166,17 @@ async def people_leaderboard():
     }
 
 
+@api_router.get("/stats/people/{role}/{name}")
+async def person_profile(role: str, name: str):
+    if role not in {"jockey", "trainer"}:
+        raise HTTPException(status_code=422, detail="Role invalide")
+    races = await db.races.find({}, {"_id": 0}).to_list(length=1000)
+    profile = build_person_profile(role, name, races)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Personne introuvable dans l'historique")
+    return profile
+
+
 # ---------- Admin ----------
 
 class SetCurrentPayload(BaseModel):
@@ -1592,6 +2192,149 @@ class LonabArchivePreviewPayload(BaseModel):
 
 class LonabArchiveImportPayload(BaseModel):
     pdf_urls: List[str]
+
+
+class ManualRaceLinkPayload(BaseModel):
+    target_race_id: str
+
+
+def _validate_lonab_import_urls(pdf_urls: List[str]) -> List[str]:
+    urls = list(dict.fromkeys(url for url in pdf_urls if url))
+    if not urls:
+        raise HTTPException(status_code=400, detail="Aucun PDF selectionne")
+    if len(urls) > 5:
+        raise HTTPException(status_code=400, detail="Import limite a 5 PDF par lot")
+    for url in urls:
+        if not _is_allowed_lonab_url(url) or ".pdf" not in url.lower():
+            raise HTTPException(status_code=400, detail=f"URL PDF LONAB invalide: {url}")
+    return urls
+
+
+async def _record_lonab_attempt_start(pdf_url: str, filename: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    await db.import_attempts.update_one(
+        {"provider": "lonab", "pdf_url": pdf_url},
+        {
+            "$setOnInsert": {
+                "id": uuid.uuid4().hex,
+                "provider": "lonab",
+                "pdf_url": pdf_url,
+                "created_at": now,
+            },
+            "$set": {
+                "filename": filename,
+                "status": "processing",
+                "last_attempt_at": now,
+                "updated_at": now,
+                "error": None,
+                "reason": None,
+            },
+            "$inc": {"attempt_count": 1},
+        },
+        upsert=True,
+    )
+
+
+async def _record_lonab_attempt_result(pdf_url: str, result: Dict[str, Any]) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    await db.import_attempts.update_one(
+        {"provider": "lonab", "pdf_url": pdf_url},
+        {
+            "$set": {
+                "status": result.get("status"),
+                "race_id": result.get("race_id"),
+                "name": result.get("name"),
+                "doc_type": result.get("doc_type"),
+                "parse_quality": result.get("parse_quality"),
+                "reason": result.get("reason"),
+                "error": result.get("error"),
+                "updated_at": now,
+            }
+        },
+    )
+
+
+async def _import_lonab_pdf(pdf_url: str, admin_email: Optional[str], session: requests.Session) -> Dict[str, Any]:
+    filename = pdf_url.split("/")[-1].split("?")[0] or "lonab.pdf"
+    await _record_lonab_attempt_start(pdf_url, filename)
+    try:
+        download = await asyncio.to_thread(session.get, pdf_url, timeout=40)
+        download.raise_for_status()
+        pdf_bytes = download.content
+        if not pdf_bytes:
+            raise ValueError("Fichier vide")
+        file_hash = hashlib.sha256(pdf_bytes).hexdigest()
+        existing = await db.races.find_one(
+            {"import_source.file_hash": file_hash},
+            {"_id": 0, "race_id": 1, "name": 1, "doc_type": 1, "parse_quality": 1},
+        )
+        if existing:
+            result = {
+                "pdf_url": pdf_url,
+                "filename": filename,
+                "status": "skipped",
+                "reason": "duplicate",
+                "race_id": existing.get("race_id"),
+                "name": existing.get("name"),
+                "doc_type": existing.get("doc_type"),
+                "parse_quality": existing.get("parse_quality"),
+            }
+            await _record_lonab_attempt_result(pdf_url, result)
+            return result
+
+        parsed = await parse_pdf_to_race(pdf_bytes, session_id=f"lonab-{uuid.uuid4().hex[:8]}")
+        doc = build_race_doc(parsed)
+        doc["import_source"] = {
+            "provider": "lonab",
+            "pdf_url": pdf_url,
+            "filename": filename,
+            "file_hash": file_hash,
+            "imported_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.races.insert_one(doc)
+        linked = await link_related_programme_results(doc)
+        await _log_admin_action(admin_email, "lonab.import", {
+            "race_id": doc["race_id"],
+            "pdf_url": pdf_url,
+            "doc_type": doc.get("doc_type"),
+            "linked": linked,
+        })
+        result = {
+            "pdf_url": pdf_url,
+            "filename": filename,
+            "status": "imported",
+            "race_id": doc["race_id"],
+            "name": doc.get("name"),
+            "doc_type": doc.get("doc_type"),
+            "parse_quality": doc.get("parse_quality", {}),
+            "linked": linked,
+        }
+        await _record_lonab_attempt_result(pdf_url, result)
+        return result
+    except Exception as exc:
+        logger.exception("LONAB import error for %s", pdf_url)
+        result = {
+            "pdf_url": pdf_url,
+            "filename": filename,
+            "status": "error",
+            "error": str(exc)[:1000],
+        }
+        await _record_lonab_attempt_result(pdf_url, result)
+        return result
+
+
+async def _import_lonab_urls(pdf_urls: List[str], admin_email: Optional[str]) -> Dict[str, Any]:
+    results = []
+    session = requests.Session()
+    for pdf_url in pdf_urls:
+        results.append(await _import_lonab_pdf(pdf_url, admin_email, session))
+    return {
+        "ok": True,
+        "results": results,
+        "imported": sum(1 for result in results if result["status"] == "imported"),
+        "skipped": sum(1 for result in results if result["status"] == "skipped"),
+        "errors": sum(1 for result in results if result["status"] == "error"),
+    }
 
 
 @api_router.post("/admin/imports/lonab/preview")
@@ -1697,81 +2440,96 @@ async def admin_lonab_archive_import(
     authorization: Optional[str] = Header(None),
 ):
     me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
-    pdf_urls = [url for url in payload.pdf_urls if url]
-    if not pdf_urls:
-        raise HTTPException(status_code=400, detail="Aucun PDF selectionne")
-    if len(pdf_urls) > 5:
-        raise HTTPException(status_code=400, detail="Import limite a 5 PDF par lot")
-    for url in pdf_urls:
-        if not _is_allowed_lonab_url(url) or ".pdf" not in url.lower():
-            raise HTTPException(status_code=400, detail=f"URL PDF LONAB invalide: {url}")
+    pdf_urls = _validate_lonab_import_urls(payload.pdf_urls)
+    return await _import_lonab_urls(pdf_urls, me.get("email"))
 
-    results = []
-    session = requests.Session()
-    for pdf_url in pdf_urls:
-        filename = pdf_url.split("/")[-1].split("?")[0] or "lonab.pdf"
-        try:
-            download = await asyncio.to_thread(session.get, pdf_url, timeout=40)
-            download.raise_for_status()
-            pdf_bytes = download.content
-            if not pdf_bytes:
-                raise ValueError("Fichier vide")
-            file_hash = hashlib.sha256(pdf_bytes).hexdigest()
-            existing = await db.races.find_one({"import_source.file_hash": file_hash}, {"_id": 0, "race_id": 1, "name": 1})
-            if existing:
-                results.append({
-                    "pdf_url": pdf_url,
-                    "filename": filename,
-                    "status": "skipped",
-                    "reason": "duplicate",
-                    "race_id": existing.get("race_id"),
-                    "name": existing.get("name"),
-                })
-                continue
 
-            parsed = await parse_pdf_to_race(pdf_bytes, session_id=f"lonab-{uuid.uuid4().hex[:8]}")
-            doc = build_race_doc(parsed)
-            doc["import_source"] = {
-                "provider": "lonab",
-                "pdf_url": pdf_url,
-                "filename": filename,
-                "file_hash": file_hash,
-                "imported_at": datetime.now(timezone.utc).isoformat(),
-            }
-            await db.races.insert_one(doc)
-            linked = await link_related_programme_results(doc)
-            await _log_admin_action(me.get("email"), "lonab.import", {
-                "race_id": doc["race_id"],
-                "pdf_url": pdf_url,
-                "doc_type": doc.get("doc_type"),
-                "linked": linked,
-            })
-            results.append({
-                "pdf_url": pdf_url,
-                "filename": filename,
-                "status": "imported",
-                "race_id": doc["race_id"],
-                "name": doc.get("name"),
-                "doc_type": doc.get("doc_type"),
-                "parse_quality": doc.get("parse_quality", {}),
-                "linked": linked,
-            })
-        except Exception as exc:
-            logger.exception("LONAB import error for %s", pdf_url)
-            results.append({
-                "pdf_url": pdf_url,
-                "filename": filename,
-                "status": "error",
-                "error": str(exc),
-            })
+@api_router.post("/admin/imports/lonab/retry")
+async def admin_lonab_retry_imports(
+    payload: LonabArchiveImportPayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    pdf_urls = _validate_lonab_import_urls(payload.pdf_urls)
+    attempts = await db.import_attempts.find(
+        {"provider": "lonab", "pdf_url": {"$in": pdf_urls}, "status": "error"},
+        {"_id": 0, "pdf_url": 1},
+    ).to_list(length=len(pdf_urls))
+    retryable_urls = {attempt.get("pdf_url") for attempt in attempts}
+    if retryable_urls != set(pdf_urls):
+        raise HTTPException(
+            status_code=400,
+            detail="Seuls les imports LONAB en erreur peuvent etre relances",
+        )
+    return await _import_lonab_urls(pdf_urls, me.get("email"))
 
-    return {
-        "ok": True,
-        "results": results,
-        "imported": sum(1 for r in results if r["status"] == "imported"),
-        "skipped": sum(1 for r in results if r["status"] == "skipped"),
-        "errors": sum(1 for r in results if r["status"] == "error"),
-    }
+
+@api_router.get("/admin/imports/lonab/attempts")
+async def admin_lonab_import_attempts(
+    status: Literal["all", "processing", "imported", "skipped", "error"] = Query("all"),
+    limit: int = Query(50, ge=1, le=200),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    query: Dict[str, Any] = {"provider": "lonab"}
+    if status != "all":
+        query["status"] = status
+    cursor = db.import_attempts.find(query, {"_id": 0}).sort("updated_at", -1).limit(limit)
+    attempts = await cursor.to_list(length=limit)
+    return {"attempts": attempts, "count": len(attempts)}
+
+
+@api_router.get("/admin/quality/documents")
+async def admin_quality_documents(
+    status: Literal["all", "review", "clean"] = Query("all"),
+    issue: Literal["all", "warnings", "unlinked"] = Query("all"),
+    doc_type: Literal["all", "programme", "result"] = Query("all"),
+    search: str = Query("", max_length=120),
+    limit: int = Query(100, ge=1, le=500),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    races = await db.races.find(
+        {},
+        {
+            "_id": 0,
+            "race_id": 1,
+            "name": 1,
+            "date_text": 1,
+            "date_iso": 1,
+            "location": 1,
+            "doc_type": 1,
+            "created_at": 1,
+            "parse_quality": 1,
+            "linked_programme_ids": 1,
+            "linked_result_ids": 1,
+            "import_source": 1,
+        },
+    ).sort("created_at", -1).to_list(length=1000)
+    summary = build_corpus_quality_summary(races)
+    items = [build_quality_review_item(race) for race in races]
+    normalized_search = normalize_match_text(search)
+    if status != "all":
+        items = [item for item in items if item["review_status"] == status]
+    if issue != "all":
+        items = [item for item in items if issue in item["issues"]]
+    if doc_type != "all":
+        items = [item for item in items if item["doc_type"] == doc_type]
+    if normalized_search:
+        items = [
+            item for item in items
+            if normalized_search in normalize_match_text(" ".join([
+                str(item.get("name") or ""),
+                str(item.get("race_id") or ""),
+                str(item.get("location") or ""),
+                str(item.get("date_text") or ""),
+            ]))
+        ]
+    total = len(items)
+    return {"documents": items[:limit], "total": total, "summary": summary}
 
 
 @api_router.get("/admin/imports/lonab/recent")
@@ -1809,6 +2567,32 @@ async def admin_link_related_races(
     me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
     result = await rebuild_programme_result_links()
     await _log_admin_action(me.get("email"), "race.link_related", result)
+    return {"ok": True, **result}
+
+
+@api_router.post("/admin/races/{race_id}/links")
+async def admin_create_race_link(
+    race_id: str,
+    payload: ManualRaceLinkPayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    result = await set_manual_programme_result_link(race_id, payload.target_race_id, True)
+    await _log_admin_action(me.get("email"), "race.link_manual", result)
+    return {"ok": True, **result}
+
+
+@api_router.delete("/admin/races/{race_id}/links")
+async def admin_delete_race_link(
+    race_id: str,
+    payload: ManualRaceLinkPayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    result = await set_manual_programme_result_link(race_id, payload.target_race_id, False)
+    await _log_admin_action(me.get("email"), "race.unlink_manual", result)
     return {"ok": True, **result}
 
 
@@ -1879,10 +2663,19 @@ async def admin_delete_race(
     res = await db.races.delete_one({"race_id": race_id})
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Course introuvable")
+    await db.races.update_many(
+        {},
+        {
+            "$pull": {
+                "linked_programme_ids": race_id,
+                "linked_result_ids": race_id,
+                "manual_linked_programme_ids": race_id,
+                "manual_linked_result_ids": race_id,
+                "excluded_link_ids": race_id,
+            },
+        },
+    )
     await _log_admin_action(me.get("email"), "race.delete", {"race_id": race_id})
-    return {"ok": True}
-    if res.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Course introuvable")
     return {"ok": True}
 
 
@@ -1903,6 +2696,17 @@ async def admin_status(
     total_races = await db.races.count_documents({})
     total_programmes = await db.races.count_documents({"doc_type": "programme"})
     total_results = await db.races.count_documents({"doc_type": "result"})
+    corpus_documents = await db.races.find(
+        {},
+        {
+            "_id": 0,
+            "doc_type": 1,
+            "linked_programme_ids": 1,
+            "linked_result_ids": 1,
+            "parse_quality.warnings": 1,
+        },
+    ).to_list(length=None)
+    corpus_quality = build_corpus_quality_summary(corpus_documents)
     current = await db.races.find_one({"is_current": True}, {"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "location": 1})
     last = await db.races.find_one({}, sort=[("created_at", -1)], projection={"_id": 0, "race_id": 1, "name": 1, "date_text": 1, "created_at": 1, "doc_type": 1})
 
@@ -1925,11 +2729,17 @@ async def admin_status(
             "programmes": total_programmes,
             "results": total_results,
         },
+        "corpus_quality": corpus_quality,
         "current_race": current,
         "last_upload": last,
         "llm": {
             "status": llm_health["status"],
             "error": llm_health["error"],
+        },
+        "environment": {
+            "app_env": os.environ.get("APP_ENV", "development"),
+            "app_product": os.environ.get("APP_PRODUCT", "core"),
+            "db_name": os.environ.get("DB_NAME", ""),
         },
         "admin": admin_user or {"email": me.get("email"), "role": me.get("role")},
     }

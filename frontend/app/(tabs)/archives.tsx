@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme, API_URL, formatFCFA, formatEuro } from "../../src/theme";
+import { IS_ANALYSIS_APP } from "../../src/product";
+import AnalysisRechercheScreen from "../../src/AnalysisRechercheScreen";
 
 type RaceSummary = {
   race_id: string;
@@ -53,6 +55,14 @@ const FILTERS: { key: ArchiveFilter; label: string; icon: keyof typeof Ionicons.
 ];
 
 export default function ArchivesScreen() {
+  if (IS_ANALYSIS_APP) {
+    return <AnalysisRechercheScreen />;
+  }
+
+  return <CoreArchivesScreen />;
+}
+
+function CoreArchivesScreen() {
   const [races, setRaces] = useState<RaceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

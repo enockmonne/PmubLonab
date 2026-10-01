@@ -16,8 +16,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { theme } from "../src/theme";
 import { haptics } from "../src/haptics";
+import { IS_ANALYSIS_APP } from "../src/product";
 
-const ONBOARDING_KEY = "pmub_onboarded_v1";
+const ONBOARDING_KEY = IS_ANALYSIS_APP
+  ? "pmub_analysis_onboarded_v1"
+  : "pmub_onboarded_v1";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -30,7 +33,7 @@ type Slide = {
   bg: ImageSourcePropType;
 };
 
-const slides: Slide[] = [
+const coreSlides: Slide[] = [
   {
     overline: "Le Journal Hippique",
     title: "Pronostics éclairés.",
@@ -60,6 +63,38 @@ const slides: Slide[] = [
   },
 ];
 
+const analysisSlides: Slide[] = [
+  {
+    overline: "Recherche hippique",
+    title: "Comprendre chaque course.",
+    body:
+      "Explorez les programmes et les résultats officiels dans un même espace. Retrouvez le contexte, les partants et les données disponibles sans transformer l'analyse en conseil de pari.",
+    icon: "search",
+    accent: theme.colors.gold,
+    bg: { uri: "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&q=80" },
+  },
+  {
+    overline: "Historique vérifiable",
+    title: "Suivre chevaux et courses.",
+    body:
+      "Consultez les apparitions passées, les classements et les rapports officiels. Chaque observation reste reliée aux documents importés pour faciliter la vérification.",
+    icon: "time",
+    accent: theme.colors.brand,
+    bg: { uri: "https://images.unsplash.com/photo-1518604666860-9ed391f76460?w=800&q=80" },
+  },
+  {
+    overline: "Intelligence explicable",
+    title: "Comparer les sources.",
+    body:
+      "Étudiez les tendances et les écarts entre sources avec des éléments de contexte clairs. Analysis vous aide à mener vos recherches, sans promettre de résultat ni recommander un pari.",
+    icon: "analytics",
+    accent: theme.colors.gold,
+    bg: { uri: "https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=800&q=80" },
+  },
+];
+
+const slides = IS_ANALYSIS_APP ? analysisSlides : coreSlides;
+
 export default function Onboarding() {
   const router = useRouter();
   const [index, setIndex] = useState(0);
@@ -87,7 +122,9 @@ export default function Onboarding() {
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.topBar}>
         <Animated.View entering={FadeIn.duration(400)} style={styles.brandWrap}>
-          <Text style={styles.brandText}>PMU&apos;B</Text>
+          <Text style={styles.brandText}>
+            {IS_ANALYSIS_APP ? "PMU'B/LONAB/Analysis" : "PMU'B"}
+          </Text>
         </Animated.View>
         {index < slides.length - 1 && (
           <TouchableOpacity testID="onboarding-skip" onPress={finish} hitSlop={10}>

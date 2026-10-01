@@ -1,0 +1,117 @@
+# PMU'B/LONAB/Analysis Implementation Kickoff
+
+Last updated: 2026-08-29
+
+## Post-Migration Update
+
+The migration gate is complete. Local Analysis services, credentials, admin
+selection, frontend screens, CI, and representative programme/result parsing
+have been validated on the new laptop. Portable macOS/Linux scripts now mirror
+the Windows workflow.
+
+The next implementation slice is no longer environment bootstrap. It is the
+purpose-built historical `Courses` screen described in
+`docs/ANALYSIS_COURSES_IMPLEMENTATION_PLAN.md`.
+
+## Current Branch Snapshot
+
+- Worktree: `C:\Users\alion\Documents\Codex\2026-07-07\pmub-lonab-analysis`
+- Branch: `codex/pmub-lonab-analysis`
+- Remote tracking branch: `origin/codex/pmub-lonab-analysis`
+- Starting point: existing PmubLonab codebase and design system.
+- Product direction: separate research and intelligence application using the same LONAB/PMU'B PDF raw data.
+
+## First Technical Decisions
+
+- Keep the backend, Expo frontend, and Vite admin structure for the first iteration.
+- Keep Gemini PDF parsing for now.
+- Keep the existing admin authentication foundation for now.
+- Use a separate MongoDB Atlas database or cluster for analysis data.
+- Use `DB_NAME=pmublonab_analysis` for analysis environments.
+- Add `APP_PRODUCT=analysis` to analysis backend environments as an explicit product marker, even though the current backend does not yet branch behavior on it.
+- Keep analysis Render services separate from the original staging services:
+  - `pmublonab-analysis-api`
+  - `pmublonab-analysis-web`
+  - `pmublonab-analysis-admin`
+
+## Environment Separation
+
+Analysis env examples now live at:
+
+- `backend/.env.analysis.example`
+- `frontend/.env.analysis.example`
+- `admin-web/.env.analysis.example`
+
+The backend already reads `MONGO_URL`, `DB_NAME`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `GEMINI_API_KEY`, `GEMINI_MODEL`, and `CORS_ORIGINS`.
+
+The plan originally used `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD`; the current code uses `ADMIN_EMAIL` and `ADMIN_PASSWORD`, so the analysis examples keep the existing code contract.
+
+## Unified Analysis Admin Decision
+
+The initial product-selector plan was implemented and later superseded. Staging
+now presents one `PMU'B/LONAB Analysis` admin backed by the Analysis API and
+database. Login routes directly to the unified dashboard, useful existing admin
+features remain available, and retired `/products` and `/analysis/*` paths
+redirect to canonical routes.
+
+## First Analysis Frontend Tab Structure
+
+Start with a small tab rename/reframe, then replace screens gradually.
+
+Initial target tabs:
+
+- `Recherche`: search and research landing.
+- `Chevaux`: horse profiles and history.
+- `Courses`: historical race explorer.
+- `Sources`: media/pronostic source performance.
+- `Analyses`: summaries and statistical context.
+
+Reusable existing frontend surfaces:
+
+- `frontend/app/search.tsx`
+- `frontend/app/horse-history/[name].tsx`
+- `frontend/app/compare.tsx`
+- `frontend/app/(tabs)/stats.tsx`
+- `frontend/src/raceInsight.ts`
+- `frontend/src/mediaInsight.ts`
+- `frontend/src/PerformanceChart.tsx`
+
+## Reusable Backend Services
+
+Reuse first:
+
+- PDF upload and parse flow.
+- LONAB archive preview/import flow.
+- Duplicate detection by file hash.
+- Programme/result linking.
+- Stats endpoints that already compare programme data to linked official results.
+- Pronostic source normalization.
+
+Extend later:
+
+- Horse-centric search indexes.
+- Jockey/trainer historical aggregates.
+- Source/media accuracy endpoints.
+- Similar race lookup.
+- Parse quality and missing-field review screens.
+
+## First Small PR Plan
+
+1. Done: add analysis env examples and this kickoff document.
+2. Done: add app/product naming constants for frontend and admin.
+3. Done, then superseded: add admin product selector after login.
+4. Done, then consolidated: add an Analysis route group and later replace both admin areas with one feature-complete Analysis admin.
+5. Done: introduce the first analysis frontend tab structure without deleting original screens.
+6. Done: add lightweight backend health/config response fields for `APP_PRODUCT` and `DB_NAME` visibility in admin diagnostics.
+7. Superseded: reuse the existing staging service names and URLs for Analysis, with an isolated Analysis database.
+8. In progress: replace reused analysis tabs with purpose-built research screens one at a time.
+   - Done: `Recherche` now has an analysis-specific research landing backed by existing races/search APIs.
+
+## Guardrails
+
+- Do not point analysis services at the current staging or production MongoDB database.
+- Do not copy secrets into docs or env examples.
+- The Analysis branch intentionally replaces the original experience at the existing staging URLs.
+- Keep `pmub_analysis_staging` separate from the prior `pmub_staging` database.
+- Avoid direct betting recommendations in UI copy and generated summaries.
+- Keep French-first labels and states.

@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowUpRight,
+  Server,
+  Search,
 } from 'lucide-react';
 import { Admin, DashboardStats, apiError } from '@/lib/api';
 import StatCard from '@/components/StatCard';
@@ -41,14 +43,58 @@ export default function Dashboard() {
   return (
     <div>
       <PageHeader
-        title="Tableau de bord"
-        subtitle={`Connecté en tant que ${data.admin.email}`}
+        title="PMU'B/LONAB Analysis"
+        subtitle={`Recherche historique et administration des données · ${data.admin.email}`}
       />
+
+      <div className="mb-6 rounded-lg border border-accent/30 bg-accent/10 p-5">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-md bg-accent text-white">
+            <Search size={18} />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-fg">Recherche historique explicable</h2>
+            <p className="mt-1 max-w-2xl text-sm text-fg-muted">
+              Transformez les PDF PMU'B/LONAB en données recherchables, comparables et auditables,
+              sans recommandation directe de pari.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <StatCard label="Total courses" value={data.stats.total_races} icon={Trophy} />
         <StatCard label="Programmes" value={data.stats.programmes} icon={FileText} />
         <StatCard label="Résultats" value={data.stats.results} icon={Award} />
+      </div>
+
+      <div className="card p-5 mb-6 border-warning/30">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-warning/15 text-warning">
+              <AlertTriangle size={18} />
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-warning">Qualité du corpus</p>
+              <h2 className="mt-1 text-lg font-semibold text-fg">
+                {data.corpus_quality.documents_to_review} document
+                {data.corpus_quality.documents_to_review === 1 ? '' : 's'} à vérifier
+              </h2>
+              <p className="mt-1 text-sm text-fg-muted">
+                Contrôle opérationnel des liaisons programme–résultat et des avertissements d’extraction.
+              </p>
+            </div>
+          </div>
+          <Link to="/quality" className="btn-secondary shrink-0">
+            Contrôler la qualité <ArrowUpRight size={14} />
+          </Link>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 lg:grid-cols-4">
+          <QualityMetric label="Non liés" value={data.corpus_quality.unlinked_documents} />
+          <QualityMetric label="Avertissements" value={data.corpus_quality.documents_with_warnings} />
+          <QualityMetric label="Programmes sans résultat" value={data.corpus_quality.programmes_without_result} />
+          <QualityMetric label="Documents propres" value={data.corpus_quality.clean_documents} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -127,6 +173,31 @@ export default function Dashboard() {
           )}
         </div>
 
+        {data.environment && (
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-fg uppercase tracking-wide">
+                Environnement
+              </h2>
+              <Server size={14} className="text-fg-subtle" />
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-fg-muted">Produit</span>
+                <span className="font-mono text-xs text-fg">{data.environment.app_product}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-fg-muted">Env</span>
+                <span className="font-mono text-xs text-fg">{data.environment.app_env}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-fg-muted">Base</span>
+                <span className="truncate font-mono text-xs text-fg">{data.environment.db_name}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Compte admin */}
         <div className="card p-5">
           <div className="flex items-center justify-between mb-3">
@@ -143,6 +214,15 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function QualityMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <p className="text-xl font-semibold text-fg">{value}</p>
+      <p className="mt-0.5 text-xs text-fg-muted">{label}</p>
     </div>
   );
 }

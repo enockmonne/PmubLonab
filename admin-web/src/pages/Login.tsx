@@ -43,7 +43,7 @@ export default function Login() {
           <div className="inline-flex w-12 h-12 rounded-lg bg-accent items-center justify-center text-white font-bold text-xl mb-4">
             H
           </div>
-          <h1 className="text-2xl font-semibold text-fg">PMU'B Admin</h1>
+          <h1 className="text-2xl font-semibold text-fg">PMU'B/LONAB Analysis</h1>
           <p className="text-sm text-fg-muted mt-1">
             Connectez-vous pour accéder au tableau de bord
           </p>
@@ -87,7 +87,7 @@ export default function Login() {
         </form>
 
         <p className="text-center text-xs text-fg-subtle mt-6">
-          Le Journal Hippique PMU'B · Admin Web v1.0
+          Recherche historique PMU'B/LONAB · Admin Web v1.0
         </p>
       </div>
     </div>
