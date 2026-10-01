@@ -12,6 +12,7 @@ os.environ.setdefault("JWT_SECRET", "test-secret")
 import server
 from server import (
     build_corpus_quality_summary,
+    build_quality_review_item,
     build_horse_leaderboard,
     build_horse_profile,
     build_person_profile,
@@ -26,6 +27,33 @@ from server import (
     score_programme_result_match,
     validate_product_database,
 )
+
+
+def test_quality_review_item_flags_warnings_and_missing_link():
+    item = build_quality_review_item({
+        "race_id": "programme-1",
+        "name": "Programme test",
+        "doc_type": "programme",
+        "linked_result_ids": [],
+        "parse_quality": {"warnings": ["Aucun pronostic extrait."]},
+    })
+
+    assert item["review_status"] == "review"
+    assert item["issues"] == ["unlinked", "warnings"]
+    assert item["linked_document_ids"] == []
+
+
+def test_quality_review_item_marks_linked_warning_free_document_clean():
+    item = build_quality_review_item({
+        "race_id": "result-1",
+        "doc_type": "result",
+        "linked_programme_ids": ["programme-1"],
+        "parse_quality": {"warnings": []},
+    })
+
+    assert item["review_status"] == "clean"
+    assert item["issues"] == []
+    assert item["linked_document_ids"] == ["programme-1"]
 
 
 def test_corpus_quality_summary_counts_unique_documents_to_review():

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Search, Star, Trash2, RefreshCw, Filter, Unlink, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Admin, Race, apiError } from '@/lib/api';
 import PageHeader from '@/components/PageHeader';
@@ -9,11 +10,12 @@ import { formatDate } from '@/lib/utils';
 type DocFilter = 'all' | 'programme' | 'result';
 
 export default function Races() {
+  const [searchParams] = useSearchParams();
   const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [filter, setFilter] = useState<DocFilter>('all');
   const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
   const [targetRaceId, setTargetRaceId] = useState('');

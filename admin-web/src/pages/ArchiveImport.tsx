@@ -164,7 +164,7 @@ export default function ArchiveImport() {
     }
     setImporting(true);
     try {
-      const { data } = await Admin.importLonabPdfs(failedImportUrls.slice(0, 5));
+      const { data } = await Admin.retryLonabPdfs(failedImportUrls.slice(0, 5));
       setImportResults(data.results);
       setResultFilter(data.errors > 0 ? 'error' : 'all');
       const completedUrls = new Set(

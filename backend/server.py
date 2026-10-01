@@ -424,6 +424,38 @@ def build_corpus_quality_summary(races: List[Dict[str, Any]]) -> Dict[str, int]:
     }
 
 
+def build_quality_review_item(race: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the admin-facing quality state for one corpus document."""
+    doc_type = race.get("doc_type", "programme")
+    linked_ids = (
+        race.get("linked_programme_ids", [])
+        if doc_type == "result"
+        else race.get("linked_result_ids", [])
+    ) or []
+    parse_quality = race.get("parse_quality") or {}
+    warnings = parse_quality.get("warnings") or []
+    issues = []
+    if not linked_ids:
+        issues.append("unlinked")
+    if warnings:
+        issues.append("warnings")
+
+    return {
+        "race_id": race.get("race_id"),
+        "name": race.get("name"),
+        "date_text": race.get("date_text"),
+        "date_iso": race.get("date_iso"),
+        "location": race.get("location"),
+        "doc_type": doc_type,
+        "created_at": race.get("created_at"),
+        "parse_quality": parse_quality,
+        "linked_document_ids": linked_ids,
+        "import_source": race.get("import_source"),
+        "issues": issues,
+        "review_status": "review" if issues else "clean",
+    }
+
+
 def build_race_doc(parsed: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize a parsed LLM output into a race document."""
     race = parsed.get("race") or {}
@@ -787,6 +819,8 @@ async def ensure_indexes():
     await db.beta_access_uses.create_index([("code", 1), ("device_id", 1)], unique=True)
     await db.beta_access_uses.create_index("code")
     await db.beta_access_uses.create_index([("last_seen_at", -1)])
+    await db.import_attempts.create_index([("provider", 1), ("pdf_url", 1)], unique=True)
+    await db.import_attempts.create_index([("status", 1), ("updated_at", -1)])
 
 
 @app.on_event("startup")
@@ -2164,6 +2198,145 @@ class ManualRaceLinkPayload(BaseModel):
     target_race_id: str
 
 
+def _validate_lonab_import_urls(pdf_urls: List[str]) -> List[str]:
+    urls = list(dict.fromkeys(url for url in pdf_urls if url))
+    if not urls:
+        raise HTTPException(status_code=400, detail="Aucun PDF selectionne")
+    if len(urls) > 5:
+        raise HTTPException(status_code=400, detail="Import limite a 5 PDF par lot")
+    for url in urls:
+        if not _is_allowed_lonab_url(url) or ".pdf" not in url.lower():
+            raise HTTPException(status_code=400, detail=f"URL PDF LONAB invalide: {url}")
+    return urls
+
+
+async def _record_lonab_attempt_start(pdf_url: str, filename: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    await db.import_attempts.update_one(
+        {"provider": "lonab", "pdf_url": pdf_url},
+        {
+            "$setOnInsert": {
+                "id": uuid.uuid4().hex,
+                "provider": "lonab",
+                "pdf_url": pdf_url,
+                "created_at": now,
+            },
+            "$set": {
+                "filename": filename,
+                "status": "processing",
+                "last_attempt_at": now,
+                "updated_at": now,
+                "error": None,
+                "reason": None,
+            },
+            "$inc": {"attempt_count": 1},
+        },
+        upsert=True,
+    )
+
+
+async def _record_lonab_attempt_result(pdf_url: str, result: Dict[str, Any]) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    await db.import_attempts.update_one(
+        {"provider": "lonab", "pdf_url": pdf_url},
+        {
+            "$set": {
+                "status": result.get("status"),
+                "race_id": result.get("race_id"),
+                "name": result.get("name"),
+                "doc_type": result.get("doc_type"),
+                "parse_quality": result.get("parse_quality"),
+                "reason": result.get("reason"),
+                "error": result.get("error"),
+                "updated_at": now,
+            }
+        },
+    )
+
+
+async def _import_lonab_pdf(pdf_url: str, admin_email: Optional[str], session: requests.Session) -> Dict[str, Any]:
+    filename = pdf_url.split("/")[-1].split("?")[0] or "lonab.pdf"
+    await _record_lonab_attempt_start(pdf_url, filename)
+    try:
+        download = await asyncio.to_thread(session.get, pdf_url, timeout=40)
+        download.raise_for_status()
+        pdf_bytes = download.content
+        if not pdf_bytes:
+            raise ValueError("Fichier vide")
+        file_hash = hashlib.sha256(pdf_bytes).hexdigest()
+        existing = await db.races.find_one(
+            {"import_source.file_hash": file_hash},
+            {"_id": 0, "race_id": 1, "name": 1, "doc_type": 1, "parse_quality": 1},
+        )
+        if existing:
+            result = {
+                "pdf_url": pdf_url,
+                "filename": filename,
+                "status": "skipped",
+                "reason": "duplicate",
+                "race_id": existing.get("race_id"),
+                "name": existing.get("name"),
+                "doc_type": existing.get("doc_type"),
+                "parse_quality": existing.get("parse_quality"),
+            }
+            await _record_lonab_attempt_result(pdf_url, result)
+            return result
+
+        parsed = await parse_pdf_to_race(pdf_bytes, session_id=f"lonab-{uuid.uuid4().hex[:8]}")
+        doc = build_race_doc(parsed)
+        doc["import_source"] = {
+            "provider": "lonab",
+            "pdf_url": pdf_url,
+            "filename": filename,
+            "file_hash": file_hash,
+            "imported_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.races.insert_one(doc)
+        linked = await link_related_programme_results(doc)
+        await _log_admin_action(admin_email, "lonab.import", {
+            "race_id": doc["race_id"],
+            "pdf_url": pdf_url,
+            "doc_type": doc.get("doc_type"),
+            "linked": linked,
+        })
+        result = {
+            "pdf_url": pdf_url,
+            "filename": filename,
+            "status": "imported",
+            "race_id": doc["race_id"],
+            "name": doc.get("name"),
+            "doc_type": doc.get("doc_type"),
+            "parse_quality": doc.get("parse_quality", {}),
+            "linked": linked,
+        }
+        await _record_lonab_attempt_result(pdf_url, result)
+        return result
+    except Exception as exc:
+        logger.exception("LONAB import error for %s", pdf_url)
+        result = {
+            "pdf_url": pdf_url,
+            "filename": filename,
+            "status": "error",
+            "error": str(exc)[:1000],
+        }
+        await _record_lonab_attempt_result(pdf_url, result)
+        return result
+
+
+async def _import_lonab_urls(pdf_urls: List[str], admin_email: Optional[str]) -> Dict[str, Any]:
+    results = []
+    session = requests.Session()
+    for pdf_url in pdf_urls:
+        results.append(await _import_lonab_pdf(pdf_url, admin_email, session))
+    return {
+        "ok": True,
+        "results": results,
+        "imported": sum(1 for result in results if result["status"] == "imported"),
+        "skipped": sum(1 for result in results if result["status"] == "skipped"),
+        "errors": sum(1 for result in results if result["status"] == "error"),
+    }
+
+
 @api_router.post("/admin/imports/lonab/preview")
 async def admin_lonab_archive_preview(
     payload: LonabArchivePreviewPayload,
@@ -2267,81 +2440,96 @@ async def admin_lonab_archive_import(
     authorization: Optional[str] = Header(None),
 ):
     me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
-    pdf_urls = [url for url in payload.pdf_urls if url]
-    if not pdf_urls:
-        raise HTTPException(status_code=400, detail="Aucun PDF selectionne")
-    if len(pdf_urls) > 5:
-        raise HTTPException(status_code=400, detail="Import limite a 5 PDF par lot")
-    for url in pdf_urls:
-        if not _is_allowed_lonab_url(url) or ".pdf" not in url.lower():
-            raise HTTPException(status_code=400, detail=f"URL PDF LONAB invalide: {url}")
+    pdf_urls = _validate_lonab_import_urls(payload.pdf_urls)
+    return await _import_lonab_urls(pdf_urls, me.get("email"))
 
-    results = []
-    session = requests.Session()
-    for pdf_url in pdf_urls:
-        filename = pdf_url.split("/")[-1].split("?")[0] or "lonab.pdf"
-        try:
-            download = await asyncio.to_thread(session.get, pdf_url, timeout=40)
-            download.raise_for_status()
-            pdf_bytes = download.content
-            if not pdf_bytes:
-                raise ValueError("Fichier vide")
-            file_hash = hashlib.sha256(pdf_bytes).hexdigest()
-            existing = await db.races.find_one({"import_source.file_hash": file_hash}, {"_id": 0, "race_id": 1, "name": 1})
-            if existing:
-                results.append({
-                    "pdf_url": pdf_url,
-                    "filename": filename,
-                    "status": "skipped",
-                    "reason": "duplicate",
-                    "race_id": existing.get("race_id"),
-                    "name": existing.get("name"),
-                })
-                continue
 
-            parsed = await parse_pdf_to_race(pdf_bytes, session_id=f"lonab-{uuid.uuid4().hex[:8]}")
-            doc = build_race_doc(parsed)
-            doc["import_source"] = {
-                "provider": "lonab",
-                "pdf_url": pdf_url,
-                "filename": filename,
-                "file_hash": file_hash,
-                "imported_at": datetime.now(timezone.utc).isoformat(),
-            }
-            await db.races.insert_one(doc)
-            linked = await link_related_programme_results(doc)
-            await _log_admin_action(me.get("email"), "lonab.import", {
-                "race_id": doc["race_id"],
-                "pdf_url": pdf_url,
-                "doc_type": doc.get("doc_type"),
-                "linked": linked,
-            })
-            results.append({
-                "pdf_url": pdf_url,
-                "filename": filename,
-                "status": "imported",
-                "race_id": doc["race_id"],
-                "name": doc.get("name"),
-                "doc_type": doc.get("doc_type"),
-                "parse_quality": doc.get("parse_quality", {}),
-                "linked": linked,
-            })
-        except Exception as exc:
-            logger.exception("LONAB import error for %s", pdf_url)
-            results.append({
-                "pdf_url": pdf_url,
-                "filename": filename,
-                "status": "error",
-                "error": str(exc),
-            })
+@api_router.post("/admin/imports/lonab/retry")
+async def admin_lonab_retry_imports(
+    payload: LonabArchiveImportPayload,
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    me = await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    pdf_urls = _validate_lonab_import_urls(payload.pdf_urls)
+    attempts = await db.import_attempts.find(
+        {"provider": "lonab", "pdf_url": {"$in": pdf_urls}, "status": "error"},
+        {"_id": 0, "pdf_url": 1},
+    ).to_list(length=len(pdf_urls))
+    retryable_urls = {attempt.get("pdf_url") for attempt in attempts}
+    if retryable_urls != set(pdf_urls):
+        raise HTTPException(
+            status_code=400,
+            detail="Seuls les imports LONAB en erreur peuvent etre relances",
+        )
+    return await _import_lonab_urls(pdf_urls, me.get("email"))
 
-    return {
-        "ok": True,
-        "results": results,
-        "imported": sum(1 for r in results if r["status"] == "imported"),
-        "skipped": sum(1 for r in results if r["status"] == "skipped"),
-        "errors": sum(1 for r in results if r["status"] == "error"),
-    }
+
+@api_router.get("/admin/imports/lonab/attempts")
+async def admin_lonab_import_attempts(
+    status: Literal["all", "processing", "imported", "skipped", "error"] = Query("all"),
+    limit: int = Query(50, ge=1, le=200),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    query: Dict[str, Any] = {"provider": "lonab"}
+    if status != "all":
+        query["status"] = status
+    cursor = db.import_attempts.find(query, {"_id": 0}).sort("updated_at", -1).limit(limit)
+    attempts = await cursor.to_list(length=limit)
+    return {"attempts": attempts, "count": len(attempts)}
+
+
+@api_router.get("/admin/quality/documents")
+async def admin_quality_documents(
+    status: Literal["all", "review", "clean"] = Query("all"),
+    issue: Literal["all", "warnings", "unlinked"] = Query("all"),
+    doc_type: Literal["all", "programme", "result"] = Query("all"),
+    search: str = Query("", max_length=120),
+    limit: int = Query(100, ge=1, le=500),
+    x_admin_passcode: Optional[str] = Header(None, alias="X-Admin-Passcode"),
+    authorization: Optional[str] = Header(None),
+):
+    await require_admin(db, authorization=authorization, x_admin_passcode=x_admin_passcode)
+    races = await db.races.find(
+        {},
+        {
+            "_id": 0,
+            "race_id": 1,
+            "name": 1,
+            "date_text": 1,
+            "date_iso": 1,
+            "location": 1,
+            "doc_type": 1,
+            "created_at": 1,
+            "parse_quality": 1,
+            "linked_programme_ids": 1,
+            "linked_result_ids": 1,
+            "import_source": 1,
+        },
+    ).sort("created_at", -1).to_list(length=1000)
+    summary = build_corpus_quality_summary(races)
+    items = [build_quality_review_item(race) for race in races]
+    normalized_search = normalize_match_text(search)
+    if status != "all":
+        items = [item for item in items if item["review_status"] == status]
+    if issue != "all":
+        items = [item for item in items if issue in item["issues"]]
+    if doc_type != "all":
+        items = [item for item in items if item["doc_type"] == doc_type]
+    if normalized_search:
+        items = [
+            item for item in items
+            if normalized_search in normalize_match_text(" ".join([
+                str(item.get("name") or ""),
+                str(item.get("race_id") or ""),
+                str(item.get("location") or ""),
+                str(item.get("date_text") or ""),
+            ]))
+        ]
+    total = len(items)
+    return {"documents": items[:limit], "total": total, "summary": summary}
 
 
 @api_router.get("/admin/imports/lonab/recent")

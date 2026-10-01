@@ -144,21 +144,21 @@ Backend:
 
 ## Phase 6: Historical Ingest And Data Quality
 
-Status: in progress at representative-dataset validation.
+Status: initial import-quality workflow complete; representative-dataset expansion remains in progress.
 
 Goal: safely expand the analysis database.
 
 Build:
 
-- Bulk import workflow for historical LONAB PDFs.
-- Import result filters:
+- Done: controlled LONAB import workflow for batches of up to five PDFs.
+- Done: import result filters:
   - imported
   - skipped
   - duplicate
   - error
-- Retry failed imports.
-- Parse quality screen.
-- Missing-field review.
+- Done: persistent LONAB attempt history and retry for failed URL imports.
+- Done: admin parse-quality screen with document, issue, and status filters.
+- Done: missing-field and extraction-warning review.
 - Done: programme/result linking review and manual correction in the Analysis admin.
 
 Milestones:
@@ -238,6 +238,6 @@ Possible packaging:
 
 1. Import a small multi-date programme/result dataset before attempting bulk historical ingestion.
 2. Review automatic links and correct mismatches from the Analysis admin.
-3. Add parse-quality review and retry tools for failed or incomplete imports.
-4. Expand to recent 3-, 6-, and 12-month historical coverage in measured stages.
+3. Expand to recent 3-, 6-, and 12-month historical coverage in measured stages.
+4. Monitor parse-quality patterns and add metadata correction only where recurring failures justify it.
 5. Validate the research workflows with a small bettor pilot before launch packaging.

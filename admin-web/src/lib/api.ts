@@ -236,6 +236,46 @@ export interface LonabRecentImport {
   };
 }
 
+export interface CorpusQualitySummary {
+  documents_to_review: number;
+  unlinked_documents: number;
+  documents_with_warnings: number;
+  programmes_without_result: number;
+  results_without_programme: number;
+  clean_documents: number;
+}
+
+export interface QualityDocument {
+  race_id: string;
+  name: string;
+  date_text?: string;
+  date_iso?: string;
+  location?: string;
+  doc_type: 'programme' | 'result';
+  created_at?: string;
+  parse_quality?: ParseQuality;
+  linked_document_ids: string[];
+  issues: Array<'warnings' | 'unlinked'>;
+  review_status: 'review' | 'clean';
+  import_source?: LonabRecentImport['import_source'];
+}
+
+export interface LonabImportAttempt {
+  id: string;
+  provider: 'lonab';
+  pdf_url: string;
+  filename: string;
+  status: 'processing' | 'imported' | 'skipped' | 'error';
+  attempt_count: number;
+  last_attempt_at?: string;
+  updated_at?: string;
+  race_id?: string;
+  name?: string;
+  doc_type?: string;
+  error?: string | null;
+  reason?: string | null;
+}
+
 export const Auth = {
   login: (email: string, password: string) =>
     api.post<{ token: string; user: { email: string; role: string } }>(
@@ -287,6 +327,21 @@ export const Admin = {
   }) => api.post<LonabImportPreviewResponse>('/admin/imports/lonab/preview', payload, { timeout: 120000 }),
   importLonabPdfs: (pdf_urls: string[]) =>
     api.post<LonabImportResponse>('/admin/imports/lonab/import', { pdf_urls }, { timeout: 900000 }),
+  retryLonabPdfs: (pdf_urls: string[]) =>
+    api.post<LonabImportResponse>('/admin/imports/lonab/retry', { pdf_urls }, { timeout: 900000 }),
+  listLonabAttempts: (status: LonabImportAttempt['status'] | 'all' = 'all', limit = 50) =>
+    api.get<{ attempts: LonabImportAttempt[]; count: number }>(
+      `/admin/imports/lonab/attempts?status=${status}&limit=${limit}`
+    ),
+  listQualityDocuments: (params: {
+    status?: 'all' | 'review' | 'clean';
+    issue?: 'all' | 'warnings' | 'unlinked';
+    doc_type?: 'all' | 'programme' | 'result';
+    search?: string;
+    limit?: number;
+  }) => api.get<{ documents: QualityDocument[]; total: number; summary: CorpusQualitySummary }>(
+    '/admin/quality/documents', { params }
+  ),
   listLonabImports: (limit = 20) =>
     api.get<{ imports: LonabRecentImport[]; count: number }>(`/admin/imports/lonab/recent?limit=${limit}`),
   listRaces: () => api.get<{ races: Race[] }>('/races?limit=200'),

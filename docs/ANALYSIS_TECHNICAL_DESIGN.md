@@ -204,10 +204,10 @@ Current implementation:
 
 Next admin work:
 
-- Add analysis-specific import dashboard.
-- Add parse-quality review.
-- Add imported/skipped/error filters.
-- Add retry action for failed PDFs.
+- Done: add the Analysis-specific LONAB import dashboard.
+- Done: add parse-quality and missing-link review.
+- Done: add imported/skipped/error filters.
+- Done: persist LONAB attempts and add retry for failed PDF URLs.
 - Done: add manual programme/result link correction that survives automatic rebuilds.
 - Add data coverage summaries.
 

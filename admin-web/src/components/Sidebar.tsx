@@ -8,6 +8,7 @@ import {
   History,
   KeyRound,
   Settings as SettingsIcon,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { to: '/upload', label: 'Upload PDF', icon: UploadCloud },
   { to: '/archive-import', label: 'Import LONAB', icon: DownloadCloud },
+  { to: '/quality', label: 'Qualité des données', icon: ShieldCheck },
   { to: '/races', label: 'Corpus courses', icon: Trophy },
   { to: '/announcements', label: 'Annonces', icon: Megaphone },
   { to: '/beta-access', label: 'Acces beta', icon: KeyRound },

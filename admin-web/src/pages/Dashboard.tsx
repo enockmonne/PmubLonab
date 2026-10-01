@@ -85,8 +85,8 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
-          <Link to="/races" className="btn-secondary shrink-0">
-            Examiner le corpus <ArrowUpRight size={14} />
+          <Link to="/quality" className="btn-secondary shrink-0">
+            Contrôler la qualité <ArrowUpRight size={14} />
           </Link>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 lg:grid-cols-4">
